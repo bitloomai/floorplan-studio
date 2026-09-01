@@ -3,6 +3,76 @@
   "_comment": "Flooring types. Each names a generator in lib/flooring.js and supplies its options. Add an entry here and it appears in the room panel's finish list with no code change. 'script' generators run a JS body returning scene nodes — see the two worked examples at the bottom.",
   "_reflectance_comment": "`reflectance` is the share of light the surface throws back, 0..1, and it is a real physical property: polished white marble is around 0.65, mid oak 0.25, black granite 0.05, grass 0.08. `lighting.js` credits it through `lighting.bounce`, so two identical lamps over Statuario and over black granite stop being the same amount of usable light. A type that omits it reflects nothing. Any room can override it in its own panel, and `solid` starts at 0 so a flat colour behaves exactly as a flat colour until you say otherwise.",
   "fallback": "plain",
+  "_generatorOptions_comment": "What each generator in lib/flooring.js actually READS, so the flooring editor can offer exactly those fields instead of keeping its own copy of this list — a hand-kept table in the editor is the thing that goes stale the first time a generator gains an option. `kind` picks the control: color (a #hex or an @token), number, angle, fraction (0..1). The suite asserts every generator the renderer has is described here and that nothing here names an option its generator never reads.",
+  "generatorOptions": {
+    "plain": [
+      { "key": "color", "kind": "color", "label": "Colour" }
+    ],
+    "plank": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "plankWidth", "kind": "number", "label": "Plank width (ft)", "step": 0.05, "min": 0.05 },
+      { "key": "plankLength", "kind": "number", "label": "Plank length (ft)", "step": 0.5, "min": 0.5 },
+      { "key": "angle", "kind": "angle", "label": "Angle" },
+      { "key": "variation", "kind": "fraction", "label": "Grain variation" },
+      { "key": "jointPx", "kind": "number", "label": "Joint width (px)", "step": 0.1, "min": 0 }
+    ],
+    "herringbone": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "plankWidth", "kind": "number", "label": "Plank width (ft)", "step": 0.05, "min": 0.05 },
+      { "key": "plankLength", "kind": "number", "label": "Plank length (ft)", "step": 0.5, "min": 0.5 },
+      { "key": "angle", "kind": "angle", "label": "Angle" }
+    ],
+    "tile": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "grout", "kind": "color", "label": "Grout" },
+      { "key": "tileW", "kind": "number", "label": "Tile width (ft)", "step": 0.1, "min": 0.1 },
+      { "key": "tileH", "kind": "number", "label": "Tile height (ft)", "step": 0.1, "min": 0.1 },
+      { "key": "groutPx", "kind": "number", "label": "Grout width (px)", "step": 0.1, "min": 0 },
+      { "key": "angle", "kind": "angle", "label": "Angle" }
+    ],
+    "brick": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "grout", "kind": "color", "label": "Mortar" },
+      { "key": "brickW", "kind": "number", "label": "Brick length (ft)", "step": 0.1, "min": 0.1 },
+      { "key": "brickH", "kind": "number", "label": "Brick height (ft)", "step": 0.1, "min": 0.1 },
+      { "key": "angle", "kind": "angle", "label": "Angle" }
+    ],
+    "checker": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "color2", "kind": "color", "label": "Second colour" },
+      { "key": "tileW", "kind": "number", "label": "Tile size (ft)", "step": 0.1, "min": 0.1 },
+      { "key": "angle", "kind": "angle", "label": "Angle" }
+    ],
+    "deck": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "boardWidth", "kind": "number", "label": "Board width (ft)", "step": 0.05, "min": 0.05 },
+      { "key": "angle", "kind": "angle", "label": "Angle" }
+    ],
+    "marble": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "veinColor", "kind": "color", "label": "Vein colour" },
+      { "key": "veins", "kind": "number", "label": "Veins", "step": 1, "min": 0 },
+      { "key": "seed", "kind": "number", "label": "Pattern seed", "step": 1 }
+    ],
+    "terrazzo": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "density", "kind": "number", "label": "Chip density", "step": 10, "min": 0 },
+      { "key": "chips", "kind": "colorList", "label": "Chip colours" }
+    ],
+    "gravel": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "density", "kind": "number", "label": "Density", "step": 10, "min": 0 }
+    ],
+    "grass": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "density", "kind": "number", "label": "Density", "step": 10, "min": 0 }
+    ],
+    "speckle": [
+      { "key": "color", "kind": "color", "label": "Colour" },
+      { "key": "density", "kind": "number", "label": "Speckle density", "step": 10, "min": 0 }
+    ],
+    "script": []
+  },
   "types": {
     "plain":        { "label": "Plain",              "group": "Basic",   "generator": "plain",       "reflectance": 0.35, "options": { "color": "@floorDefault" } },
     "solid":        { "label": "Solid colour",       "group": "Basic",   "generator": "plain",       "reflectance": 0,    "options": { "color": "#d8dce2", "reflectance": 0 } },

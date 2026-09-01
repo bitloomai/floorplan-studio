@@ -131,6 +131,21 @@ function trimControls(controls) {
   return out;
 }
 
+/* The card draws floors, so it needs every finish and its options. It does not
+ * EDIT them, so it needs nothing that exists to drive the editor's form:
+ * `generatorOptions` describes which controls to show for each generator, and
+ * the `_comment` blocks are for whoever opens the JSON. This document shipped
+ * untrimmed until now, so the prose went to every dashboard viewer too. */
+function trimFlooring(flooring) {
+  const out = JSON.parse(JSON.stringify(flooring));
+  delete out.generatorOptions;
+  for (const k of Object.keys(out)) if (k.startsWith('_')) delete out[k];
+  for (const t of Object.values(out.types || {})) {
+    for (const k of Object.keys(t)) if (k.startsWith('_')) delete t[k];
+  }
+  return out;
+}
+
 /* Only the theme(s) that could actually be selected. Shipping every theme is
  * cheap, but shipping the editor-chrome half of each one is not, and the card
  * never renders chrome. */
@@ -196,7 +211,7 @@ function build(docs, opts) {
     library: trimLibrary(docs.library),
     themes: trimThemes(docs.themes),
     boundaries: docs.boundaries,
-    flooring: docs.flooring,
+    flooring: trimFlooring(docs.flooring),
     controls: trimControls(docs.controls),
   };
 
@@ -273,4 +288,4 @@ function build(docs, opts) {
   };
 }
 
-module.exports = { build, readSource, trimProject, trimThemes, trimLibrary, trimControls, userCss, elementTypes, SHARED };
+module.exports = { build, readSource, trimProject, trimThemes, trimLibrary, trimControls, trimFlooring, userCss, elementTypes, SHARED };

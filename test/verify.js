@@ -3236,7 +3236,13 @@ async function withServer(options, run, readyPattern) {
     try {
       return await withServerOnce(options, run, readyPattern);
     } catch (e) {
-      if (attempt === 3 || !/EACCES|EADDRINUSE/.test(e.message)) throw e;
+      /* `server exited early` too: a bind failure is an uncaught exception in
+       * the child, and the stderr carrying the actual EADDRINUSE has often not
+       * arrived by the time `close` fires — so the retry this loop exists for
+       * was being skipped on the exact failure it was written for. The TLS case
+       * picks a SECOND random port, which is the one that collides. A genuine
+       * startup fault still fails, three attempts later. */
+      if (attempt === 3 || !/EACCES|EADDRINUSE|server exited early/.test(e.message)) throw e;
     }
   }
 }
@@ -3692,6 +3698,145 @@ ok('a request helper merges headers instead of replacing them', (() => {
    * JSON body in this file depends on. */
   const api = fs.readFileSync(path.join(APP, 'public', 'js', 'api.js'), 'utf8');
   return /Object\.assign\(\{ 'Content-Type': 'application\/json' \}, \(opts && opts\.headers\) \|\| \{\}\)/.test(api);
+})());
+
+
+/* ---------------------------------------------------- flooring editing ---
+ *
+ * `saveFlooring` existed in api.js from the beginning and NOTHING in the
+ * editor ever called it, so a finish was whatever it shipped as: you could say
+ * "this room is oak" and had no way at all to say what oak looks like. The
+ * same was true of boundaries and controls, and still is — flooring is the one
+ * being fixed here.
+ *
+ * The fields the editor offers come from `flooring.generatorOptions`, in the
+ * registry rather than a table inside the editor, for the reason this codebase
+ * keeps rediscovering: a second copy of a list is the copy that goes stale, and
+ * a stale one here means a control that no longer matches what draws. */
+
+console.log('\n== flooring editing ==');
+
+const flooringDefaults = JSON.parse(fs.readFileSync(path.join(APP, 'defaults', 'flooring.json'), 'utf8'));
+const realGenerators = [...Fl.generators.tile, ...Fl.generators.field, 'script'];
+
+ok('every generator the renderer has is described for the editor', (() => {
+  const described = Object.keys(flooringDefaults.generatorOptions || {});
+  const missing = realGenerators.filter((g) => !described.includes(g));
+  return missing.length === 0;
+})(), realGenerators.filter((g) => !Object.keys(flooringDefaults.generatorOptions || {}).includes(g)).join(', ') || `${realGenerators.length} generators`);
+
+ok('and nothing is described that the renderer cannot draw', (() => {
+  const extra = Object.keys(flooringDefaults.generatorOptions || {}).filter((g) => !realGenerators.includes(g));
+  return extra.length === 0;
+})(), Object.keys(flooringDefaults.generatorOptions || {}).filter((g) => !realGenerators.includes(g)).join(', ') || 'none');
+
+ok('every described option is one its generator actually reads', (() => {
+  /* A field that writes an option the generator ignores is the same defect as
+   * a property nothing renders — the control moves, the floor does not. */
+  const src = fs.readFileSync(path.join(APP, 'lib', 'flooring.js'), 'utf8');
+  const bad = [];
+  for (const [gen, specs] of Object.entries(flooringDefaults.generatorOptions || {})) {
+    if (gen === 'script') continue;
+    for (const s of specs) {
+      if (!new RegExp('o\\.' + s.key + '\\b').test(src)) bad.push(`${gen}.${s.key}`);
+    }
+  }
+  return bad.length === 0;
+})());
+
+ok('every option a shipped finish sets is reachable from the editor', (() => {
+  /* Anything a type carries that its generator's schema does not name is still
+   * shown generically, so this is about the schema being COMPLETE for the
+   * finishes that ship, not about the editor hiding anything. */
+  const bad = [];
+  for (const [key, t] of Object.entries(flooringDefaults.types)) {
+    if (t.generator === 'script') continue;
+    const known = (flooringDefaults.generatorOptions[t.generator] || []).map((s) => s.key);
+    for (const o of Object.keys(t.options || {})) {
+      if (o !== 'reflectance' && !known.includes(o)) bad.push(`${key}.${o}`);
+    }
+  }
+  return bad.length === 0;
+})());
+
+ok('every shipped finish declares a reflectance', (() => {
+  /* Both light models read it and a finish that omits it reflects NOTHING, so
+   * an omission is not a default — it is a dark floor nobody chose. */
+  const without = Object.entries(flooringDefaults.types).filter(([, t]) => t.reflectance === undefined);
+  return without.length === 0;
+})(), Object.entries(flooringDefaults.types).filter(([, t]) => t.reflectance === undefined).map(([k]) => k).join(', ') || `${Object.keys(flooringDefaults.types).length} finishes`);
+
+await okAsync('the upgrade fills reflectance without touching what the user set', async () => {
+  /* Run through the real store against a data directory holding a document in
+   * the old shape, because the fill is part of reading, not a separate step. */
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fps-floor-'));
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'flooring.json'), JSON.stringify({
+      schemaVersion: 1,
+      fallback: 'plain',
+      types: {
+        plain: { label: 'Plain', group: 'Basic', generator: 'plain', options: { color: '@floorDefault' } },
+        solid: { label: 'Solid colour', group: 'Basic', generator: 'plain', reflectance: 0, options: {} },
+        mine: { label: 'My own', group: 'Custom', generator: 'plain', options: { color: '#123456' } },
+      },
+    }), 'utf8');
+
+    const out = execFileSync(process.execPath, ['-e', `
+      process.env.FPS_DATA_DIR = ${JSON.stringify(dir)};
+      const store = require(${JSON.stringify(path.join(APP, 'lib', 'store.js').replace(/\\/g, '/'))});
+      store.init().then(() => store.readFlooring()).then((d) => {
+        console.log(JSON.stringify({
+          plain: d.types.plain.reflectance,
+          solid: d.types.solid.reflectance,
+          mine: d.types.mine.reflectance,
+          hasSchema: !!d.generatorOptions,
+          gained: Object.values(d.types).filter((t) => t.reflectance === undefined).length,
+        }));
+      });
+    `], { encoding: 'utf8' });
+    const r = JSON.parse(out.trim().split('\n').pop());
+    return r.plain === 0.35            // filled from the shipped default
+      && r.solid === 0                 // a deliberate 0 is DEFINED and left alone
+      && r.mine === undefined          // a finish the user invented is not guessed at
+      && r.hasSchema === true;         // the new top-level key reaches an old document
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+ok('the room panel offers a way into the finish editor', (() => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
+  return /edit finishes/.test(src) && /function editFlooring\(/.test(src);
+})());
+
+ok('the finish editor is the only thing that saves the flooring registry', (() => {
+  /* `saveFlooring` was dead API surface before this; it must now have exactly
+   * one caller, so there is one place that knows how the document is written. */
+  const dir = path.join(APP, 'public', 'js');
+  const callers = fs.readdirSync(dir).filter((f) => f.endsWith('.js'))
+    .filter((f) => /API\.saveFlooring/.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+  return callers.length === 1 && callers[0] === 'panels-extra.js';
+})());
+
+ok('a colour field keeps a theme token instead of flattening it to a hex', (() => {
+  /* A shipped finish's colour is usually `@floorWood`, and an <input
+   * type=color> cannot hold one — handed a token it silently reports black.
+   * The editor's colour row is therefore a text box with a picker beside it. */
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
+  const row = /if \(spec\.kind === 'color'\) \{([\s\S]*?)\n      \}/.exec(src);
+  return !!row && /type: 'text'/.test(row[1]) && /@token or #hex/.test(row[1]);
+})());
+
+ok('the editor-only half of the flooring registry never reaches the card', (() => {
+  /* The card DRAWS floors, so it needs every finish and its options; it does
+   * not edit them, so `generatorOptions` (which controls to show for each
+   * generator) and the _comment prose are pure weight on every dashboard
+   * viewer. This document shipped untrimmed until the finish editor existed,
+   * so the prose was already going out. */
+  const trimmed = cardBuild.trimFlooring(flooring);
+  return trimmed.generatorOptions === undefined
+    && Object.keys(trimmed).every((k) => !k.startsWith('_'))
+    && Object.keys(trimmed.types).length === Object.keys(flooring.types).length
+    && trimmed.types.wood.reflectance === flooring.types.wood.reflectance;
 })());
 
 

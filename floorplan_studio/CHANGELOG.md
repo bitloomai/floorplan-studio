@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### Floor finishes can be edited
+
+- **There was no way to change what a finish IS.** The room panel chose which
+  finish a room had, and that was all: `saveFlooring` had existed in the app's
+  own API from the beginning with nothing in the editor ever calling it, so oak
+  was whatever oak shipped as and adding the finish your house actually has
+  meant hand-editing `flooring.json` inside the container.
+- **Room panel → Flooring → “edit finishes”** now opens an editor for the
+  registry itself: name, group, pattern, reflection, and the pattern's own
+  options. Add a finish, duplicate one as a starting point, or delete an unused
+  one. A new finish appears in every room's picker immediately.
+- The fields offered per pattern come from `flooring.generatorOptions` in the
+  registry rather than a list kept inside the editor, because a second copy of
+  that list is the copy that goes stale — and a stale one here means a control
+  that no longer matches what draws. Anything a finish carries that the schema
+  does not describe is still shown, so a script finish's own options remain
+  editable and nothing becomes unreachable.
+- A colour is a text box with a picker beside it, not a bare colour input:
+  shipped finishes use theme tokens like `@floorWood`, and a colour input
+  cannot hold one — handed a token it silently reports black.
+- Deleting a finish rooms are standing on is refused, naming how many use it,
+  rather than leaving those rooms drawing the fallback while their own stored
+  value points at something gone.
+
+### Floors that had quietly stopped reflecting light
+
+- **A saved `flooring.json` written before `reflectance` existed never gained
+  it.** The upgrade adds finishes a document has never seen, but the step that
+  tops up fields on finishes it already has had only ever run for the device
+  library. A real install was carrying 28 finishes with no reflectance at all —
+  and a finish that omits it reflects *nothing*, so every room standing on one
+  was credited zero floor bounce while the shipped default said 0.35 or 0.65.
+  Nothing reported it; the plan just rendered darker than the model intended.
+- The upgrade now fills it in, narrowly: only `reflectance`, only where the
+  finish has none at all, and only for a finish the shipped defaults still
+  carry. A value you set — including a deliberate 0 — is left alone, and a
+  finish you invented is never guessed at.
+
 ### The editor no longer warns you about your own edits
 
 - **"The plan changed elsewhere" appeared on ordinary local editing**, with no

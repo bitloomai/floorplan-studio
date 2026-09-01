@@ -183,6 +183,7 @@ function upgradeDoc(key, doc) {
     }
   }
   if (key === 'library') added.push(...fillTypeGaps(doc, fresh));
+  if (key === 'flooring') added.push(...fillFlooringReflectance(doc, fresh));
   // A schema rename touches every entry in the document, and 250 comma-separated
   // notes in the app log is not a report, it is a wall. Name the first few
   // and count the rest.
@@ -192,6 +193,36 @@ function upgradeDoc(key, doc) {
       + (added.length > 8 ? ` and ${added.length - 8} more` : ''));
   }
   return doc;
+}
+
+/* A saved flooring document written before `reflectance` existed keeps its
+ * original entries forever: the merge above adds new TYPES a document has
+ * never seen, and `fillTypeGaps` — the step that tops up fields on entries
+ * that already exist — has only ever run for the library.
+ *
+ * That is not cosmetic. `lighting.js` reads reflectance as the share of light
+ * a floor throws back, and a type that omits it reflects NOTHING, so every
+ * room standing on one of those finishes was quietly credited zero floor
+ * bounce while the shipped default said 0.35 or 0.65. Nothing reports it: the
+ * plan just renders a little darker than the model intended, which is exactly
+ * the "declared, documented, read as absent" failure this codebase keeps
+ * finding in its own registries.
+ *
+ * Deliberately narrow. Only `reflectance`, only where the entry does not have
+ * one at all, and only for a key the shipped defaults still carry — a value
+ * the user has set, including a deliberate 0, is defined and therefore never
+ * touched, and a finish they invented is left alone entirely. */
+function fillFlooringReflectance(doc, fresh) {
+  const notes = [];
+  if (!doc.types || typeof doc.types !== 'object') return notes;
+  for (const [key, type] of Object.entries(doc.types)) {
+    if (!type || typeof type !== 'object' || type.reflectance !== undefined) continue;
+    const shipped = fresh.types && fresh.types[key];
+    if (!shipped || shipped.reflectance === undefined) continue;
+    type.reflectance = shipped.reflectance;
+    notes.push(key + '.reflectance');
+  }
+  return notes;
 }
 
 /* Fan scale is a presentation default, not a claim that the blades are only
