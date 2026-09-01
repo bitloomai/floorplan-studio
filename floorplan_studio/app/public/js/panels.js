@@ -906,11 +906,29 @@ window.Panels = (function () {
 
   /* ---------- import / export ---------- */
 
+  /* Kept in step with the same three ceilings in server.js. These are a
+   * courtesy — they let the page say "that is too big" without a round trip —
+   * and never the enforcement, which is the server's and stays the server's. */
+  const IMPORT_MAX_MB = 10;
+  const IMPORT_MAX_BYTES = IMPORT_MAX_MB * 1024 * 1024;
+  const IMPORT_MAX_FILES = 64;
+
+  /* A one-floor spec is a few hundred bytes, and rounding that to "0 KB"
+   * reads as an empty file — the very thing the checks above reject. */
+  const sizeLabel = (bytes) => (bytes < 1024 ? `${bytes} bytes`
+    : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB`
+      : `${(bytes / 1048576).toFixed(1)} MB`);
+
   function importDialog() {
-    const input = h('input', { type: 'text', style: 'width:100%', value: '/share/floorplan', placeholder: 'directory holding <floor>.json files' });
+    let chosen = [];
     const out = h('div', {});
     const samples = h('div', {});
     const fromHa = h('div', {});
+    const picked = h('div', { class: 'hint' }, 'No files chosen yet.');
+    const input = h('input', {
+      type: 'file', multiple: true, accept: '.json,application/json',
+      style: 'width:100%',
+    });
 
     /* What THIS app has deployed to the Home Assistant it can see, found by
      * reading each dashboard's own ownership stamp back rather than anything
@@ -963,42 +981,126 @@ window.Panels = (function () {
             toast(`Loaded ${p.name} — ${p.floors} floors, ${p.rooms} rooms`);
           },
         }, `${p.name} — ${p.floors} floors, ${p.rooms} rooms`)),
-        h('div', { class: 'subhead' }, 'Import someone else’s specs'),
       );
     }).catch(() => {});
 
+    /* ---- import from files the person has in front of them ----
+     *
+     * This used to be a path typed into a box, which read a directory on the
+     * APP's filesystem. Under Home Assistant that is inside the container, so
+     * the plans someone actually wants to import — sitting on the laptop they
+     * are looking at the editor from — could not be reached at all. The browser
+     * reads the bytes now and posts them. */
+    const skippedList = (skipped) => ((skipped && skipped.length)
+      ? [h('div', { class: 'subhead' }, 'Not imported'),
+        ...skipped.map((s) => h('p', { class: 'hint', style: 'margin:2px 4px' }, `${s.file} — ${s.reason}`))]
+      : []);
+
+    const errorList = (errors) => ((errors && errors.length)
+      ? [h('div', { class: 'subhead' }, 'Problems in the plan'),
+        ...errors.map((x) => h('p', { class: 'warn', style: 'margin:2px 4px' },
+          (x.path ? x.path + ' — ' : '') + x.message))]
+      : []);
+
+    function showProblem(e) {
+      const b = (e && e.body) || {};
+      out.replaceChildren(h('p', { class: 'warn' }, e.message), ...errorList(b.errors), ...skippedList(b.skipped));
+    }
+
+    function showResult(res) {
+      const table = h('table', { class: 'grid' },
+        h('tr', {}, h('th', {}, 'Floor'), h('th', {}, 'Level'), h('th', {}, 'Rooms'), h('th', {}, 'Openings'), h('th', {}, 'Markers')));
+      for (const s of res.stats) {
+        table.appendChild(h('tr', {}, h('td', {}, s.name), h('td', {}, s.level_ft + "'"),
+          h('td', {}, s.rooms), h('td', {}, s.openings), h('td', {}, s.fixtures + s.devices + s.furniture)));
+      }
+      const renamed = (res.renamed || []).length
+        ? [h('p', { class: 'hint' }, 'Renamed so every floor id stays unique: '
+          + res.renamed.map((r) => `${r.from} → ${r.to}`).join(', '))]
+        : [];
+      const warned = (res.warnings || []).length
+        ? [h('div', { class: 'subhead' }, 'Worth checking'),
+          ...res.warnings.map((w) => h('p', { class: 'hint', style: 'margin:2px 4px' },
+            (w.path ? w.path + ' — ' : '') + w.message))]
+        : [];
+      out.replaceChildren(table, ...renamed, ...warned, ...skippedList(res.skipped),
+        h('button', {
+          class: 'btn primary', style: 'margin-top:10px',
+          onclick: () => {
+            if (!confirm(`Replace every floor in the current project with these ${res.floors.length}?`)) return;
+            Store.mutate(() => { S.project.floors = res.floors; }, 'import');
+            S.activeFloorId = res.floors[0] && res.floors[0].id;
+            closeModal(); Store.emit('floor');
+            toast(`Imported ${res.floors.length} floor${res.floors.length === 1 ? '' : 's'}`);
+          },
+        }, `Replace all floors with these ${res.floors.length}`));
+    }
+
+    const go = h('button', { class: 'btn primary', style: 'margin-top:8px', disabled: true }, 'Import files');
+
+    /* Both routes in — the picker and a drop — land here, so no check can
+     * apply to one and quietly not the other. */
+    function setFiles(list) {
+      const all = Array.from(list || []);
+      const json = all.filter((f) => /\.json$/i.test(f.name));
+      const problems = [];
+      const ignored = all.length - json.length;
+      if (ignored) problems.push(`${ignored} file${ignored === 1 ? '' : 's'} ignored — a plan has to be .json.`);
+      if (json.length > IMPORT_MAX_FILES) problems.push(`${json.length} files chosen; ${IMPORT_MAX_FILES} is the most that can go in at once.`);
+      const total = json.reduce((n, f) => n + f.size, 0);
+      if (total > IMPORT_MAX_BYTES) problems.push(`Those come to ${(total / 1048576).toFixed(1)} MB — the limit is ${IMPORT_MAX_MB} MB.`);
+      const empty = json.filter((f) => !f.size).length;
+      if (empty) problems.push(`${empty} of them ${empty === 1 ? 'is' : 'are'} empty.`);
+
+      /* All or nothing: importing the subset that happens to fit would replace
+       * every floor in the project with a partial answer. */
+      chosen = problems.length ? [] : json;
+      out.replaceChildren();
+      picked.className = problems.length ? 'warn' : 'hint';
+      picked.replaceChildren(...(problems.length
+        ? problems.map((t) => h('div', {}, t))
+        : [h('div', {}, json.length
+          ? `${json.length} file${json.length === 1 ? '' : 's'}, ${sizeLabel(total)} — ${json.map((f) => f.name).join(', ')}`
+          : 'No files chosen yet.')]));
+      go.disabled = !chosen.length;
+    }
+
+    input.addEventListener('change', () => setFiles(input.files));
+
+    const drop = h('div', {
+      class: 'hint',
+      style: 'border:1px dashed var(--panelBorder);border-radius:6px;padding:14px;text-align:center;margin:8px 0 0',
+      ondragover: (e) => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; },
+      ondragleave: () => { drop.style.borderColor = ''; },
+      ondrop: (e) => {
+        e.preventDefault();
+        drop.style.borderColor = '';
+        setFiles(e.dataTransfer && e.dataTransfer.files);
+      },
+    }, '…or drop them here');
+
+    go.addEventListener('click', async () => {
+      if (!chosen.length) return;
+      go.disabled = true;
+      out.replaceChildren(h('p', { class: 'hint' }, 'Reading…'));
+      try {
+        /* Read in the browser. A file can vanish or become unreadable between
+         * being chosen and being read, and that is a failed import with a
+         * reason, not a silently short one. */
+        const files = await Promise.all(chosen.map(async (f) => ({ name: f.name, text: await f.text() })));
+        showResult(await API.importUpload(files));
+      } catch (e) {
+        showProblem(e);
+      } finally {
+        go.disabled = !chosen.length;
+      }
+    });
+
     const body = h('div', {}, fromHa, samples,
-      h('p', { class: 'hint' }, 'Reads hand-written floor specs in the older format and converts them. Anything this editor does not model is preserved verbatim and re-emitted on export, so the import is not lossy.'),
-      h('div', { class: 'field' }, h('label', {}, 'Directory on the app filesystem'), input),
-      h('button', {
-        class: 'btn primary',
-        onclick: async () => {
-          out.replaceChildren(h('p', { class: 'hint' }, 'Reading…'));
-          try {
-            const res = await API.importLegacy(input.value.trim());
-            const table = h('table', { class: 'grid' },
-              h('tr', {}, h('th', {}, 'Floor'), h('th', {}, 'Level'), h('th', {}, 'Rooms'), h('th', {}, 'Openings'), h('th', {}, 'Markers')));
-            for (const s of res.stats) {
-              table.appendChild(h('tr', {}, h('td', {}, s.name), h('td', {}, s.level_ft + "'"),
-                h('td', {}, s.rooms), h('td', {}, s.openings), h('td', {}, s.fixtures + s.devices + s.furniture)));
-            }
-            out.replaceChildren(table,
-              res.skipped.length ? h('p', { class: 'hint' }, `Skipped: ${res.skipped.map((s) => s.file).join(', ')}`) : '',
-              h('button', {
-                class: 'btn primary', style: 'margin-top:10px',
-                onclick: () => {
-                  Store.mutate(() => { S.project.floors = res.floors; }, 'import');
-                  S.activeFloorId = res.floors[0] && res.floors[0].id;
-                  closeModal(); Store.emit('floor');
-                  toast(`Imported ${res.floors.length} floors`);
-                },
-              }, `Replace all floors with these ${res.floors.length}`));
-          } catch (e) {
-            out.replaceChildren(h('p', { class: 'warn' }, e.message));
-          }
-        },
-      }, 'Scan directory'),
-      out);
+      h('div', { class: 'subhead' }, 'Import an exported plan'),
+      h('p', { class: 'hint' }, `Upload a plan exported from this editor, or hand-written floor specs in the older format, and they are converted on the way in. Up to ${IMPORT_MAX_MB} MB. Anything this editor does not model is preserved verbatim and re-emitted on export, so the import is not lossy. Importing REPLACES every floor in the current project.`),
+      h('div', { class: 'field' }, h('label', {}, 'Plan files (.json)'), input),
+      drop, picked, go, out);
     modal('Import existing floor plans', body);
   }
 

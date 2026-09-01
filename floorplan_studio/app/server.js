@@ -37,6 +37,7 @@ const store = require('./lib/store');
 const ha = require('./lib/ha');
 const haWrite = require('./lib/ha-write');
 const legacyImport = require('./lib/legacy-import');
+const validateProject = require('./lib/validate-project');
 const exporter = require('./lib/export-spec');
 const cardBuild = require('./lib/card-build');
 const dashboard = require('./lib/dashboard');
@@ -47,6 +48,16 @@ const mcp = require('./lib/mcp');
  * something that picks the port for it without needing to know our name. */
 const PORT = Number(process.env.FPS_PORT || process.env.PORT || 8099);
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+/* Import upload ceilings. Ten megabytes is far more than a floor plan needs —
+ * the largest real house this has been run against is a 5-floor, 55-room
+ * project well under one — so the limit exists to bound what a single request
+ * can make this process parse, not to ration anything a person will notice.
+ * The file count is capped separately because a thousand tiny files costs
+ * parse time the byte ceiling alone would let through. */
+const IMPORT_MAX_MB = 10;
+const IMPORT_MAX_BYTES = IMPORT_MAX_MB * 1024 * 1024;
+const IMPORT_MAX_FILES = 64;
 
 /* ---------- options ---------- */
 
@@ -317,15 +328,87 @@ async function handleApi(req, res, pathname, query) {
     return sendJson(res, 200, JSON.parse(fs.readFileSync(target, 'utf8')));
   }
 
-  /* Bring an existing hand-written floor-plan spec set into the builder. */
-  if (pathname === '/api/import/legacy' && method === 'POST') {
-    const body = (await readBody(req)) || {};
+  /* Bring floor plans into the builder from UPLOADED files.
+   *
+   * This used to take a directory path and read it server-side, which made
+   * the editor's import unusable for the ordinary case (your plans are on the
+   * machine running the browser, not inside the app's container) and handed
+   * any caller behind Ingress a read primitive over the app's own filesystem.
+   * The browser now reads the bytes and posts them, so nothing here opens a
+   * path and the two problems go away together.
+   *
+   * The size ceiling is enforced HERE and not only in the page, because a
+   * client-side check is a courtesy to the user, never a limit on a caller. */
+  if (pathname === '/api/import/upload' && method === 'POST') {
+    let body;
     try {
-      const result = legacyImport.fromDirectory(body.dir, body.files);
-      return sendJson(res, 200, result);
+      /* Read a little past the content ceiling: the same bytes arrive
+       * JSON-escaped inside `files[].text`, so a legitimate payload at the
+       * limit is meaningfully larger on the wire than the limit itself.
+       * The real check is on the decoded content, below. */
+      body = await readBody(req, IMPORT_MAX_BYTES + 6 * 1024 * 1024);
     } catch (e) {
+      const tooBig = /payload too large/.test(e.message);
+      return sendJson(res, tooBig ? 413 : 400, {
+        error: tooBig ? `That upload is larger than the ${IMPORT_MAX_MB} MB limit.` : e.message,
+      });
+    }
+
+    const files = body && Array.isArray(body.files) ? body.files : null;
+    if (!files) return sendJson(res, 400, { error: 'expected a JSON body of the form { files: [{ name, text }] }.' });
+    if (!files.length) return sendJson(res, 400, { error: 'no files were uploaded.' });
+    if (files.length > IMPORT_MAX_FILES) {
+      return sendJson(res, 400, { error: `${files.length} files were uploaded; the limit is ${IMPORT_MAX_FILES}.` });
+    }
+
+    let total = 0;
+    for (const f of files) {
+      if (!f || typeof f !== 'object' || Array.isArray(f) || typeof f.text !== 'string') {
+        return sendJson(res, 400, { error: 'every uploaded file needs a name and its text content.' });
+      }
+      total += Buffer.byteLength(f.text, 'utf8');
+    }
+    if (total > IMPORT_MAX_BYTES) {
+      return sendJson(res, 413, {
+        error: `Those files come to ${(total / 1048576).toFixed(1)} MB; the limit is ${IMPORT_MAX_MB} MB.`,
+      });
+    }
+
+    let result;
+    try {
+      result = legacyImport.fromFiles(files);
+    } catch (e) {
+      /* A whole-upload problem — nothing usable came out of it at all. */
       return sendJson(res, 400, { error: e.message });
     }
+
+    if (!result.floors.length) {
+      return sendJson(res, 422, Object.assign({}, result, {
+        error: 'Nothing in that upload could be read as a floor plan.',
+      }));
+    }
+
+    /* Validate what the import ACTUALLY PRODUCED before offering it.
+     *
+     * The importer's job is to convert whatever arrived; this is the separate
+     * question of whether the result is a plan the canvas, the dashboard
+     * builder and the card can all read. A hand-written file can be perfectly
+     * good JSON of the right general shape and still carry a room with no
+     * polygon or an item with an unknown kind, and finding that out when the
+     * editor tries to draw it is far too late — the project has already been
+     * replaced by then. Errors refuse the import; warnings travel with it and
+     * are shown. Sun checks do not apply to a bare set of floors, so the
+     * document handed to the validator says so explicitly. */
+    const library = await store.readLibrary();
+    const check = validateProject.validate({ floors: result.floors, sun: { enabled: false } }, library);
+    if (!check.ok) {
+      return sendJson(res, 422, Object.assign({}, result, {
+        error: `The plan converted, but it is not structurally valid (${check.errors.length} problem${check.errors.length === 1 ? '' : 's'}).`,
+        errors: check.errors.slice(0, 20),
+      }));
+    }
+
+    return sendJson(res, 200, Object.assign({}, result, { warnings: check.warnings.slice(0, 20) }));
   }
 
   if (pathname === '/api/export' && method === 'POST') {

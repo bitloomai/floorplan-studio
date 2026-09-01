@@ -3387,6 +3387,211 @@ await okAsync('an unreadable cert/key falls back to HTTP-only, loudly, rather th
   );
 });
 
+/* ------------------------------------------------------- plan import ---
+ *
+ * The import used to take a DIRECTORY PATH and read it on the server. That
+ * was unusable for the ordinary case — under Home Assistant the app's
+ * filesystem is inside the container, while the plans are on the laptop the
+ * editor is being looked at from — and it handed anything behind Ingress a
+ * read primitive over the app's own disk. It takes uploaded bytes now.
+ *
+ * The negative paths are the whole point of this section. An import REPLACES
+ * every floor in the project, so "it converted something" is not the bar; the
+ * bar is that anything it cannot honestly convert is refused with a reason,
+ * and that nothing half-converted is ever offered as if it were whole. */
+
+console.log('\n== plan import ==');
+
+const legacySpec = (id) => ({
+  id, name: id.toUpperCase(), level_ft: 0,
+  extent: { w: 40, h: 30 },
+  rooms: [{ id: 'r1', name: 'Room', rect: [0, 0, 10, 10] }],
+  fixtures: [], devices: [], furniture: [],
+});
+const upload = (name, value) => ({ name, text: typeof value === 'string' ? value : JSON.stringify(value) });
+const reasons = (r) => r.skipped.map((s) => s.reason).join(' | ');
+
+ok('an uploaded legacy floor spec converts', (() => {
+  const r = imp.fromFiles([upload('ground.json', legacySpec('ground'))]);
+  return r.floors.length === 1 && r.floors[0].id === 'ground' && r.stats[0].rooms === 1;
+})());
+
+ok('an exported project is passed through, not re-converted', (() => {
+  /* The failure this pins is silent: importFloor() would sweep `items`,
+   * `openings` and `boundaries` into `_legacy` and hand back a flattened
+   * floor that still looks plausible in the stats table. */
+  const floor = { id: 'f1', name: 'One', extent: { w: 10, h: 10 }, rooms: [], items: [], openings: [], boundaries: [] };
+  const r = imp.fromFiles([upload('mine.project.json', { floors: [floor] })]);
+  return r.floors.length === 1 && !r.floors[0]._legacy && Array.isArray(r.floors[0].items);
+})());
+
+ok('one of this editor’s own floor documents is passed through too', (() => {
+  const r = imp.fromFiles([upload('g.floor.json',
+    { id: 'g', name: 'G', extent: { w: 10, h: 10 }, rooms: [], items: [], openings: [] })]);
+  return r.floors.length === 1 && !r.floors[0]._legacy;
+})());
+
+ok('malformed JSON is skipped with the parser’s own reason, not dropped', (() => {
+  const r = imp.fromFiles([upload('bad.json', '{oops')]);
+  return r.floors.length === 0 && r.skipped.length === 1 && /unreadable JSON/.test(reasons(r));
+})());
+
+ok('an empty file, a non-object and a non-.json name each say which they are', (() => {
+  const r = imp.fromFiles([upload('a.json', '   '), upload('b.json', '[1,2]'), upload('c.txt', legacySpec('x'))]);
+  return r.floors.length === 0 && r.skipped.length === 3
+    && /the file is empty/.test(reasons(r))
+    && /not an object/.test(reasons(r))
+    && /not a \.json file/.test(reasons(r));
+})(), reasons(imp.fromFiles([upload('a.json', '   '), upload('b.json', '[1,2]'), upload('c.txt', legacySpec('x'))])));
+
+ok('`null` parses fine and is still not a plan', (() => {
+  /* `typeof null === "object"`, so this reaches the shape test unless it is
+   * caught first, and comes back with a much vaguer reason if it does. */
+  const r = imp.fromFiles([upload('n.json', 'null')]);
+  return r.floors.length === 0 && /not an object/.test(reasons(r));
+})());
+
+ok('valid JSON of no recognised shape names all three shapes it could have been', (() => {
+  const r = imp.fromFiles([upload('x.json', { hello: 1 })]);
+  return /floors\[\]/.test(reasons(r)) && /items\[\]/.test(reasons(r)) && /rooms\[\] \+ extent/.test(reasons(r));
+})());
+
+ok('a good file still imports alongside a bad one, and the bad one is reported', (() => {
+  const r = imp.fromFiles([upload('good.json', legacySpec('ground')), upload('bad.json', '{')]);
+  return r.floors.length === 1 && r.skipped.length === 1 && r.skipped[0].file === 'bad.json';
+})());
+
+ok('two floors claiming one id are both kept, the second renamed', (() => {
+  /* Two floors sharing an id makes the floor switcher ambiguous and gives the
+   * generated dashboard two tabs claiming the same plan. */
+  const r = imp.fromFiles([upload('a.json', legacySpec('ground')), upload('b.json', legacySpec('ground'))]);
+  return r.floors.length === 2 && r.floors[1].id === 'ground_2'
+    && r.renamed.length === 1 && r.renamed[0].from === 'ground';
+})());
+
+ok('an exported project uploaded with anything else is refused, not merged', (() => {
+  try {
+    imp.fromFiles([upload('p.project.json', { floors: [] }), upload('g.json', legacySpec('ground'))]);
+    return false;
+  } catch (e) { return /on its own/.test(e.message); }
+})());
+
+ok('two exported projects at once are refused', (() => {
+  try {
+    imp.fromFiles([upload('a.project.json', { floors: [] }), upload('b.project.json', { floors: [] })]);
+    return false;
+  } catch (e) { return /one at a time/.test(e.message); }
+})());
+
+ok('an upload with no files at all throws rather than returning nothing', (() => {
+  try { imp.fromFiles([]); return false; } catch (e) { return /no files/.test(e.message); }
+})());
+
+ok('a filename is reduced to a bare basename with no control characters', (() => {
+  /* Display-only — nothing here opens it — but it reaches a DOM node and a
+   * log line, so a crafted name should not travel intact. */
+  const r = imp.fromFiles([upload('../../etc/ground.json', legacySpec('ground'))]);
+  return r.floors[0]._source === 'ground.json';
+})());
+
+ok('reading a directory and reading an upload are the same conversion', (() => {
+  /* fromDirectory() delegates to fromFiles(), so there is one implementation
+   * of the conversion no matter where the bytes came from. */
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fps-import-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'ground.json'), JSON.stringify(legacySpec('ground')), 'utf8');
+    const viaDir = imp.fromDirectory(dir);
+    const viaUpload = imp.fromFiles([upload('ground.json', legacySpec('ground'))]);
+    return JSON.stringify(viaDir.floors) === JSON.stringify(viaUpload.floors);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+})());
+
+ok('an empty directory is "nothing here", not the error an empty upload is', (() => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fps-import-'));
+  try {
+    const r = imp.fromDirectory(dir);
+    return r.floors.length === 0 && Array.isArray(r.skipped);
+  } catch (e) { return false; } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+})());
+
+/* ---- over HTTP, where the ceilings and the post-import validation live ---- */
+
+const postUpload = async (port, body) => {
+  const res = await fetch(`http://127.0.0.1:${port}/api/import/upload`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+  });
+  return { status: res.status, body: await res.json() };
+};
+
+await okAsync('an uploaded plan imports over HTTP', async () => withServer({}, async (port) => {
+  const r = await postUpload(port, { files: [upload('ground.json', legacySpec('ground'))] });
+  return r.status === 200 && r.body.floors.length === 1 && r.body.stats[0].rooms === 1;
+}));
+
+await okAsync('the old directory-reading endpoint is gone', async () => withServer({}, async (port) => {
+  /* It is not merely unused by the page: leaving it routed would leave the
+   * app's filesystem readable by anything that can reach the API. */
+  const res = await fetch(`http://127.0.0.1:${port}/api/import/legacy`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir: '/' }),
+  });
+  return res.status === 404;
+}));
+
+await okAsync('an upload over the size ceiling is refused with 413', async () => withServer({}, async (port) => {
+  /* The page checks this too, but a client-side check is a courtesy to the
+   * user and never a limit on a caller. */
+  const big = 'x'.repeat(11 * 1024 * 1024);
+  const r = await postUpload(port, { files: [{ name: 'big.json', text: big }] });
+  return r.status === 413 && /10 MB/.test(r.body.error);
+}));
+
+await okAsync('too many files is refused by count, not only by size', async () => withServer({}, async (port) => {
+  const files = Array.from({ length: 65 }, (_, i) => upload(`f${i}.json`, legacySpec('g' + i)));
+  const r = await postUpload(port, { files });
+  return r.status === 400 && /limit is 64/.test(r.body.error);
+}));
+
+await okAsync('a body that is not { files: [...] } is a 400 that says so', async () => withServer({}, async (port) => {
+  const a = await postUpload(port, { dir: '/share/floorplan' });
+  const b = await postUpload(port, { files: [] });
+  const c = await postUpload(port, { files: [{ name: 'a.json' }] });
+  return a.status === 400 && /files/.test(a.body.error)
+    && b.status === 400 && /no files/.test(b.body.error)
+    && c.status === 400 && /text content|name and its text/.test(c.body.error);
+}));
+
+await okAsync('an upload whose every file is unusable is a 422 carrying each reason', async () => withServer({}, async (port) => {
+  const r = await postUpload(port, { files: [upload('a.json', '{'), upload('b.json', { hello: 1 })] });
+  return r.status === 422 && r.body.skipped.length === 2
+    && r.body.floors.length === 0
+    && /Nothing in that upload/.test(r.body.error);
+}));
+
+await okAsync('a plan that converts but is structurally invalid is refused, not handed over', async () => withServer({}, async (port) => {
+  /* This is the check the old importer had no equivalent of at all. The file
+   * is well-formed JSON of the right general shape; the ROOM is broken. An
+   * import replaces every floor in the project, so finding this out when the
+   * canvas tries to draw it would be far too late. */
+  const broken = {
+    id: 'g', name: 'G', extent: { w: 10, h: 10 },
+    rooms: [{ id: 'r1', name: 'Bad', shape: 'poly', points: 'not-an-array' }],
+    items: [], openings: [],
+  };
+  const r = await postUpload(port, { files: [upload('g.floor.json', broken)] });
+  return r.status === 422 && Array.isArray(r.body.errors) && r.body.errors.length > 0
+    && /not structurally valid/.test(r.body.error);
+}));
+
+await okAsync('a valid import reports warnings without refusing', async () => withServer({}, async (port) => {
+  /* Warnings are things this schema deliberately allows — an item naming a
+   * room it is not geometrically inside, say. They travel with the result. */
+  const r = await postUpload(port, { files: [upload('ground.json', legacySpec('ground'))] });
+  return r.status === 200 && Array.isArray(r.body.warnings);
+}));
+
+
 /* ------------------------------------------------------- your own house ---
  *
  * Everything above ran against the synthetic house in `test/house/`, so that

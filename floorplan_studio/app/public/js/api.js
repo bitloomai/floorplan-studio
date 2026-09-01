@@ -12,7 +12,16 @@ window.API = (function () {
     const text = await res.text();
     let body = null;
     if (text) { try { body = JSON.parse(text); } catch { body = text; } }
-    if (!res.ok) throw new Error((body && body.error) || `${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      /* The message alone is not always the whole answer: a refused import
+       * also reports which file failed and why. Carrying the parsed body on
+       * the error lets a caller that wants the detail show it, while every
+       * existing `catch (e) => toast(e.message)` keeps working unchanged. */
+      const err = new Error((body && body.error) || `${res.status} ${res.statusText}`);
+      err.status = res.status;
+      err.body = body;
+      throw err;
+    }
     return body;
   }
 
@@ -30,7 +39,9 @@ window.API = (function () {
     states: () => req('api/states'),
     fixtures: () => req('api/fixtures'),
     loadFixture: (file) => req('api/fixtures/load', { method: 'POST', body: JSON.stringify({ file }) }),
-    importLegacy: (dir) => req('api/import/legacy', { method: 'POST', body: JSON.stringify({ dir }) }),
+    /* `files` is [{ name, text }] — read in the browser, so the app server
+     * never opens a path on its own filesystem to satisfy an import. */
+    importUpload: (files) => req('api/import/upload', { method: 'POST', body: JSON.stringify({ files }) }),
     dashboardDiscover: () => req('api/dashboard/discover'),
     dashboardReopen: (urlPath) => req('api/dashboard/reopen', { method: 'POST', body: JSON.stringify({ urlPath }) }),
     dashboardPreview: (opts) => req('api/dashboard/preview', { method: 'POST', body: JSON.stringify(opts) }),

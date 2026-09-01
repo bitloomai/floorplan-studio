@@ -159,10 +159,160 @@ function importFloor(spec, sourceName) {
   };
 }
 
-/* Read every *.json in a directory that looks like a floor spec. A spec is
- * recognised by having BOTH rooms and an extent — that keeps config files
- * (plan_card_styles.json and friends) out of the import without needing a
- * filename convention. */
+/* ------------------------------------------------------------- shapes
+ *
+ * Three different documents can legitimately arrive at an import, and telling
+ * them apart by SHAPE rather than by filename is what stops one being mangled
+ * into another:
+ *
+ *   project — this builder's own export; `floors[]`, already in this schema
+ *   floor   — one of this builder's floors; `items[]` / `openings[]` with ids
+ *   legacy  — a hand-written spec; `rooms[]` + `extent`, three marker arrays
+ *
+ * Only the legacy branch converts anything. The other two ARE the schema and
+ * are passed through untouched — running them through `importFloor()` would
+ * sweep `items`, `openings` and `boundaries` into `_legacy` and silently
+ * flatten a plan this editor had written itself, which reads as data loss
+ * rather than as the refusal it should be.
+ *
+ * The order matters: a legacy spec carries `fixtures`/`devices`/`furniture`
+ * and `apertures`, never `items`/`openings`, so it cannot be caught by the
+ * floor test above it. */
+function classify(spec) {
+  if (Array.isArray(spec.floors)) return 'project';
+  if (Array.isArray(spec.items) || Array.isArray(spec.openings)) return 'floor';
+  if (Array.isArray(spec.rooms) && spec.extent) return 'legacy';
+  return null;
+}
+
+/* An uploaded name is display-only — nothing here opens it — but it still
+ * reaches a DOM node and a log line, so it is reduced to a bare basename with
+ * no directory components and no control characters. */
+function safeName(v) {
+  let out = '';
+  for (const ch of String(v == null ? '' : v)) {
+    const code = ch.charCodeAt(0);
+    /* 47 is "/" and 92 is a backslash: either one starts a new basename, so
+     * everything gathered so far was a directory and is discarded. */
+    if (code === 47 || code === 92) { out = ''; continue; }
+    if (code > 31 && code !== 127) out += ch;
+  }
+  return out.slice(0, 120) || 'file';
+}
+
+function statsFor(floors) {
+  return floors.map((f) => ({
+    id: f.id,
+    name: f.name,
+    level_ft: f.level_ft ?? 0,
+    rooms: (f.rooms || []).length,
+    openings: (f.openings || []).length,
+    fixtures: (f.items || []).filter((i) => i && i.kind === 'fixture').length,
+    devices: (f.items || []).filter((i) => i && i.kind === 'device').length,
+    furniture: (f.items || []).filter((i) => i && i.kind === 'furniture').length,
+    preservedLegacyKeys: Object.keys(f._legacy || {}),
+  }));
+}
+
+/* Convert an uploaded set of documents.
+ *
+ * `files` is `[{ name, text }]` — the BYTES, never a path. The caller has
+ * already read them, so nothing in this function touches the filesystem and
+ * no directory on the app's own disk is reachable through it.
+ *
+ * Every file that cannot be used is REPORTED rather than dropped: "four of
+ * your five floors imported" is only actionable if the fifth says why it
+ * did not. A whole-upload problem throws instead, because there is no
+ * partial result worth showing for one. */
+function fromFiles(files) {
+  if (!Array.isArray(files) || !files.length) throw new Error('no files were uploaded');
+
+  const skipped = [];
+  const parsed = [];
+  for (const f of files) {
+    const name = safeName(f && f.name);
+    const text = f && typeof f.text === 'string' ? f.text : null;
+    if (text === null) { skipped.push({ file: name, reason: 'no readable text content' }); continue; }
+    if (!/\.json$/i.test(name)) { skipped.push({ file: name, reason: 'not a .json file' }); continue; }
+    if (!text.trim()) { skipped.push({ file: name, reason: 'the file is empty' }); continue; }
+    let spec;
+    try {
+      spec = JSON.parse(text);
+    } catch (e) {
+      skipped.push({ file: name, reason: 'unreadable JSON — ' + e.message });
+      continue;
+    }
+    /* `typeof null === 'object'`, and an array passes it too; both would sail
+     * into classify() and read as "no recognised shape" with a much vaguer
+     * reason than the one the person actually needs. */
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+      skipped.push({ file: name, reason: 'the JSON is not an object' });
+      continue;
+    }
+    const shape = classify(spec);
+    if (!shape) {
+      skipped.push({ file: name, reason: 'not a floor plan — needs floors[], or items[]/openings[], or rooms[] + extent' });
+      continue;
+    }
+    parsed.push({ name, spec, shape });
+  }
+
+  /* An exported project already describes every floor there is, so combining
+   * one with anything else has no single sensible answer — is the loose floor
+   * an addition, or a newer copy of one already inside? Refuse and say so
+   * rather than pick. */
+  const projects = parsed.filter((p) => p.shape === 'project');
+  if (projects.length > 1) {
+    throw new Error('two exported projects were uploaded together — import one at a time.');
+  }
+  if (projects.length && parsed.length > 1) {
+    throw new Error(`"${projects[0].name}" is a whole exported project, so it has to be imported on its own.`);
+  }
+
+  let floors = [];
+  if (projects.length) {
+    const raw = projects[0].spec.floors;
+    floors = raw.filter((f) => f && typeof f === 'object' && !Array.isArray(f));
+    if (floors.length !== raw.length) {
+      skipped.push({ file: projects[0].name, reason: `${raw.length - floors.length} entr${raw.length - floors.length === 1 ? 'y' : 'ies'} in floors[] was not an object` });
+    }
+  } else {
+    for (const p of parsed) {
+      if (p.shape === 'floor') {
+        floors.push(Object.assign({}, p.spec, { _source: p.name }));
+      } else {
+        floors.push(importFloor(p.spec, p.name));
+      }
+    }
+  }
+
+  /* Two floors sharing an id makes the floor switcher ambiguous and gives the
+   * generated dashboard two tabs claiming the same plan. Renaming the later
+   * one is recoverable and is reported; importing the broken pair is not. */
+  const seen = new Set();
+  const renamed = [];
+  for (const f of floors) {
+    const wanted = typeof f.id === 'string' && f.id.trim() ? f.id.trim() : 'floor';
+    let id = wanted;
+    if (seen.has(id)) {
+      let n = 2;
+      while (seen.has(`${wanted}_${n}`)) n++;
+      id = `${wanted}_${n}`;
+      renamed.push({ from: wanted, to: id });
+    }
+    seen.add(id);
+    f.id = id;
+    if (!f.name) f.name = id;
+  }
+
+  floors.sort((a, b) => (a.level_ft ?? 0) - (b.level_ft ?? 0));
+  return { floors, stats: statsFor(floors), skipped, renamed };
+}
+
+/* Read every *.json in a directory and hand the bytes to `fromFiles`, so the
+ * conversion has exactly one implementation no matter where the documents came
+ * from. Kept for the opt-in legacy round-trip check and for `FPS_LEGACY_DIR`;
+ * the app's own import is an upload and reads no directory at all. */
 function fromDirectory(dir, onlyFiles) {
   const target = dir || process.env.FPS_LEGACY_DIR;
   if (!target) throw new Error('no directory given and FPS_LEGACY_DIR is not set');
@@ -171,39 +321,22 @@ function fromDirectory(dir, onlyFiles) {
   const names = (onlyFiles && onlyFiles.length ? onlyFiles : fs.readdirSync(target))
     .filter((f) => f.toLowerCase().endsWith('.json'));
 
-  const floors = [];
-  const skipped = [];
+  const files = [];
+  const unreadable = [];
   for (const name of names) {
-    const full = path.join(target, name);
-    let spec;
     try {
-      spec = JSON.parse(fs.readFileSync(full, 'utf8'));
+      files.push({ name, text: fs.readFileSync(path.join(target, name), 'utf8') });
     } catch (e) {
-      skipped.push({ file: name, reason: 'unreadable JSON: ' + e.message });
-      continue;
+      unreadable.push({ file: name, reason: 'could not be read — ' + e.message });
     }
-    if (!Array.isArray(spec.rooms) || !spec.extent) {
-      skipped.push({ file: name, reason: 'not a floor spec (needs rooms[] and extent)' });
-      continue;
-    }
-    floors.push(importFloor(spec, name));
   }
+  /* An empty directory is a legitimate "nothing here", not the malformed
+   * request `fromFiles` throws on. */
+  if (!files.length) return { floors: [], stats: [], skipped: unreadable, renamed: [], importedFrom: target };
 
-  floors.sort((a, b) => (a.level_ft ?? 0) - (b.level_ft ?? 0));
-
-  const stats = floors.map((f) => ({
-    id: f.id,
-    name: f.name,
-    level_ft: f.level_ft,
-    rooms: f.rooms.length,
-    openings: f.openings.length,
-    fixtures: f.items.filter((i) => i.kind === 'fixture').length,
-    devices: f.items.filter((i) => i.kind === 'device').length,
-    furniture: f.items.filter((i) => i.kind === 'furniture').length,
-    preservedLegacyKeys: Object.keys(f._legacy || {}),
-  }));
-
-  return { floors, stats, skipped, importedFrom: target };
+  const result = fromFiles(files);
+  result.skipped.push(...unreadable);
+  return Object.assign(result, { importedFrom: target });
 }
 
-module.exports = { fromDirectory, importFloor, importRoom };
+module.exports = { fromDirectory, fromFiles, importFloor, importRoom };

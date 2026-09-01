@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Plans are imported by uploading them
+
+- **Import… now takes files, not a directory path.** The old box asked for a
+  directory on the *app's* filesystem, which under Home Assistant is inside the
+  container — so the plans someone actually wanted to import, sitting on the
+  computer they were looking at the editor from, could not be reached at all.
+  Choose files or drop them on the dialog; the browser reads the bytes and
+  posts them.
+- The endpoint that read a server-side directory (`/api/import/legacy`) is
+  **gone**, not merely unused by the page. It let anything that could reach the
+  API read JSON out of any directory the app process could open.
+- **Three document shapes are recognised and told apart by shape, not by
+  filename**: a plan exported from this editor (`floors[]`), one of its floor
+  documents (`items[]` / `openings[]`), and a hand-written spec in the older
+  format (`rooms[]` + `extent`). Only the last is converted; the first two are
+  already this schema and are passed through untouched. Running them through
+  the converter would have swept `items`, `openings` and `boundaries` into
+  `_legacy` and quietly flattened a plan the editor itself had written.
+- **Uploads are capped at 10 MB and 64 files**, enforced by the server. The
+  page checks the same limits before uploading, but that is a courtesy to the
+  person, never the limit itself.
+- **What the import produced is validated before it is offered.** A file can be
+  good JSON of the right general shape and still carry a room with no polygon;
+  since an import replaces every floor in the project, discovering that when
+  the canvas tries to draw it is far too late. Structural errors refuse the
+  import and are listed; warnings travel with it and are shown.
+- **Every file that cannot be used says why** — unreadable JSON with the
+  parser's own message, an empty file, a non-object, a shape that matches none
+  of the three — instead of being dropped from the count. A good file still
+  imports alongside a bad one. Two floors claiming one id are both kept and the
+  second is renamed, since a duplicate id makes the floor switcher ambiguous
+  and gives the generated dashboard two tabs claiming the same plan.
+- An exported project describes every floor there is, so uploading one
+  alongside anything else is refused rather than merged by a guess.
+- Uploaded filenames are reduced to a bare basename with no control characters
+  before they reach a DOM node or a log line.
+- The section is now headed **Import an exported plan** rather than "Import
+  someone else's specs", and it is shown whether or not sample projects are
+  present — previously it only appeared alongside them.
+
 ### Smaller fan default, more blade designs
 
 - A newly placed ceiling fan now starts at a symbolic 2-foot sweep instead of
