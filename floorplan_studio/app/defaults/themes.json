@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Themes are pure token maps. The library refers to tokens by '@name', the renderer resolves them at paint time, so restyling the whole plan never touches a marker definition. 'ui' tokens skin the editor chrome; 'plan' tokens skin the drawing.",
+  "active": "frosted",
+  "themes": {
+    "frosted": {
+      "name": "Frosted Glass Light",
+      "_note": "A light frosted-glass theme with warm active-state accents.",
+      "ui": {
+        "appBg": "#eef1f6",
+        "panelBg": "#ffffff",
+        "panelBorder": "#d8dfea",
+        "ink": "#243049",
+        "inkSoft": "#6c7690",
+        "accent": "#3d8bd6",
+        "accentInk": "#ffffff",
+        "danger": "#c05a5a",
+        "railBg": "#f6f8fc"
+      },
+      "plan": {
+        "sheet": "#f3f5f9",
+        "floorWood": "#e8ddcd",
+        "floorTile": "#dfe6ee",
+        "floorMarble": "#eef1f5",
+        "floorOutdoor": "#dde5db",
+        "floorDefault": "#e6eaf0",
+        "wallThick": "#2c3346",
+        "wallThin": "#7e879b",
+        "aperture": "#f3f5f9",
+        "apertureGlass": "#6fd3ff",
+        "furnFill": "#d9dfe8",
+        "furnLine": "#a9b3c4",
+        "gridLine": "#dbe2ec",
+        "gridLineStrong": "#c3ccdb",
+        "roomLabel": "#3a4459",
+        "roomLabelHalo": "#ffffff",
+        "chipBg": "#ffffff",
+        "chipInk": "#243049",
+        "chipBorder": "#c9d2e0",
+        "handle": "#ffffff",
+        "lampWarm": "#ffc88c",
+        "daylightWash": "#fff6d8",
+        "sunBeam": "#fff3c4",
+        "glowTint": "#fff3c4",
+        "lampRim": "#e0a52c",
+        "offFill": "#f2f5fa",
+        "offRim": "#7f8798",
+        "glyphOff": "#8b95a8",
+        "deadFill": "#fdf0f0",
+        "deadRim": "#c05a5a",
+        "activeTint": "#e8fbf7",
+        "fanRim": "#2fb5a4",
+        "coolTint": "#e8f2ff",
+        "coolRim": "#3d8bd6",
+        "warmTint": "#fff1e4",
+        "warmRim": "#d97a1c",
+        "mediaTint": "#efe7ff",
+        "mediaRim": "#7b5bd6",
+        "logicTint": "#e6f0ff",
+        "logicRim": "#3f6fd8",
+        "alertTint": "#fff2e0",
+        "alertRim": "#e08a2c",
+        "powerTint": "#eafaef",
+        "powerRim": "#2e8b4d",
+        "solarRim": "#e0a52c",
+        "readoutFill": "#ffffff",
+        "levelOk": "#2fa85c",
+        "levelWarn": "#e8a83c",
+        "levelLow": "#e05555",
+        "glow": "#ffc88c",
+        "glowOpacity": 0.55,
+        "nightScrim": "#050912"
+      }
+    },
+    "blueprint": {
+      "name": "Blueprint Dark",
+      "ui": {
+        "appBg": "#0f1420",
+        "panelBg": "#161d2c",
+        "panelBorder": "#26304a",
+        "ink": "#dbe3f2",
+        "inkSoft": "#8391ad",
+        "accent": "#6fd3ff",
+        "accentInk": "#08131c",
+        "danger": "#e0736f",
+        "railBg": "#121927"
+      },
+      "plan": {
+        "sheet": "#101828",
+        "floorWood": "#1c2740",
+        "floorTile": "#182338",
+        "floorMarble": "#1a2540",
+        "floorOutdoor": "#152232",
+        "floorDefault": "#1a2338",
+        "wallThick": "#8fc9ff",
+        "wallThin": "#4a6390",
+        "aperture": "#101828",
+        "apertureGlass": "#6fd3ff",
+        "furnFill": "#1e2b44",
+        "furnLine": "#3d5075",
+        "gridLine": "#1b2740",
+        "gridLineStrong": "#27385a",
+        "roomLabel": "#a9bcdd",
+        "roomLabelHalo": "#0d1524",
+        "chipBg": "#18233a",
+        "chipInk": "#dbe3f2",
+        "chipBorder": "#2f3f61",
+        "handle": "#0f1420",
+        "lampWarm": "#ffd08a",
+        "daylightWash": "#dfe9ff",
+        "sunBeam": "#cfe0ff",
+        "glowTint": "#fff3c4",
+        "lampRim": "#ffb44d",
+        "offFill": "#1a2338",
+        "offRim": "#57668a",
+        "glyphOff": "#6b7ba0",
+        "deadFill": "#2a1a1e",
+        "deadRim": "#e0736f",
+        "activeTint": "#10302c",
+        "fanRim": "#3fd7c3",
+        "coolTint": "#10263f",
+        "coolRim": "#63b5ff",
+        "warmTint": "#33210f",
+        "warmRim": "#ff9d42",
+        "mediaTint": "#241a3d",
+        "mediaRim": "#a98bff",
+        "logicTint": "#152744",
+        "logicRim": "#6f9dff",
+        "alertTint": "#33260f",
+        "alertRim": "#ffb44d",
+        "powerTint": "#13301f",
+        "powerRim": "#4bd07c",
+        "solarRim": "#ffc861",
+        "readoutFill": "#0f1420",
+        "levelOk": "#4bd07c",
+        "levelWarn": "#ffc861",
+        "levelLow": "#ff7676",
+        "glow": "#ffd08a",
+        "glowOpacity": 0.42,
+        "nightScrim": "#050912"
+      }
+    },
+    "ha": {
+      "name": "Follow Home Assistant",
+      "_note": "Chrome and accents come from the dashboard's own theme variables; materials come from the light or dark token map, chosen by measuring the host background. Outside Home Assistant — the editor, an exported SVG — the fallbacks below apply and it looks like Frosted.",
+      "ui": {
+        "appBg": "#eef1f6",
+        "panelBg": "#ffffff",
+        "panelBorder": "#d8dfea",
+        "ink": "#243049",
+        "inkSoft": "#6c7690",
+        "accent": "#3d8bd6",
+        "accentInk": "#ffffff",
+        "danger": "#c05a5a",
+        "railBg": "#f6f8fc"
+      },
+      "plan": {
+        "sheet": "#f3f5f9",
+        "floorWood": "#e8ddcd",
+        "floorTile": "#dfe6ee",
+        "floorMarble": "#eef1f5",
+        "floorOutdoor": "#dde5db",
+        "floorDefault": "#e6eaf0",
+        "wallThick": "#2c3346",
+        "wallThin": "#7e879b",
+        "aperture": "#f3f5f9",
+        "apertureGlass": "#6fd3ff",
+        "furnFill": "#d9dfe8",
+        "furnLine": "#a9b3c4",
+        "gridLine": "#dbe2ec",
+        "gridLineStrong": "#c3ccdb",
+        "roomLabel": "#3a4459",
+        "roomLabelHalo": "#ffffff",
+        "chipBg": "#ffffff",
+        "chipInk": "#243049",
+        "chipBorder": "#c9d2e0",
+        "handle": "#ffffff",
+        "lampWarm": "#ffc88c",
+        "daylightWash": "#fff6d8",
+        "sunBeam": "#fff3c4",
+        "glowTint": "#fff3c4",
+        "lampRim": "#e0a52c",
+        "offFill": "#f2f5fa",
+        "offRim": "#7f8798",
+        "glyphOff": "#8b95a8",
+        "deadFill": "#fdf0f0",
+        "deadRim": "#c05a5a",
+        "activeTint": "#e8fbf7",
+        "fanRim": "#2fb5a4",
+        "coolTint": "#e8f2ff",
+        "coolRim": "#3d8bd6",
+        "warmTint": "#fff1e4",
+        "warmRim": "#d97a1c",
+        "mediaTint": "#efe7ff",
+        "mediaRim": "#7b5bd6",
+        "logicTint": "#e6f0ff",
+        "logicRim": "#3f6fd8",
+        "alertTint": "#fff2e0",
+        "alertRim": "#e08a2c",
+        "powerTint": "#eafaef",
+        "powerRim": "#2e8b4d",
+        "solarRim": "#e0a52c",
+        "readoutFill": "#ffffff",
+        "levelOk": "#2fa85c",
+        "levelWarn": "#e8a83c",
+        "levelLow": "#e05555",
+        "glow": "#ffc88c",
+        "glowOpacity": 0.55,
+        "nightScrim": "#050912"
+      },
+      "follows": {
+        "light": "frosted",
+        "dark": "blueprint"
+      },
+      "vars": {
+        "sheet": [
+          "--ha-card-background",
+          "--card-background-color"
+        ],
+        "wallThick": [
+          "--primary-text-color"
+        ],
+        "wallThin": [
+          "--secondary-text-color"
+        ],
+        "gridLine": [
+          "--divider-color"
+        ],
+        "gridLineStrong": [
+          "--divider-color"
+        ],
+        "roomLabel": [
+          "--secondary-text-color"
+        ],
+        "roomLabelHalo": [
+          "--ha-card-background",
+          "--card-background-color"
+        ],
+        "chipBg": [
+          "--secondary-background-color"
+        ],
+        "chipInk": [
+          "--primary-text-color"
+        ],
+        "chipBorder": [
+          "--divider-color"
+        ],
+        "offFill": [
+          "--secondary-background-color"
+        ],
+        "offRim": [
+          "--secondary-text-color"
+        ],
+        "glyphOff": [
+          "--secondary-text-color"
+        ],
+        "lampRim": [
+          "--state-icon-active-color",
+          "--primary-color"
+        ],
+        "handle": [
+          "--primary-color"
+        ],
+        "furnLine": [
+          "--divider-color"
+        ]
+      }
+    }
+  },
+  "_themes_note": "A theme may also carry `follows` and `vars`: the dashboard card starts from the light or dark map named in `follows` (chosen by measuring the host background) and then overlays the tokens in `vars` from the dashboard's own CSS custom properties. Materials are never overlaid — a flooring generator shades its base colour to derive grain and grout, and it cannot shade `var(--x)`."
+}

@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 200" width="500" height="200" role="img" aria-labelledby="t">
+  <title id="t">Floorplan Studio</title>
+
+  <!--
+    Floorplan Studio, store logo. THIS FILE IS THE SOURCE; logo.png in the
+    repository root is generated from it. Edit here, then re-export with
+    `tools/export-branding.html`, or see DOCS.md, section "Branding".
+
+    Home Assistant recommends "around 250x100px", i.e. 2.5:1. The viewBox is
+    500x200, the same ratio at twice the size, so the geometry is comfortable to
+    edit and the export scales down cleanly.
+
+    THE MARK is the same drawing as icon.svg, scaled into the left third. It is
+    duplicated rather than referenced on purpose: an SVG that pulls geometry out
+    of a second file stops being a file you can open in Inkscape, Figma or a
+    browser tab and just see. If you change the mark, change it in both.
+    `test/verify.js` checks the two still agree on the palette and on the plan,
+    which are the parts that actually drift.
+
+    THE WORDMARK is live text, not outlines, so you can retype it. Two
+    consequences worth knowing:
+
+      * It renders in whatever font the exporting machine has from the stack
+        below, so two machines can produce visibly different PNGs. `textLength`
+        pins the width of each line, so the LAYOUT holds even when the letter
+        shapes do not. If you need exports identical everywhere, convert the
+        text to paths in a vector editor and commit that.
+      * The colours are chosen to survive both Home Assistant themes rather than
+        to match the old artwork. The wordmark used to be near-black navy, which
+        looked right on the store's light background and all but disappeared on
+        the dark one. It is now brand blue, which clears 4.5:1 on white and on
+        Home Assistant's dark surface. Teal sits nearer 3:1 on white, which is
+        the large-text threshold and is part of why "Studio" is set this big.
+
+    NOTE FOR EDITORS: XML comments may not contain a double hyphen. It is legal
+    everywhere else you write and illegal here, the file silently stops
+    rendering, and the export tool will tell you which line.
+  -->
+
+  <defs>
+    <!-- == palette, shared with icon.svg == -->
+    <linearGradient id="plate" x1="0" y1="0" x2="0.55" y2="1">
+      <stop offset="0" stop-color="#2A81F5"/>
+      <stop offset="1" stop-color="#0A45BA"/>
+    </linearGradient>
+    <linearGradient id="pencilBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8ED8FF"/>
+      <stop offset="0.45" stop-color="#31A9F2"/>
+      <stop offset="1" stop-color="#1370D2"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FCE1AE"/>
+      <stop offset="1" stop-color="#E0A75C"/>
+    </linearGradient>
+
+    <!-- Blue into teal, across the word "Studio". Both ends are darkened from
+         the display palette so the word holds up on a white background. -->
+    <linearGradient id="studio" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2C9BEE"/>
+      <stop offset="1" stop-color="#13B394"/>
+    </linearGradient>
+
+    <pattern id="grid" width="46" height="46" patternUnits="userSpaceOnUse">
+      <path d="M46 0H0V46" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="3"/>
+    </pattern>
+    <clipPath id="plateClip">
+      <rect x="38" y="54" width="368" height="368" rx="33"/>
+    </clipPath>
+  </defs>
+
+  <style>
+    .word {
+      font-family: "Nunito", "Poppins", "Montserrat", "Segoe UI Variable Display",
+                   "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      font-weight: 800;
+    }
+  </style>
+
+  <!-- == the mark ==
+       icon.svg's drawing at 0.41, positioned so it sits in the left 200 units
+       with even margins. Every number inside this group is in the icon's own
+       512 space, so a change there pastes straight in here. -->
+  <g transform="translate(-3 -3) scale(0.41)">
+    <rect x="26" y="42" width="392" height="392" rx="46" fill="#0A1E4E"/>
+    <rect x="38" y="54" width="368" height="368" rx="33" fill="url(#plate)"/>
+    <rect x="38" y="54" width="368" height="368" fill="url(#grid)" clip-path="url(#plateClip)"/>
+
+    <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="square" stroke-linejoin="miter">
+      <path d="M74 92 H370 V316 H272 V384 H74 Z"/>
+      <path d="M248 92 V236"/>
+      <path d="M74 250 H166"/>
+    </g>
+
+    <g stroke="#0A1E4E" stroke-width="6" stroke-linejoin="round">
+      <rect x="102" y="124" width="116" height="96" rx="14" fill="#5CC8F7"/>
+      <rect x="110" y="132" width="46" height="30" rx="8" fill="#B3E7FC"/>
+      <rect x="164" y="132" width="46" height="30" rx="8" fill="#B3E7FC"/>
+      <rect x="288" y="132" width="66" height="66" rx="14" fill="#5CC8F7"/>
+      <rect x="102" y="292" width="122" height="42" rx="14" fill="#19D9B4"/>
+      <rect x="102" y="276" width="122" height="24" rx="10" fill="#5FE9CE"/>
+    </g>
+
+    <g transform="translate(262 312) rotate(45)" stroke="#0A1E4E" stroke-width="7" stroke-linejoin="round">
+      <path d="M0 0 L-21 -42 H21 Z" fill="#243046"/>
+      <path d="M-21 -42 L-25 -70 H25 L21 -42 Z" fill="url(#wood)"/>
+      <rect x="-25" y="-236" width="50" height="166" fill="url(#pencilBody)"/>
+      <rect x="-25" y="-266" width="50" height="30" fill="#CBD9E6"/>
+      <rect x="-25" y="-300" width="50" height="34" rx="13" fill="#19D9B4"/>
+    </g>
+
+    <g transform="translate(310 320) scale(1.6)">
+      <path d="M0 0 L0 88 L21 67 L35 97 L54 88 L40 59 L68 57 Z"
+            fill="#FFFFFF" stroke="#0A1E4E" stroke-width="8" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- == the wordmark ==
+       textLength plus lengthAdjust pins each line to an exact width. Without it
+       a machine falling back to Arial sets "Floorplan" wider than Nunito does
+       and pushes it past the right edge. -->
+  <text class="word" x="214" y="88" font-size="52" fill="#2B6FE0"
+        textLength="266" lengthAdjust="spacingAndGlyphs">Floorplan</text>
+  <text class="word" x="214" y="152" font-size="52" fill="url(#studio)"
+        textLength="166" lengthAdjust="spacingAndGlyphs">Studio</text>
+</svg>

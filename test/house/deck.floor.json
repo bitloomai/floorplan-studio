@@ -1,0 +1,194 @@
+{
+  "id": "deck",
+  "name": "Deck",
+  "level_ft": 33,
+  "icon": "mdi:binoculars",
+  "extent": {
+    "w": 44,
+    "h": 18
+  },
+  "grid": {
+    "size": 0.5,
+    "snap": true
+  },
+  "sun": null,
+  "popup": null,
+  "boundaries": [],
+  "rooms": [
+    {
+      "id": "deck_a",
+      "name": "Open A",
+      "shape": "rect",
+      "rect": [
+        0,
+        0,
+        26,
+        18
+      ],
+      "points": null,
+      "flooring": "paver",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": true,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    },
+    {
+      "id": "deck_b",
+      "name": "Open B",
+      "shape": "poly",
+      "rect": null,
+      "points": [
+        [
+          26,
+          0
+        ],
+        [
+          44,
+          0
+        ],
+        [
+          44,
+          12
+        ],
+        [
+          38,
+          18
+        ],
+        [
+          26,
+          18
+        ]
+      ],
+      "flooring": "paver",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": true,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    }
+  ],
+  "openings": [
+    {
+      "id": "deck_d1",
+      "type": "door",
+      "room": "deck_a",
+      "wall": "s",
+      "at": 12,
+      "w": 3,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    },
+    {
+      "id": "deck_w1",
+      "type": "window",
+      "room": "deck_b",
+      "wall": "e",
+      "at": 8,
+      "w": 5,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    }
+  ],
+  "items": [
+    {
+      "id": "deck_l1",
+      "kind": "fixture",
+      "type": "string",
+      "at": [
+        13,
+        2
+      ],
+      "room": null,
+      "entity": "light.demo_deck_string",
+      "name": null,
+      "props": {
+        "len": 20,
+        "rot": 0
+      }
+    },
+    {
+      "id": "deck_l2",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        35,
+        9
+      ],
+      "room": null,
+      "entity": "light.demo_deck_spot",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "deck_pir",
+      "kind": "device",
+      "type": "pir",
+      "at": [
+        13,
+        17
+      ],
+      "room": null,
+      "entity": "binary_sensor.demo_deck_motion",
+      "name": null,
+      "props": {
+        "rot": 0,
+        "fov": 120,
+        "range": 16
+      }
+    },
+    {
+      "id": "deck_sw",
+      "kind": "device",
+      "type": "wall_switch",
+      "at": [
+        2,
+        17
+      ],
+      "room": null,
+      "entity": "switch.demo_deck_plate",
+      "name": null,
+      "props": {
+        "gangs": 1,
+        "variant": "industrial"
+      }
+    },
+    {
+      "id": "deck_sol",
+      "kind": "device",
+      "type": "solar",
+      "at": [
+        35,
+        3
+      ],
+      "room": null,
+      "entity": "sensor.demo_deck_pv",
+      "name": null,
+      "props": {
+        "cols": 6,
+        "rows": 2
+      }
+    }
+  ],
+  "schemaVersion": 1
+}

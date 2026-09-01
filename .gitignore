@@ -1,0 +1,73 @@
+# Runtime/user state. Home Assistant mounts this separately in production.
+/floorplan_studio/app/data/
+
+# The optional developer fixture is one real household: 179 entity ids naming
+# its rooms, device models, and coordinates. The public suite defaults to the
+# invented test/house/ and only adds this private fixture when it is present.
+# It is useful locally and not publishable. See README, "Running the suite".
+/fixtures/
+
+# Working notes and internal design documents. Kept on disk as context for
+# future work (including AI assistants) and deliberately not published: they
+# describe unreleased state, and REPLICATION.md compares against a separate
+# private system in the parent workspace.
+/repo-memory/
+
+# Dependencies and test output
+node_modules/
+coverage/
+.nyc_output/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs, caches, and temporary/editor files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# IDE metadata
+.idea/
+.vscode/
+*.code-workspace
+
+# Operating-system metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Keys and certificates, wholesale.
+#
+# A private key in a public repository is a private key on the internet, and
+# "it was only a throwaway test key" is what everyone says. GitHub's push
+# protection scans for these and will reject the push, which is the good
+# outcome; the bad one is a pattern nobody notices until a real key lands next
+# to a fake one.
+#
+# The TLS test fixtures live under test/fixtures-tls/ and are excluded by this.
+# The suite skips the HTTPS test when they are absent and runs it when they are
+# there — see "Running the suite" in README.md for the one openssl command that
+# creates them.
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ed25519

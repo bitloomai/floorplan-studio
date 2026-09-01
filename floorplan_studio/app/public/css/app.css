@@ -1,0 +1,267 @@
+/* Floorplan Studio — editor chrome.
+ *
+ * Every colour is a CSS variable fed from the active theme's `ui` tokens, so
+ * switching theme restyles the app and the drawing together rather than leaving
+ * a light toolbar wrapped around a dark plan. */
+
+:root {
+  --appBg: #eef1f6;
+  --panelBg: #ffffff;
+  --panelBorder: #d8dfea;
+  --ink: #243049;
+  --inkSoft: #6c7690;
+  --accent: #3d8bd6;
+  --accentInk: #ffffff;
+  --danger: #c05a5a;
+  --railBg: #f6f8fc;
+  --radius: 10px;
+  --rail-w: 250px;
+  --insp-w: 310px;
+  color-scheme: light dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--appBg); color: var(--ink);
+  font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.spacer { flex: 1; }
+.hint { color: var(--inkSoft); font-size: 12px; margin: 8px 4px 0; }
+/* A field holding something that does not parse. It keeps what was typed — the
+ * mark says "not saved yet", not "thrown away". */
+input.bad, textarea.bad { border-color: var(--danger, #d9534f); outline-color: var(--danger, #d9534f); }
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 12px; background: var(--panelBg);
+  border-bottom: 1px solid var(--panelBorder);
+  height: 52px;
+}
+.brand { display: flex; align-items: center; gap: 8px; color: var(--accent); flex: 0 0 auto; }
+.project-name {
+  font: 600 15px/1.2 inherit; color: var(--ink);
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 4px 6px; width: 15ch;
+}
+.project-name:hover { border-color: var(--panelBorder); }
+.project-name:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+/* A house with more floors than the topbar is wide used to scroll a row of
+   pill buttons sideways with nothing to say there was more past the edge — a
+   select never runs out of room, so `.floors` no longer needs `overflow-x`.
+   Still `flex: 1` like before: this is what pushes `.topbar-actions` to the
+   right edge of the bar, and its own content just left-aligns within it. */
+.floors { display: flex; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+#floorSelect { max-width: 160px; }
+
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.save-state { font-size: 12px; color: var(--inkSoft); min-width: 74px; text-align: right; }
+.save-state.dirty { color: var(--danger); }
+
+.btn {
+  font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 7px;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--ink); cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accentInk); font-weight: 600; }
+.btn.tiny { padding: 3px 7px; font-size: 12px; }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
+.inline { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--inkSoft); }
+select, input[type=text], input[type=number], input[type=search] {
+  font: inherit; font-size: 13px; padding: 5px 7px; border-radius: 6px;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--ink);
+}
+
+/* ---------- workspace ---------- */
+
+.workspace { display: grid; grid-template-columns: var(--rail-w) 1fr var(--insp-w); height: calc(100% - 52px); }
+
+.rail, .inspector {
+  background: var(--railBg); border-right: 1px solid var(--panelBorder);
+  overflow-y: auto; padding: 10px;
+}
+.inspector { border-right: 0; border-left: 1px solid var(--panelBorder); }
+
+.tools { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 14px; }
+.tool {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 4px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--inkSoft);
+  font: inherit; font-size: 11px;
+}
+.tool span { font-size: 16px; line-height: 1; }
+/* The tool glyphs are drawn SVG. Sized here rather than on each element so all
+   five stay one row of the same weight, and `display:block` stops the inline
+   baseline gap that otherwise pushes the labels off centre. */
+.tool span svg { width: 19px; height: 19px; display: block; }
+.tool[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panelBg)); font-weight: 600; }
+
+.rail-section { margin-top: 6px; }
+.rail-head { display: flex; align-items: baseline; justify-content: space-between; }
+.rail-head h2, .inspector h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--inkSoft); margin: 6px 0; }
+.search { width: 100%; margin-bottom: 8px; }
+
+.library { display: flex; flex-direction: column; gap: 10px; }
+.lib-cat > h3 { font-size: 11px; color: var(--inkSoft); margin: 4px 2px; font-weight: 600; }
+.lib-items { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+.lib-item {
+  display: flex; align-items: center; gap: 6px; text-align: left;
+  padding: 6px 7px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 11.5px;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--ink);
+  overflow: hidden;
+}
+.lib-item:hover { border-color: var(--accent); }
+.lib-item[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panelBg)); font-weight: 600; }
+.lib-item svg { flex: 0 0 auto; }
+.lib-item .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* `cursor:pointer` above still applies while idle; grab/grabbing only need to
+   win during an actual drag, which `:active` approximates well enough for a
+   mouse. Touch has no concept of hover-before-drag anyway. */
+.lib-item:active { cursor: grabbing; }
+
+/* ---------- canvas ---------- */
+
+.canvas-wrap { display: flex; flex-direction: column; min-width: 0; background: var(--appBg); }
+.canvas-scroll { flex: 1; overflow: auto; position: relative; display: grid; place-items: center; padding: 18px; }
+/* A library button dragged over the plan — the same visual language as a
+   focused input, so it reads as "drop is welcome here" without a new colour. */
+.canvas-scroll.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
+#canvas { display: block; box-shadow: 0 6px 26px rgba(20, 30, 50, 0.14); border-radius: 4px; touch-action: none; }
+
+#canvas.tool-rect, #canvas.tool-poly, #canvas.tool-aperture, #canvas.tool-place { cursor: crosshair; }
+#canvas.tool-pan { cursor: grab; }
+#canvas.panning { cursor: grabbing; }
+
+.hit { fill: transparent; stroke: transparent; }
+.room-hit { cursor: pointer; }
+.item-hit { cursor: move; }
+.sel-outline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
+.handle { fill: #fff; stroke: var(--accent); stroke-width: 1.6; cursor: pointer; }
+.handle:hover { fill: var(--accent); }
+.rot-handle .handle { cursor: grab; }
+.rot-handle .handle:active { cursor: grabbing; }
+.ghost { fill: color-mix(in srgb, var(--accent) 18%, transparent); stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 5 4; pointer-events: none; }
+.edge-hi { stroke: var(--accent); stroke-width: 5; opacity: 0.55; pointer-events: none; }
+/* One outline per multi-selected member — no dash, thinner than a single
+   selection's, so a dozen of them at once still reads as "these are picked",
+   not as a dozen competing single-selection borders. */
+.sel-outline.multi { stroke-width: 1.4; stroke-dasharray: none; opacity: 0.85; }
+/* Rubber-band drag: a light fill so the plan under it stays legible while
+   you're still choosing what's inside it. */
+.marquee { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1; pointer-events: none; }
+/* A drag-time alignment guide — a distinct colour from the accent-coloured
+   selection/ghost above so "this is snapped to something" doesn't read as
+   just another selection outline. Magenta is the de facto convention this
+   feature borrows from every design tool that has it. */
+.align-guide { stroke: #ff3fb0; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+
+.statusbar {
+  display: flex; align-items: center; gap: 12px; padding: 6px 12px;
+  border-top: 1px solid var(--panelBorder); background: var(--panelBg); font-size: 12px; color: var(--inkSoft);
+}
+.zoombox { display: inline-flex; align-items: center; gap: 5px; }
+.sunbox { display: inline-flex; align-items: center; gap: 7px; }
+.sunbox[hidden] { display: none; }
+.sunbox input[type=range] { width: 120px; }
+#sunReadout { color: var(--inkSoft); min-width: 130px; }
+
+/* ---------- inspector ---------- */
+
+.field { margin-bottom: 9px; }
+.field > label { display: block; font-size: 11px; color: var(--inkSoft); margin-bottom: 3px; }
+.field input, .field select, .field textarea { width: 100%; }
+.field.row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.field.row > div { min-width: 0; }
+.subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--inkSoft); margin: 14px 0 6px; border-top: 1px solid var(--panelBorder); padding-top: 10px; }
+.entity-pick { display: flex; gap: 6px; align-items: center; }
+.entity-pick .cur { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.empty { color: var(--inkSoft); font-size: 12.5px; padding: 18px 6px; text-align: center; }
+.badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10.5px; background: var(--panelBorder); color: var(--ink); }
+.chanrow { display: grid; grid-template-columns: 1fr 1fr auto; gap: 4px; margin-bottom: 4px; align-items: center; }
+.warn { color: var(--danger); font-size: 12px; }
+
+/* ---------- modal + toast ---------- */
+
+/* An author `display` beats the UA sheet's [hidden] { display: none }, so both
+ * of these need the attribute honoured explicitly or they never hide. */
+.modal[hidden], .toast[hidden] { display: none; }
+
+.modal { position: fixed; inset: 0; background: rgba(12, 18, 30, .45); display: grid; place-items: center; z-index: 50; padding: 20px; }
+.modal-card {
+  background: var(--panelBg); border-radius: var(--radius); border: 1px solid var(--panelBorder);
+  width: min(760px, 100%); max-height: 84vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-card > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--panelBorder); }
+.modal-card > header h2 { margin: 0; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+#modalBody { padding: 14px; overflow: auto; }
+
+.entity-list { max-height: 46vh; overflow: auto; border: 1px solid var(--panelBorder); border-radius: 8px; }
+.entity-row { display: flex; gap: 8px; align-items: center; padding: 6px 9px; cursor: pointer; border-bottom: 1px solid var(--panelBorder); }
+.entity-row:last-child { border-bottom: 0; }
+.entity-row:hover { background: var(--railBg); }
+.entity-row .eid { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--inkSoft); }
+.entity-row .en { font-size: 13px; }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.grid th, table.grid td { text-align: left; padding: 5px 7px; border-bottom: 1px solid var(--panelBorder); }
+table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+
+.swatchrow { display: grid; grid-template-columns: 1fr 46px; gap: 6px; align-items: center; margin-bottom: 5px; }
+.swatchrow label { font-size: 12px; color: var(--inkSoft); overflow: hidden; text-overflow: ellipsis; }
+.swatchrow input[type=color] { width: 46px; height: 26px; padding: 0; border: 1px solid var(--panelBorder); border-radius: 5px; background: none; }
+
+.toast {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--panelBg); padding: 9px 15px; border-radius: 8px;
+  font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 70vw;
+}
+.toast.err { background: var(--danger); color: #fff; }
+
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 190px 1fr 260px; }
+  :root { --rail-w: 190px; --insp-w: 260px; }
+}
+
+.tool-opts { padding: 8px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.tool-opts select { width: 100%; }
+.tool-opts[hidden] { display: none; }
+
+/* Compass shortcuts beside the facing number. */
+.dial { display: flex; gap: 2px; margin-bottom: 4px; }
+.dial .btn { flex: 1 1 0; min-width: 0; padding: 3px 0; }
+
+/* The marker variant picker. A grid of the actual drawings rather than a
+   dropdown of names: "bullet" and "turret" mean nothing until you see them. */
+.variant-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 6px; padding: 2px 0 8px;
+}
+.variant-grid .variant {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 2px 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panelBg); color: var(--ink); cursor: pointer;
+  font-size: 9px; line-height: 1.1; opacity: 0.72;
+}
+.variant-grid .variant span {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.variant-grid .variant:hover { opacity: 1; border-color: var(--accent); }
+.variant-grid .variant.on {
+  opacity: 1; color: var(--accent); border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* The swatch inherits `currentColor` from the button, which is what makes the
+   selected state recolour the drawing rather than only its frame. */
+.variant-grid .variant svg { display: block; }
+
+/* Resize handles are squares so they read as different from the round rotate
+   knob without needing a legend. */
+.size-handle .handle { cursor: nwse-resize; }

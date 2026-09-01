@@ -1,0 +1,614 @@
+{
+  "id": "second",
+  "name": "Second",
+  "level_ft": 22,
+  "icon": "mdi:home-floor-2",
+  "extent": {
+    "w": 44,
+    "h": 30
+  },
+  "grid": {
+    "size": 0.5,
+    "snap": true
+  },
+  "sun": null,
+  "popup": null,
+  "boundaries": [],
+  "rooms": [
+    {
+      "id": "second_a",
+      "name": "Room A",
+      "shape": "rect",
+      "rect": [
+        0,
+        0,
+        22,
+        15
+      ],
+      "points": null,
+      "flooring": "wood",
+      "boost": null,
+      "dnd": null,
+      "master": "light.demo_second_a1",
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    },
+    {
+      "id": "second_b",
+      "name": "Room B",
+      "shape": "rect",
+      "rect": [
+        22,
+        0,
+        22,
+        15
+      ],
+      "points": null,
+      "flooring": "tile",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    },
+    {
+      "id": "second_c",
+      "name": "Room C",
+      "shape": "rect",
+      "rect": [
+        0,
+        15,
+        18,
+        15
+      ],
+      "points": null,
+      "flooring": "carpet",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": [
+        {
+          "id": "dnd",
+          "label": "Do not disturb",
+          "entity": "input_boolean.demo_second_dnd",
+          "slot": "header"
+        },
+        {
+          "id": "reading",
+          "label": "Reading",
+          "entity": "scene.demo_second_reading"
+        },
+        {
+          "id": "presence",
+          "label": "Presence",
+          "entity": "automation.demo_second_presence"
+        }
+      ]
+    },
+    {
+      "id": "second_d",
+      "name": "Room D",
+      "shape": "poly",
+      "rect": null,
+      "points": [
+        [
+          18,
+          15
+        ],
+        [
+          44,
+          15
+        ],
+        [
+          44,
+          30
+        ],
+        [
+          30,
+          30
+        ],
+        [
+          30,
+          22
+        ],
+        [
+          18,
+          22
+        ]
+      ],
+      "flooring": "tile",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    }
+  ],
+  "openings": [
+    {
+      "id": "second_w1",
+      "type": "window",
+      "room": "second_a",
+      "wall": "n",
+      "at": 6,
+      "w": 6,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    },
+    {
+      "id": "second_w2",
+      "type": "window",
+      "room": "second_b",
+      "wall": "n",
+      "at": 8,
+      "w": 6,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    },
+    {
+      "id": "second_w3",
+      "type": "window",
+      "room": "second_c",
+      "wall": "w",
+      "at": 6,
+      "w": 5,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    },
+    {
+      "id": "second_d1",
+      "type": "door",
+      "room": "second_a",
+      "wall": "e",
+      "at": 10,
+      "w": 3,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    },
+    {
+      "id": "second_d2",
+      "type": "door",
+      "room": "second_c",
+      "wall": "n",
+      "at": 6,
+      "w": 3,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    },
+    {
+      "id": "second_v1",
+      "type": "grill_vent",
+      "room": "second_b",
+      "wall": "e",
+      "at": 8,
+      "w": 2,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "second_l1",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        4,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_second_a1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l2",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        11,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_second_a1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l3",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        18,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_second_a1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l4",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        4,
+        11
+      ],
+      "room": null,
+      "entity": "light.demo_second_a2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l5",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        11,
+        11
+      ],
+      "room": null,
+      "entity": "light.demo_second_a2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l6",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        18,
+        11
+      ],
+      "room": null,
+      "entity": "light.demo_second_a2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_t1",
+      "kind": "fixture",
+      "type": "tube",
+      "at": [
+        28,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_second_b1",
+      "name": null,
+      "props": {
+        "len": 4,
+        "rot": 0
+      }
+    },
+    {
+      "id": "second_t2",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        38,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_second_b2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l7",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        6,
+        20
+      ],
+      "room": null,
+      "entity": "light.demo_second_c1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l9",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        13,
+        20
+      ],
+      "room": null,
+      "entity": "light.demo_second_c2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l8",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        36,
+        20
+      ],
+      "room": null,
+      "entity": "light.demo_second_d1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_l10",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        40,
+        26
+      ],
+      "room": null,
+      "entity": "light.demo_second_d2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "second_sc",
+      "kind": "logic",
+      "type": "scene",
+      "at": [
+        16,
+        13
+      ],
+      "room": null,
+      "entity": "scene.demo_second_evening",
+      "name": null,
+      "props": {}
+    },
+    {
+      "id": "second_au",
+      "kind": "logic",
+      "type": "automation",
+      "at": [
+        19,
+        13
+      ],
+      "room": null,
+      "entity": "automation.demo_second_dusk",
+      "name": null,
+      "props": {}
+    },
+    {
+      "id": "second_tg",
+      "kind": "logic",
+      "type": "toggle",
+      "at": [
+        16,
+        17
+      ],
+      "room": null,
+      "entity": "input_boolean.demo_second_guest",
+      "name": null,
+      "props": {}
+    },
+    {
+      "id": "second_fan",
+      "kind": "device",
+      "type": "fan",
+      "at": [
+        11,
+        7.5
+      ],
+      "room": null,
+      "entity": "fan.demo_second_ceiling",
+      "name": null,
+      "props": {
+        "blades": 3,
+        "sweep": 4.5
+      }
+    },
+    {
+      "id": "second_ac",
+      "kind": "device",
+      "type": "ac",
+      "at": [
+        33,
+        1
+      ],
+      "room": null,
+      "entity": "climate.demo_second_ac",
+      "name": null,
+      "props": {
+        "rot": 180
+      }
+    },
+    {
+      "id": "second_cam",
+      "kind": "device",
+      "type": "camera",
+      "at": [
+        42,
+        2
+      ],
+      "room": null,
+      "entity": "camera.demo_second_hall",
+      "name": null,
+      "props": {
+        "rot": 225,
+        "fov": 90,
+        "range": 18
+      }
+    },
+    {
+      "id": "second_pir",
+      "kind": "device",
+      "type": "pir",
+      "at": [
+        9,
+        16
+      ],
+      "room": null,
+      "entity": "binary_sensor.demo_second_motion",
+      "name": null,
+      "props": {
+        "rot": 180,
+        "fov": 110,
+        "range": 14
+      }
+    },
+    {
+      "id": "second_sw",
+      "kind": "device",
+      "type": "wall_switch",
+      "at": [
+        21,
+        14
+      ],
+      "room": null,
+      "entity": "switch.demo_second_plate",
+      "name": null,
+      "props": {
+        "gangs": 3,
+        "variant": "rocker",
+        "channels": [
+          {
+            "entity": "light.demo_second_a1",
+            "label": "Gang 1"
+          },
+          {
+            "entity": "light.demo_second_b1",
+            "label": "Gang 2"
+          },
+          {
+            "entity": "light.demo_second_c1",
+            "label": "Gang 3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "second_plug",
+      "kind": "device",
+      "type": "plug",
+      "at": [
+        23,
+        14
+      ],
+      "room": null,
+      "entity": "switch.demo_second_plug",
+      "name": null,
+      "props": {
+        "watt": 2300
+      }
+    },
+    {
+      "id": "second_bed",
+      "kind": "furniture",
+      "type": "bed",
+      "at": [
+        9,
+        25
+      ],
+      "room": null,
+      "entity": null,
+      "name": null,
+      "props": {
+        "w": 6,
+        "h": 6.5,
+        "rot": 0
+      }
+    },
+    {
+      "id": "second_sofa",
+      "kind": "furniture",
+      "type": "sofa",
+      "at": [
+        36,
+        26
+      ],
+      "room": null,
+      "entity": null,
+      "name": null,
+      "props": {
+        "w": 7,
+        "h": 3,
+        "rot": 0
+      }
+    },
+    {
+      "id": "second_tbl",
+      "kind": "furniture",
+      "type": "table",
+      "at": [
+        33,
+        9
+      ],
+      "room": null,
+      "entity": null,
+      "name": null,
+      "props": {
+        "w": 5,
+        "h": 3,
+        "rot": 0
+      }
+    }
+  ],
+  "schemaVersion": 1
+}

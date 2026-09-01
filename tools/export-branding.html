@@ -1,0 +1,348 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Floorplan Studio — branding export</title>
+<!--
+  Turns branding/*.svg into PNG at any size, in a browser, with no dependency
+  and nothing installed.
+
+  Why a browser and not a Node script: rasterising SVG properly means a path
+  rasteriser, bezier flattening, anti-aliasing, gradients, clip paths and text
+  shaping. Every browser already has all of that and is better at it than
+  anything worth writing here, and using it keeps `package.json` empty, which
+  `test/verify.js` enforces.
+
+  TWO WAYS TO OPEN IT
+
+  1. Over HTTP, and it loads the SVGs by itself:
+       node tools/serve-static.js       then open the URL it prints
+  2. By double-clicking this file. `fetch` cannot read a sibling file from a
+     file:// page, so it will ask you to pick the two SVGs instead. Everything
+     else works identically.
+
+  The previews below render each asset at the sizes it is actually used at.
+  Judging an icon at 512 is how you end up with one that is mud in a store card.
+-->
+<style>
+  :root {
+    --bg: #0e1626; --panel: #16203a; --line: #26314f;
+    --ink: #e8eefc; --muted: #93a3c4; --accent: #31a9f2; --accent2: #17c89a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 0 0 14px; color: var(--muted); font-weight: 600;
+       text-transform: uppercase; letter-spacing: .08em; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+          padding: 20px; margin-bottom: 20px; }
+  .row { display: flex; gap: 26px; align-items: flex-end; flex-wrap: wrap; }
+  .shot { text-align: center; }
+  .shot .cap { color: var(--muted); font-size: 12px; margin-top: 8px;
+               font-family: ui-monospace, Consolas, monospace; }
+  .stage { display: inline-flex; align-items: center; justify-content: center;
+           padding: 10px; border-radius: 10px; }
+  /* Transparent-background checkerboard, so alpha is visible rather than assumed. */
+  .bg-alpha { background-image:
+      linear-gradient(45deg, #2a3350 25%, transparent 25%),
+      linear-gradient(-45deg, #2a3350 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2a3350 75%),
+      linear-gradient(-45deg, transparent 75%, #2a3350 75%);
+    background-size: 14px 14px;
+    background-position: 0 0, 0 7px, 7px -7px, -7px 0; }
+  .bg-white { background: #ffffff; }
+  .bg-dark  { background: #111b26; }
+  .bg-ha    { background: #f5f5f5; }
+  label { color: var(--muted); font-size: 12px; display: block; margin-bottom: 5px; }
+  input, select, button {
+    font: inherit; color: var(--ink); background: #0e1930;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px;
+  }
+  input[type=number] { width: 92px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #05203a; font-weight: 700; }
+  button.primary:hover { filter: brightness(1.08); }
+  .controls { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .presets button { font-size: 13px; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .err { color: #ff9a9a; }
+  .ok { color: var(--accent2); }
+  code { font-family: ui-monospace, Consolas, monospace;
+         background: #0e1930; padding: 1px 5px; border-radius: 4px; }
+</style>
+
+<h1>Floorplan Studio — branding export</h1>
+<p class="sub">
+  <code>branding/*.svg</code> is the source. This turns it into PNG at whatever
+  size you ask for. Nothing here is installed, bundled, or shipped with the
+  app.
+</p>
+
+<div class="card" id="loader">
+  <h2>Source</h2>
+  <div id="loadState">Loading…</div>
+  <div id="pickers" style="display:none; margin-top:12px">
+    <div class="controls">
+      <div>
+        <label for="pickIcon">branding/icon.svg</label>
+        <input type="file" id="pickIcon" accept=".svg,image/svg+xml">
+      </div>
+      <div>
+        <label for="pickLogo">branding/logo.svg</label>
+        <input type="file" id="pickLogo" accept=".svg,image/svg+xml">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Background</h2>
+  <div class="controls">
+    <div>
+      <label for="bg">Preview and export background</label>
+      <select id="bg">
+        <option value="">Transparent (what ships)</option>
+        <option value="#ffffff">White</option>
+        <option value="#f5f5f5">Home Assistant light</option>
+        <option value="#111b26">Home Assistant dark</option>
+      </select>
+    </div>
+    <div class="note" style="margin:0">
+      Home Assistant renders these on a themed surface. Check the wordmark on
+      dark before you ship it.
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Icon — as actually rendered</h2>
+  <div class="row" id="iconPreviews"></div>
+  <div class="cap" style="color:#93a3c4;font-size:12px;margin:16px 0 8px">Same pixels, nearest-neighbour enlarged — the store card draws it far below native size</div>
+  <div class="row" id="iconZoom"></div>
+  <div class="presets" data-for="icon">
+    <button data-w="128" data-h="128">128 × 128 (HA recommended)</button>
+    <button data-w="256" data-h="256">256 × 256</button>
+    <button data-w="512" data-h="512">512 × 512</button>
+    <button data-w="1024" data-h="1024">1024 × 1024</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Logo — as actually rendered</h2>
+  <div class="row" id="logoPreviews"></div>
+  <div class="cap" style="color:#93a3c4;font-size:12px;margin:16px 0 8px">Same pixels, nearest-neighbour enlarged</div>
+  <div class="row" id="logoZoom"></div>
+  <div class="presets" data-for="logo">
+    <button data-w="250" data-h="100">250 × 100 (HA recommended)</button>
+    <button data-w="500" data-h="200">500 × 200</button>
+    <button data-w="1000" data-h="400">1000 × 400</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Export</h2>
+  <div class="controls">
+    <div>
+      <label for="which">Asset</label>
+      <select id="which">
+        <option value="icon">icon.svg → icon.png</option>
+        <option value="logo">logo.svg → logo.png</option>
+      </select>
+    </div>
+    <div><label for="w">Width</label><input type="number" id="w" value="512" min="8" max="8192"></div>
+    <div><label for="h">Height</label><input type="number" id="h" value="512" min="8" max="8192"></div>
+    <div><label>&nbsp;</label><button class="primary" id="go">Download PNG</button></div>
+    <div><label>&nbsp;</label><span id="result" class="note" style="margin:0"></span></div>
+  </div>
+  <p class="note">
+    The file downloads named <code>icon.png</code> / <code>logo.png</code>. Move
+    it to the repository root, replacing the one there, and run
+    <code>node test/verify.js</code> — the suite checks the icon is square and
+    at least 128, the logo is 2.5:1 and at least 250 wide, and that neither has
+    grown into a megabyte.
+  </p>
+</div>
+
+<script>
+'use strict';
+
+const SOURCES = { icon: null, logo: null };
+
+/* data: rather than blob: on purpose. A blob URL inherits the document's
+ * origin, and a file:// document's origin is opaque, which taints the canvas
+ * and makes toBlob throw. A data: URL never taints. */
+const toDataUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+function load(svg) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('the SVG could not be parsed as an image'));
+    img.src = toDataUrl(svg);
+  });
+}
+
+async function rasterize(svg, w, h, bg) {
+  const img = await load(svg);
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); }
+  /* Explicit destination size is what does the scaling: the SVG carries its own
+   * width/height, and without these it would draw at that intrinsic size. */
+  ctx.drawImage(img, 0, 0, w, h);
+  return c;
+}
+
+const bgSel = document.getElementById('bg');
+const bgClass = () => ({
+  '': 'bg-alpha', '#ffffff': 'bg-white', '#f5f5f5': 'bg-ha', '#111b26': 'bg-dark',
+}[bgSel.value] || 'bg-alpha');
+
+/* The preview sizes are the ones that matter in the wild: 48 is the Home
+ * Assistant sidebar, 128 the store listing, the rest are headroom. */
+const PREVIEW = {
+  icon: [[48, 48], [64, 64], [128, 128], [256, 256]],
+  logo: [[125, 50], [250, 100], [500, 200]],
+};
+
+/* Magnification factor for the second strip. A 48x48 cell on a hidpi screen is
+ * physically tiny and gets resampled by every screenshot and video call it
+ * passes through, so "does this work small" is genuinely hard to answer by
+ * looking at it small. Rendering AT 48 and then blowing the result up with
+ * nearest-neighbour answers it exactly: same pixels, bigger. */
+const zoomFor = (w) => Math.max(1, Math.round(220 / w));
+
+async function renderPreviews(which) {
+  const host = document.getElementById(which + 'Previews');
+  const zoomHost = document.getElementById(which + 'Zoom');
+  host.innerHTML = '';
+  zoomHost.innerHTML = '';
+  const svg = SOURCES[which];
+  if (!svg) return;
+  /* An SVG that will not parse says so where you are looking for it, rather
+   * than leaving an empty row you have to open devtools to explain. The usual
+   * cause is a `--` inside an XML comment, which is illegal and which every
+   * editor will happily let you type. */
+  try {
+    await load(svg);
+  } catch (e) {
+    host.innerHTML = '<span class="err">' + which + '.svg did not parse. '
+      + 'Open it directly in a browser tab for the line and column — a double '
+      + 'hyphen inside an XML comment is the usual cause.</span>';
+    return;
+  }
+  for (const [w, h] of PREVIEW[which]) {
+    const canvas = await rasterize(svg, w, h, bgSel.value);
+
+    /* Strip one: exactly the pixels, at exactly the size. */
+    host.appendChild(cell(canvas, w, w, h, w + '×' + h));
+
+    /* Strip two: the same canvas, nearest-neighbour enlarged. */
+    const zoom = zoomFor(w);
+    if (zoom > 1) {
+      const twin = canvas.cloneNode(true);
+      twin.getContext('2d').drawImage(canvas, 0, 0);
+      twin.style.imageRendering = 'pixelated';
+      zoomHost.appendChild(cell(twin, w * zoom, w, h, `${w}×${h} at ${zoom}×`));
+    }
+  }
+}
+
+function cell(canvas, displayW, w, h, caption) {
+  const box = document.createElement('div');
+  box.className = 'shot';
+  const stage = document.createElement('div');
+  stage.className = 'stage ' + bgClass();
+  canvas.style.width = displayW + 'px';
+  canvas.style.height = (displayW * h / w) + 'px';
+  stage.appendChild(canvas);
+  box.appendChild(stage);
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cap.textContent = caption;
+  box.appendChild(cap);
+  return box;
+}
+
+async function renderAll() {
+  await renderPreviews('icon');
+  await renderPreviews('logo');
+}
+
+bgSel.addEventListener('change', renderAll);
+
+for (const group of document.querySelectorAll('.presets')) {
+  group.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    document.getElementById('which').value = group.dataset.for;
+    document.getElementById('w').value = b.dataset.w;
+    document.getElementById('h').value = b.dataset.h;
+    document.getElementById('go').focus();
+  });
+}
+
+document.getElementById('go').addEventListener('click', async () => {
+  const which = document.getElementById('which').value;
+  const w = Math.round(Number(document.getElementById('w').value));
+  const h = Math.round(Number(document.getElementById('h').value));
+  const out = document.getElementById('result');
+  if (!SOURCES[which]) { out.className = 'note err'; out.textContent = 'no source loaded'; return; }
+  if (!(w > 0 && h > 0)) { out.className = 'note err'; out.textContent = 'width and height must be positive'; return; }
+  const canvas = await rasterize(SOURCES[which], w, h, bgSel.value);
+  canvas.toBlob((blob) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = which + '.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    out.className = 'note ok';
+    out.textContent = `${which}.png — ${w}×${h}, ${(blob.size / 1024).toFixed(1)} KB`;
+  }, 'image/png');
+});
+
+/* ---- getting the SVGs in ------------------------------------------------ */
+
+/* Reading the files and drawing them are reported separately on purpose. They
+ * fail for completely different reasons — "this page cannot see the disk" vs
+ * "this SVG is malformed" — and folding both into one catch produces the worst
+ * possible message: a file:// warning shown to someone who is on http and has a
+ * stray `--` inside an XML comment. */
+async function boot() {
+  const state = document.getElementById('loadState');
+  try {
+    const [icon, logo] = await Promise.all([
+      fetch('../branding/icon.svg').then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); }),
+      fetch('../branding/logo.svg').then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); }),
+    ]);
+    SOURCES.icon = icon;
+    SOURCES.logo = logo;
+    state.innerHTML = '<span class="ok">Loaded branding/icon.svg and branding/logo.svg.</span> '
+      + 'Edit either file and reload this page to see the change.';
+  } catch (e) {
+    /* Expected on file://: a page there cannot fetch its own siblings. */
+    state.innerHTML = '<span class="err">Could not read the SVGs directly</span> — '
+      + 'this page was opened from the filesystem, where a page is not allowed to '
+      + 'read files next to it. Pick them below, or serve the folder over HTTP '
+      + 'with <code>node tools/serve-static.js</code> and they load by themselves.';
+    document.getElementById('pickers').style.display = '';
+    return;
+  }
+  await renderAll();
+}
+
+for (const [id, key] of [['pickIcon', 'icon'], ['pickLogo', 'logo']]) {
+  document.getElementById(id).addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    SOURCES[key] = await f.text();
+    await renderAll();
+  });
+}
+
+boot();
+</script>

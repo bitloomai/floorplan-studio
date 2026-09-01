@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Card preview · Floorplan Studio</title>
+<!-- Ingress serves this under /api/hassio_ingress/<token>/, so every asset and
+     API call must be RELATIVE. No leading slashes anywhere in this file. -->
+<link rel="stylesheet" href="css/app.css">
+<style>
+  body { padding: 0; margin: 0; }
+  .pv-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panelBg); }
+  .pv-bar h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .pv-body { padding: 16px; max-width: 900px; margin: 0 auto; display: grid; gap: 16px; }
+  .pv-note { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .pv-err { color: #b3261e; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<!--
+  A harness for the generated dashboard card.
+
+  It loads exactly what `/api/dashboard/install` would install — the same bytes
+  from the same `/api/card.js` — and drives it with a stubbed `hass` built from
+  the app's own read-only state snapshot. So this page answers "does the card
+  work" without touching the live dashboard, and cannot answer it differently
+  from the real thing, because there is nothing different to answer with.
+
+  `callService` is stubbed to LOG rather than to call. The app has no service
+  access at all (see lib/ha.js), and a preview that could switch the house on
+  would be a surprising thing for a page called preview.
+-->
+
+<div class="pv-bar">
+  <h1>Card preview</h1>
+  <label class="inline">Floor
+    <select id="floorPick"></select>
+  </label>
+  <label class="inline"><input type="checkbox" id="liveStates" checked> Live states</label>
+  <span class="spacer" style="flex:1"></span>
+  <span id="pvStatus" class="pv-note"></span>
+  <a class="btn" href="index.html">← Editor</a>
+</div>
+
+<div class="pv-body">
+  <div id="pvHost"></div>
+  <p class="pv-note" id="pvLog"></p>
+  <pre class="pv-err" id="pvErr" hidden></pre>
+</div>
+
+<script>
+(async function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const log = [];
+  const say = (m) => { log.unshift(m); $('pvLog').textContent = log.slice(0, 6).join('  ·  '); };
+
+  function fail(e) {
+    $('pvErr').hidden = false;
+    $('pvErr').textContent = (e && e.stack) || String(e);
+  }
+
+  /* Everything the card needs to think it is inside Home Assistant. */
+  function makeHass(states) {
+    return {
+      states,
+      themes: {},
+      language: 'en',
+      callService(domain, service, data) {
+        say(`callService ${domain}.${service} ${JSON.stringify(data && data.entity_id)}`);
+        return Promise.resolve();
+      },
+    };
+  }
+
+  try {
+    const boot = await fetch('api/bootstrap').then((r) => r.json());
+    const floors = boot.project.floors || [];
+    $('floorPick').replaceChildren(...floors.map((f) => {
+      const o = document.createElement('option');
+      o.value = f.id; o.textContent = f.name || f.id;
+      return o;
+    }));
+
+    /* Load the generated bundle. It is an IIFE that defines one custom element,
+     * so it goes in as a plain script — not a module — and defining it twice
+     * would throw, which is why the page never reloads it. */
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'api/card.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('could not load api/card.js'));
+      document.head.appendChild(s);
+    });
+    $('pvStatus').textContent = 'card module loaded';
+
+    let card = null;
+    async function show() {
+      const floor = $('floorPick').value;
+      let states = {};
+      if ($('liveStates').checked) {
+        try { states = (await fetch('api/states').then((r) => r.json())).states || {}; }
+        catch (e) { say('no live states: ' + e.message); }
+      }
+      if (card) card.remove();
+      card = document.createElement('fps-floorplan-card');
+      card.setConfig({ type: 'custom:fps-floorplan-card', floor });
+      $('pvHost').replaceChildren(card);
+      card.hass = makeHass(states);
+      $('pvStatus').textContent = `${floor} · ${Object.keys(states).length} live entities`;
+    }
+
+    $('floorPick').addEventListener('change', show);
+    $('liveStates').addEventListener('change', show);
+    /* The card only repaints when a bound entity changes, so a preview that
+     * never re-polls looks frozen. Ten seconds is plenty to see a light land. */
+    setInterval(() => { if (card && $('liveStates').checked) show(); }, 10000);
+    await show();
+  } catch (e) {
+    fail(e);
+  }
+}());
+</script>
+</body>
+</html>

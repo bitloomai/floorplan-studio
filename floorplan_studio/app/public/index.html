@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Floorplan Studio</title>
+<!-- Ingress serves this under /api/hassio_ingress/<token>/, so every asset and
+     API call must be RELATIVE. No leading slashes anywhere in this file. -->
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12h-7v-6h-4v6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <input id="projectName" class="project-name" aria-label="Project name" spellcheck="false">
+  </div>
+
+  <nav class="floors" aria-label="Floors">
+    <select id="floorSelect" title="Switch floor"></select>
+    <button id="btnAddFloor" class="btn tiny" title="Add a floor">+</button>
+  </nav>
+
+  <div class="topbar-actions">
+    <span id="saveState" class="save-state" role="status">saved</span>
+    <label class="inline" title="Draw markers as their real Home Assistant state instead of the offline default look"><input type="checkbox" id="livePreview"> Live states</label>
+    <select id="themePick" aria-label="Editor theme" title="Editor theme"></select>
+    <button id="btnSun" class="btn" title="House location and daylight">☀ Sun</button>
+    <button id="btnLighting" class="btn" title="How lamps light the plan">◐ Light</button>
+    <button id="btnLogic" class="btn" title="Automations, scenes and helpers">⚡ Logic</button>
+    <button id="btnDashboard" class="btn" title="Generate the Home Assistant dashboard">▦ Dashboard…</button>
+    <button id="btnImport" class="btn" title="Load a sample project or convert older floor-plan specs">Import…</button>
+    <button id="btnExport" class="btn" title="Download this project's spec and SVG">Export…</button>
+    <button id="btnShortcuts" class="btn tiny" title="Keyboard shortcuts  (?)" aria-label="Keyboard shortcuts">?</button>
+    <button id="btnSave" class="btn primary" title="Save  (Ctrl/Cmd+S)">Save</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="rail" aria-label="Tools and library">
+    <div class="tools" id="tools" role="toolbar" aria-label="Drawing tools">
+      <!-- Drawn paths, not Unicode. ▭ ⬠ ⌷ ✥ were tofu boxes on any machine whose
+           font lacked those blocks — the same failure shapes.js documents for the
+           card's device glyphs, and the same fix. They also let Room and Opening
+           be the PLAN symbols for those things (walls with a door gap, a leaf and
+           its swing) rather than a bare rectangle and a mystery box.
+           `currentColor` throughout, so the pressed state recolours them. -->
+      <button class="tool" data-tool="select"   title="Select / move  (V)"><span><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2.2 L4 14.2 L7.3 11.1 L9.4 15.5 L11.5 14.5 L9.4 10.3 L13.6 10.3 Z" fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"/></svg></span>Select</button>
+      <!-- Room is walls with a DOORWAY GAP, not walls with a swing: at 19px a thin
+           arc inside a box turns to mush and reads as a curl. The gap alone says
+           "room you can walk into", and it leaves the swing symbol meaning one
+           thing only — the Opening tool, right below it. -->
+      <button class="tool" data-tool="rect"     title="Draw a rectangular room  (R)"><span><svg viewBox="0 0 18 18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2.7 14.3 V3.7 H15.3 V14.3"/><path d="M2.7 14.3 H6.9 M11.1 14.3 H15.3"/></g></svg></span>Room</button>
+      <button class="tool" data-tool="poly"     title="Draw a room outline point by point  (P)"><span><svg viewBox="0 0 18 18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M3.4 14.6 V7.2 H8.8 V3.4 H14.6 V14.6 Z"/></g><g fill="currentColor"><circle cx="3.4" cy="14.6" r="1.8"/><circle cx="8.8" cy="3.4" r="1.8"/><circle cx="14.6" cy="14.6" r="1.8"/></g></svg></span>Shape</button>
+      <!-- The plan symbol for a door: wall, gap, hinged leaf, and the arc it
+           sweeps. Bolder wall than leaf than arc, so the three read apart. -->
+      <button class="tool" data-tool="aperture" title="Place a door, window or opening on a wall  (A)"><span><svg viewBox="0 0 18 18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M1.5 13.4 H6.1 M12.5 13.4 H16.5" stroke-width="2.6"/><path d="M6.1 13.4 V5.6" stroke-width="1.8"/><path d="M6.1 5.6 A7.8 7.8 0 0 1 13.9 13.4" stroke-width="1"/></g></svg></span>Opening</button>
+      <button class="tool" data-tool="pan"      title="Pan the canvas  (space / middle-drag)"><span><svg viewBox="0 0 18 18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.4 V15.6 M2.4 9 H15.6"/><path d="M6.9 4.5 L9 2.4 L11.1 4.5 M6.9 13.5 L9 15.6 L11.1 13.5 M4.5 6.9 L2.4 9 L4.5 11.1 M13.5 6.9 L15.6 9 L13.5 11.1"/></g></svg></span>Pan</button>
+    </div>
+
+    <!-- Which opening the Opening tool drops. Doors were always the default;
+         the picker is here because "how do I add a door" had no visible answer. -->
+    <div class="tool-opts" id="openingOpts" hidden>
+      <label class="inline">Place
+        <select id="openingType" aria-label="Opening type to place"></select>
+      </label>
+      <p class="hint">Click near a wall — an opening has to sit on one. Bind a contact sensor afterwards to make a door live.</p>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-head">
+        <h2>Device library</h2>
+        <button id="btnEditLibrary" class="link" title="Edit how these draw">edit</button>
+      </div>
+      <input id="libSearch" class="search" type="search" placeholder="Search library…" aria-label="Search device library">
+      <div id="libraryList" class="library"></div>
+      <p class="hint" id="placeHint">Pick a type, then click the plan to place it.</p>
+    </div>
+  </aside>
+
+  <section class="canvas-wrap" id="canvasWrap">
+    <div class="canvas-scroll" id="canvasScroll">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="statusbar">
+      <span id="coordReadout" class="mono">—</span>
+      <span id="roomReadout"></span>
+      <span class="spacer"></span>
+      <label class="inline" title="Drawing and dragging lock to the grid below"><input type="checkbox" id="snapToggle" checked> Snap</label>
+      <label class="inline" title="Snap spacing">Grid
+        <select id="gridSize">
+          <option value="0.25">3"</option>
+          <option value="0.5" selected>6"</option>
+          <option value="1">1'</option>
+          <option value="2">2'</option>
+        </select>
+      </label>
+      <label class="inline" title="Show the grid lines"><input type="checkbox" id="gridToggle" checked> Show grid</label>
+      <span class="sunbox" id="sunBox" hidden>
+        <label class="inline">Time
+          <input type="range" id="timeSlider" min="0" max="1439" step="5" value="720" aria-label="Time of day" title="Preview daylight at any hour">
+        </label>
+        <span id="timeLabel" class="mono">12:00</span>
+        <button id="timeNow" class="btn tiny" title="Jump back to the current time">Now</button>
+        <span id="sunReadout" class="mono"></span>
+      </span>
+      <span class="zoombox">
+        <button id="zoomOut" class="btn tiny" aria-label="Zoom out" title="Zoom out">−</button>
+        <span id="zoomLabel" class="mono">100%</span>
+        <button id="zoomIn" class="btn tiny" aria-label="Zoom in" title="Zoom in  (Ctrl/Cmd + scroll)">+</button>
+        <button id="zoomFit" class="btn tiny" title="Fit the whole floor in view">Fit</button>
+      </span>
+    </div>
+  </section>
+
+  <aside class="inspector" id="inspector" aria-label="Properties"></aside>
+</main>
+
+<!-- dialogs -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <header><h2 id="modalTitle"></h2><button id="modalClose" class="btn tiny" aria-label="Close">✕</button></header>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<!-- Shared with the server: these are served straight out of app/lib/, not
+     copied here, so the editor and the exporter cannot drift apart. -->
+<script src="js/shapes.js"></script>
+<script src="js/flooring.js"></script>
+<script src="js/sun.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/lighting.js"></script>
+<script src="js/plan-scene.js"></script>
+<script src="js/api.js"></script>
+<script src="js/store.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/panels-extra.js"></script>
+<script src="js/panels-dashboard.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

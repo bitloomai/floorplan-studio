@@ -1,0 +1,614 @@
+{
+  "id": "ground",
+  "name": "Ground",
+  "level_ft": 0,
+  "icon": "mdi:home-floor-g",
+  "extent": {
+    "w": 44,
+    "h": 30
+  },
+  "grid": {
+    "size": 0.5,
+    "snap": true
+  },
+  "sun": null,
+  "popup": null,
+  "boundaries": [],
+  "rooms": [
+    {
+      "id": "ground_a",
+      "name": "Room A",
+      "shape": "rect",
+      "rect": [
+        0,
+        0,
+        22,
+        15
+      ],
+      "points": null,
+      "flooring": "wood",
+      "boost": null,
+      "dnd": null,
+      "master": "light.demo_ground_a1",
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    },
+    {
+      "id": "ground_b",
+      "name": "Room B",
+      "shape": "rect",
+      "rect": [
+        22,
+        0,
+        22,
+        15
+      ],
+      "points": null,
+      "flooring": "tile",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    },
+    {
+      "id": "ground_c",
+      "name": "Room C",
+      "shape": "rect",
+      "rect": [
+        0,
+        15,
+        18,
+        15
+      ],
+      "points": null,
+      "flooring": "carpet",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": [
+        {
+          "id": "dnd",
+          "label": "Do not disturb",
+          "entity": "input_boolean.demo_ground_dnd",
+          "slot": "header"
+        },
+        {
+          "id": "reading",
+          "label": "Reading",
+          "entity": "scene.demo_ground_reading"
+        },
+        {
+          "id": "presence",
+          "label": "Presence",
+          "entity": "automation.demo_ground_presence"
+        }
+      ]
+    },
+    {
+      "id": "ground_d",
+      "name": "Room D",
+      "shape": "poly",
+      "rect": null,
+      "points": [
+        [
+          18,
+          15
+        ],
+        [
+          44,
+          15
+        ],
+        [
+          44,
+          30
+        ],
+        [
+          30,
+          30
+        ],
+        [
+          30,
+          22
+        ],
+        [
+          18,
+          22
+        ]
+      ],
+      "flooring": "tile",
+      "boost": null,
+      "dnd": null,
+      "master": null,
+      "ganged": false,
+      "outdoor": false,
+      "noLabel": false,
+      "chip_at": null,
+      "chip_rotate": 0,
+      "part_of": null,
+      "controls": null,
+      "keys": null,
+      "shortcuts": []
+    }
+  ],
+  "openings": [
+    {
+      "id": "ground_w1",
+      "type": "window",
+      "room": "ground_a",
+      "wall": "n",
+      "at": 6,
+      "w": 6,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    },
+    {
+      "id": "ground_w2",
+      "type": "window",
+      "room": "ground_b",
+      "wall": "n",
+      "at": 8,
+      "w": 6,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    },
+    {
+      "id": "ground_w3",
+      "type": "window",
+      "room": "ground_c",
+      "wall": "w",
+      "at": 6,
+      "w": 5,
+      "h": 4,
+      "sill": 2.5,
+      "curtain": 0.25,
+      "transmission": 0.85
+    },
+    {
+      "id": "ground_d1",
+      "type": "door",
+      "room": "ground_a",
+      "wall": "e",
+      "at": 10,
+      "w": 3,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    },
+    {
+      "id": "ground_d2",
+      "type": "door",
+      "room": "ground_c",
+      "wall": "n",
+      "at": 6,
+      "w": 3,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    },
+    {
+      "id": "ground_v1",
+      "type": "grill_vent",
+      "room": "ground_b",
+      "wall": "e",
+      "at": 8,
+      "w": 2,
+      "h": 4,
+      "sill": 0,
+      "curtain": 0,
+      "transmission": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "ground_l1",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        4,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_ground_a1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l2",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        11,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_ground_a1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l3",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        18,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_ground_a1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l4",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        4,
+        11
+      ],
+      "room": null,
+      "entity": "light.demo_ground_a2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l5",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        11,
+        11
+      ],
+      "room": null,
+      "entity": "light.demo_ground_a2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l6",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        18,
+        11
+      ],
+      "room": null,
+      "entity": "light.demo_ground_a2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_t1",
+      "kind": "fixture",
+      "type": "tube",
+      "at": [
+        28,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_ground_b1",
+      "name": null,
+      "props": {
+        "len": 4,
+        "rot": 0
+      }
+    },
+    {
+      "id": "ground_t2",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        38,
+        4
+      ],
+      "room": null,
+      "entity": "light.demo_ground_b2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l7",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        6,
+        20
+      ],
+      "room": null,
+      "entity": "light.demo_ground_c1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l9",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        13,
+        20
+      ],
+      "room": null,
+      "entity": "light.demo_ground_c2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l8",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        36,
+        20
+      ],
+      "room": null,
+      "entity": "light.demo_ground_d1",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_l10",
+      "kind": "fixture",
+      "type": "spot",
+      "at": [
+        40,
+        26
+      ],
+      "room": null,
+      "entity": "light.demo_ground_d2",
+      "name": null,
+      "props": {
+        "watt": 9
+      }
+    },
+    {
+      "id": "ground_sc",
+      "kind": "logic",
+      "type": "scene",
+      "at": [
+        16,
+        13
+      ],
+      "room": null,
+      "entity": "scene.demo_ground_evening",
+      "name": null,
+      "props": {}
+    },
+    {
+      "id": "ground_au",
+      "kind": "logic",
+      "type": "automation",
+      "at": [
+        19,
+        13
+      ],
+      "room": null,
+      "entity": "automation.demo_ground_dusk",
+      "name": null,
+      "props": {}
+    },
+    {
+      "id": "ground_tg",
+      "kind": "logic",
+      "type": "toggle",
+      "at": [
+        16,
+        17
+      ],
+      "room": null,
+      "entity": "input_boolean.demo_ground_guest",
+      "name": null,
+      "props": {}
+    },
+    {
+      "id": "ground_fan",
+      "kind": "device",
+      "type": "fan",
+      "at": [
+        11,
+        7.5
+      ],
+      "room": null,
+      "entity": "fan.demo_ground_ceiling",
+      "name": null,
+      "props": {
+        "blades": 3,
+        "sweep": 4.5
+      }
+    },
+    {
+      "id": "ground_ac",
+      "kind": "device",
+      "type": "ac",
+      "at": [
+        33,
+        1
+      ],
+      "room": null,
+      "entity": "climate.demo_ground_ac",
+      "name": null,
+      "props": {
+        "rot": 180
+      }
+    },
+    {
+      "id": "ground_cam",
+      "kind": "device",
+      "type": "camera",
+      "at": [
+        42,
+        2
+      ],
+      "room": null,
+      "entity": "camera.demo_ground_hall",
+      "name": null,
+      "props": {
+        "rot": 225,
+        "fov": 90,
+        "range": 18
+      }
+    },
+    {
+      "id": "ground_pir",
+      "kind": "device",
+      "type": "pir",
+      "at": [
+        9,
+        16
+      ],
+      "room": null,
+      "entity": "binary_sensor.demo_ground_motion",
+      "name": null,
+      "props": {
+        "rot": 180,
+        "fov": 110,
+        "range": 14
+      }
+    },
+    {
+      "id": "ground_sw",
+      "kind": "device",
+      "type": "wall_switch",
+      "at": [
+        21,
+        14
+      ],
+      "room": null,
+      "entity": "switch.demo_ground_plate",
+      "name": null,
+      "props": {
+        "gangs": 3,
+        "variant": "rocker",
+        "channels": [
+          {
+            "entity": "light.demo_ground_a1",
+            "label": "Gang 1"
+          },
+          {
+            "entity": "light.demo_ground_b1",
+            "label": "Gang 2"
+          },
+          {
+            "entity": "light.demo_ground_c1",
+            "label": "Gang 3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ground_plug",
+      "kind": "device",
+      "type": "plug",
+      "at": [
+        23,
+        14
+      ],
+      "room": null,
+      "entity": "switch.demo_ground_plug",
+      "name": null,
+      "props": {
+        "watt": 2300
+      }
+    },
+    {
+      "id": "ground_bed",
+      "kind": "furniture",
+      "type": "bed",
+      "at": [
+        9,
+        25
+      ],
+      "room": null,
+      "entity": null,
+      "name": null,
+      "props": {
+        "w": 6,
+        "h": 6.5,
+        "rot": 0
+      }
+    },
+    {
+      "id": "ground_sofa",
+      "kind": "furniture",
+      "type": "sofa",
+      "at": [
+        36,
+        26
+      ],
+      "room": null,
+      "entity": null,
+      "name": null,
+      "props": {
+        "w": 7,
+        "h": 3,
+        "rot": 0
+      }
+    },
+    {
+      "id": "ground_tbl",
+      "kind": "furniture",
+      "type": "table",
+      "at": [
+        33,
+        9
+      ],
+      "room": null,
+      "entity": null,
+      "name": null,
+      "props": {
+        "w": 5,
+        "h": 3,
+        "rot": 0
+      }
+    }
+  ],
+  "schemaVersion": 1
+}

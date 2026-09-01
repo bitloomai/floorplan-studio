@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 2,
+  "id": "demo-house",
+  "name": "Demo House",
+  "units": "ft",
+  "ppf": 22,
+  "origin": [34, 34],
+  "activeTheme": "frosted",
+  "compass": {
+    "up": "N",
+    "right": "E",
+    "down": "S",
+    "left": "W"
+  },
+  "sun": {
+    "enabled": false,
+    "location": null,
+    "weather": { "entity": null },
+    "solarSensor": { "entity": null, "peakW": null }
+  },
+  "dashboard": {
+    "title": "Demo House",
+    "urlPath": "floorplan-studio-demo"
+  },
+  "floors": [
+    {
+      "id": "ground",
+      "name": "Ground Floor",
+      "level_ft": 0,
+      "icon": "mdi:home-floor-g",
+      "extent": { "w": 30, "h": 22 },
+      "grid": { "size": 0.5, "snap": true },
+      "sun": null,
+      "popup": null,
+      "boundaries": [],
+      "rooms": [
+        {
+          "id": "living",
+          "name": "Living Room",
+          "shape": "rect",
+          "rect": [0, 0, 18, 12],
+          "points": null,
+          "flooring": "wood",
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "shortcuts": []
+        },
+        {
+          "id": "kitchen",
+          "name": "Kitchen",
+          "shape": "rect",
+          "rect": [18, 0, 12, 12],
+          "points": null,
+          "flooring": "tile",
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "shortcuts": []
+        },
+        {
+          "id": "bedroom",
+          "name": "Bedroom",
+          "shape": "rect",
+          "rect": [0, 12, 18, 10],
+          "points": null,
+          "flooring": "wood",
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "shortcuts": []
+        },
+        {
+          "id": "patio",
+          "name": "Patio",
+          "shape": "rect",
+          "rect": [18, 12, 12, 10],
+          "points": null,
+          "flooring": "deck",
+          "master": null,
+          "ganged": false,
+          "outdoor": true,
+          "noLabel": false,
+          "shortcuts": []
+        }
+      ],
+      "openings": [
+        {
+          "id": "front-door",
+          "type": "door",
+          "room": "living",
+          "wall": "w",
+          "at": 4,
+          "w": 3,
+          "h": 7,
+          "swing": "in",
+          "transmission": 0.15
+        },
+        {
+          "id": "living-window",
+          "type": "window",
+          "room": "living",
+          "wall": "n",
+          "at": 6,
+          "w": 6,
+          "h": 4,
+          "sill": 2.5,
+          "transmission": 0.85
+        },
+        {
+          "id": "patio-door",
+          "type": "sliding",
+          "room": "patio",
+          "wall": "e",
+          "at": 3,
+          "w": 6,
+          "h": 7,
+          "transmission": 0.75
+        }
+      ],
+      "items": [
+        {
+          "id": "living-light",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [9, 6],
+          "room": "living",
+          "entity": "light.demo_living",
+          "name": "Living light",
+          "props": {}
+        },
+        {
+          "id": "kitchen-light",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [24, 6],
+          "room": "kitchen",
+          "entity": "light.demo_kitchen",
+          "name": "Kitchen light",
+          "props": {}
+        },
+        {
+          "id": "demo-sofa",
+          "kind": "furniture",
+          "type": "sofa",
+          "at": [4, 4],
+          "room": "living",
+          "entity": null,
+          "name": "Sofa",
+          "props": { "w": 7, "h": 3, "rot": 0, "seats": 3 }
+        },
+        {
+          "id": "demo-bed",
+          "kind": "furniture",
+          "type": "bed",
+          "at": [5, 15],
+          "room": "bedroom",
+          "entity": null,
+          "name": "Bed",
+          "props": { "w": 6, "h": 6.5, "rot": 0, "faces": "n" }
+        },
+        {
+          "id": "demo-camera",
+          "kind": "device",
+          "type": "camera",
+          "at": [27, 19],
+          "room": "patio",
+          "entity": "camera.demo_patio",
+          "name": "Patio camera",
+          "props": { "rot": 225, "fov": 70, "range": 18 }
+        },
+        {
+          "id": "demo-temperature",
+          "kind": "device",
+          "type": "temp_sensor",
+          "at": [21, 3],
+          "room": "kitchen",
+          "entity": "sensor.demo_temperature",
+          "name": "Kitchen temperature",
+          "props": {}
+        }
+      ]
+    }
+  ],
+  "savedAt": null
+}

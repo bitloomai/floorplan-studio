@@ -1,0 +1,18 @@
+Floorplan Studio
+Copyright 2026 Karthik Babu
+
+This product is licensed under the Apache License, Version 2.0.
+A copy of the License is distributed alongside this file as LICENSE,
+and is also available at http://www.apache.org/licenses/LICENSE-2.0
+
+Floorplan Studio bundles no third-party source code. It runs on the
+Node.js standard library only and has no package dependencies. The
+container image it ships in carries an unmodified Node.js runtime and
+Debian base, each of which retains its own upstream licence and
+copyright files inside the image. See THIRD_PARTY_NOTICES.md for the
+full inventory.
+
+Floorplan Studio is an independent project. It is not affiliated with,
+endorsed by, or sponsored by the Home Assistant project or Open Home
+Foundation. "Home Assistant" is a trademark of the Open Home Foundation
+and is used here only to describe interoperability.

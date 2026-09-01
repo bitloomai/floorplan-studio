@@ -1,0 +1,19 @@
+# The build context is this add-on folder, not the repository. Everything that
+# used to be listed here — web/, test/, tools/, fixtures/, branding/ — now lives
+# beside the add-on rather than inside it, so it was never in the context to
+# begin with and listing it only implied otherwise.
+
+# Runtime state. The dev server writes a real house's plan here; Home Assistant
+# mounts /data separately in production. It must never be baked into the image,
+# and .gitignore keeps it out of the repository for the same reason.
+app/data
+
+# Documentation is read on GitHub and in the Home Assistant UI, not by the
+# running process. SKILL.md is the exception: the MCP server serves that exact
+# working guide from the image, so excluding it makes Dockerfile COPY fail.
+*.md
+
+# ...except the MCP guide and the notices, which the image is obliged to carry.
+# LICENSE and NOTICE have no extension and were never matched by `*.md` above.
+!SKILL.md
+!THIRD_PARTY_NOTICES.md

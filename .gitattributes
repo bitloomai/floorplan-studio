@@ -1,0 +1,9 @@
+# The add-on runs on Linux and its image is built from these bytes. Checking
+# them out with CRLF on a Windows dev machine and committing them back would
+# ship them that way, so normalise to LF in the repository regardless of who
+# is editing.
+* text=auto eol=lf
+
+# Never touch binaries.
+*.png binary
+*.pem binary

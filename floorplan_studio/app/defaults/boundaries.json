@@ -1,0 +1,771 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Boundary treatments — what sits on a room edge. A wall, a glass railing, a grill and an open edge differ in exactly three ways: how they DRAW, how much light they pass (transmission 0..1), and whether they read as enclosure. Making that one registry means 'change this balcony edge to glass railing' is a dropdown, and the daylight model picks it up for free because it only ever reads `transmission`.",
+  "defaults": {
+    "exterior": "wall_exterior",
+    "interior": "wall_partition"
+  },
+  "types": {
+    "wall_exterior": {
+      "label": "Exterior wall",
+      "group": "Solid",
+      "transmission": 0,
+      "encloses": true,
+      "thicknessFt": 0.75,
+      "render": {
+        "style": "solid",
+        "widthPx": 5,
+        "color": "@wallThick",
+        "fill": "@wallThick"
+      }
+    },
+    "wall_partition": {
+      "label": "Partition wall",
+      "group": "Solid",
+      "transmission": 0,
+      "encloses": true,
+      "thicknessFt": 0.35,
+      "render": {
+        "style": "solid",
+        "widthPx": 1.6,
+        "color": "@wallThin",
+        "fill": "@wallThin"
+      }
+    },
+    "wall_load": {
+      "label": "Load-bearing wall",
+      "group": "Solid",
+      "transmission": 0,
+      "encloses": true,
+      "thicknessFt": 0.9,
+      "render": {
+        "style": "solid",
+        "widthPx": 6.5,
+        "color": "@wallThick",
+        "fill": "@wallThick"
+      }
+    },
+    "wall_half": {
+      "label": "Half wall / parapet",
+      "group": "Solid",
+      "transmission": 0.55,
+      "encloses": true,
+      "thicknessFt": 0.5,
+      "heightFt": 3,
+      "render": {
+        "style": "double",
+        "widthPx": 3.2,
+        "gapPx": 2.2,
+        "color": "@wallThin",
+        "fill": "@wallThin"
+      }
+    },
+    "wall_planter": {
+      "label": "Planter wall",
+      "group": "Solid",
+      "transmission": 0.35,
+      "encloses": true,
+      "thicknessFt": 1.2,
+      "heightFt": 2.5,
+      "render": {
+        "style": "scallop",
+        "widthPx": 3,
+        "color": "@floorOutdoor",
+        "accent": "@wallThin"
+      }
+    },
+    "glass_railing": {
+      "label": "Glass railing (frameless)",
+      "group": "Railings",
+      "transmission": 0.85,
+      "encloses": true,
+      "thicknessFt": 0.2,
+      "heightFt": 3.5,
+      "render": {
+        "style": "glass",
+        "widthPx": 3,
+        "color": "@apertureGlass",
+        "postEveryFt": 4
+      }
+    },
+    "glass_full": {
+      "label": "Full-height glazing",
+      "group": "Transparent",
+      "transmission": 0.9,
+      "encloses": true,
+      "thicknessFt": 0.25,
+      "render": {
+        "style": "glass",
+        "widthPx": 4,
+        "color": "@apertureGlass",
+        "postEveryFt": 6
+      }
+    },
+    "grill": {
+      "label": "Grill / bars",
+      "group": "Transparent",
+      "transmission": 0.75,
+      "encloses": true,
+      "thicknessFt": 0.2,
+      "heightFt": 4,
+      "render": {
+        "style": "bars",
+        "widthPx": 2,
+        "color": "@wallThin",
+        "pitchFt": 0.45
+      }
+    },
+    "louvre": {
+      "label": "Louvre / jaali",
+      "group": "Transparent",
+      "transmission": 0.45,
+      "encloses": true,
+      "thicknessFt": 0.35,
+      "render": {
+        "style": "hatchAngle",
+        "widthPx": 2.4,
+        "color": "@wallThin",
+        "pitchFt": 0.4,
+        "angleDeg": 35
+      }
+    },
+    "metal_railing": {
+      "label": "Metal railing (vertical rods)",
+      "group": "Railings",
+      "transmission": 0.8,
+      "encloses": true,
+      "thicknessFt": 0.15,
+      "heightFt": 3.5,
+      "render": {
+        "style": "bars",
+        "widthPx": 1.6,
+        "color": "@wallThin",
+        "pitchFt": 0.4,
+        "rail": true
+      }
+    },
+    "railing_glass_framed": {
+      "label": "Glass railing (framed)",
+      "group": "Railings",
+      "transmission": 0.78,
+      "encloses": true,
+      "thicknessFt": 0.3,
+      "heightFt": 3.5,
+      "render": {
+        "style": "glass",
+        "widthPx": 3.4,
+        "color": "@apertureGlass",
+        "postEveryFt": 2
+      }
+    },
+    "railing_cable": {
+      "label": "Cable railing (stainless)",
+      "group": "Railings",
+      "transmission": 0.9,
+      "encloses": true,
+      "thicknessFt": 0.12,
+      "heightFt": 3.5,
+      "render": {
+        "style": "bars",
+        "widthPx": 1.4,
+        "color": "@wallThin",
+        "pitchFt": 3,
+        "rail": true
+      }
+    },
+    "railing_grill": {
+      "label": "Wrought iron / MS grill",
+      "group": "Railings",
+      "transmission": 0.6,
+      "encloses": true,
+      "thicknessFt": 0.2,
+      "heightFt": 3.5,
+      "render": {
+        "style": "hatchAngle",
+        "widthPx": 2,
+        "color": "@wallThin",
+        "pitchFt": 0.25,
+        "angleDeg": 60
+      }
+    },
+    "railing_wood": {
+      "label": "Timber balustrade",
+      "group": "Railings",
+      "transmission": 0.45,
+      "encloses": true,
+      "thicknessFt": 0.25,
+      "heightFt": 3.5,
+      "render": {
+        "style": "bars",
+        "widthPx": 2.4,
+        "color": "@furnLine",
+        "pitchFt": 0.6,
+        "rail": true
+      }
+    },
+    "railing_balustrade": {
+      "label": "Stone / concrete balustrade",
+      "group": "Railings",
+      "transmission": 0.4,
+      "encloses": true,
+      "thicknessFt": 0.6,
+      "heightFt": 3,
+      "render": {
+        "style": "balusters",
+        "widthPx": 3,
+        "color": "@wallThin",
+        "pitchFt": 0.65,
+        "radiusPx": 2.4
+      }
+    },
+    "parapet_glass": {
+      "label": "Parapet with glass above",
+      "group": "Railings",
+      "transmission": 0.62,
+      "encloses": true,
+      "thicknessFt": 0.5,
+      "heightFt": 3.5,
+      "render": {
+        "style": "double",
+        "widthPx": 2.6,
+        "gapPx": 3.4,
+        "color": "@wallThin",
+        "fill": "@wallThin",
+        "fillOpacity": 0.45
+      }
+    },
+    "mesh": {
+      "label": "Mesh / netting",
+      "group": "Transparent",
+      "transmission": 0.7,
+      "encloses": true,
+      "thicknessFt": 0.1,
+      "render": {
+        "style": "dotted",
+        "widthPx": 1.4,
+        "color": "@wallThin",
+        "dash": "2 2"
+      }
+    },
+    "open_edge": {
+      "label": "Open (no barrier)",
+      "group": "Open",
+      "transmission": 1,
+      "encloses": false,
+      "thicknessFt": 0,
+      "render": {
+        "style": "none"
+      }
+    },
+    "threshold": {
+      "label": "Threshold / cased opening",
+      "group": "Open",
+      "transmission": 1,
+      "encloses": false,
+      "thicknessFt": 0,
+      "render": {
+        "style": "dashed",
+        "widthPx": 1.2,
+        "color": "@wallThin",
+        "dash": "5 4"
+      }
+    },
+    "stepdown": {
+      "label": "Step / level change",
+      "group": "Open",
+      "transmission": 1,
+      "encloses": false,
+      "thicknessFt": 0,
+      "render": {
+        "style": "double",
+        "widthPx": 1.2,
+        "gapPx": 3,
+        "color": "@wallThin"
+      }
+    },
+    "void_edge": {
+      "label": "Void / double height",
+      "group": "Open",
+      "transmission": 1,
+      "encloses": false,
+      "thicknessFt": 0,
+      "render": {
+        "style": "dashed",
+        "widthPx": 1.6,
+        "color": "@wallThin",
+        "dash": "8 4"
+      }
+    },
+    "fence": {
+      "label": "Fence",
+      "group": "Outdoor",
+      "transmission": 0.55,
+      "encloses": true,
+      "thicknessFt": 0.2,
+      "heightFt": 5,
+      "render": {
+        "style": "bars",
+        "widthPx": 2,
+        "color": "@furnLine",
+        "pitchFt": 0.6
+      }
+    },
+    "hedge": {
+      "label": "Hedge",
+      "group": "Outdoor",
+      "transmission": 0.2,
+      "encloses": true,
+      "thicknessFt": 1.5,
+      "heightFt": 5,
+      "render": {
+        "style": "scallop",
+        "widthPx": 4,
+        "color": "@floorOutdoor",
+        "accent": "@furnLine"
+      }
+    },
+    "compound_wall": {
+      "label": "Compound wall",
+      "group": "Outdoor",
+      "transmission": 0,
+      "encloses": true,
+      "thicknessFt": 0.75,
+      "heightFt": 6,
+      "render": {
+        "style": "solid",
+        "widthPx": 4.5,
+        "color": "@wallThick",
+        "fill": "@wallThick"
+      }
+    },
+    "gate": {
+      "label": "Gate",
+      "group": "Outdoor",
+      "transmission": 0.6,
+      "encloses": true,
+      "thicknessFt": 0.2,
+      "render": {
+        "style": "bars",
+        "widthPx": 2.4,
+        "color": "@furnLine",
+        "pitchFt": 0.5,
+        "rail": true
+      }
+    },
+    "glass_tinted": {
+      "label": "Tinted glass",
+      "group": "Transparent",
+      "transmission": 0.45,
+      "tint": "#7fb3c8",
+      "encloses": true,
+      "thicknessFt": 0.25,
+      "render": {
+        "style": "glass",
+        "widthPx": 4,
+        "color": "@apertureGlass",
+        "fill": "#7fb3c855",
+        "postEveryFt": 6
+      }
+    },
+    "glass_frosted": {
+      "label": "Frosted / obscured glass",
+      "group": "Transparent",
+      "transmission": 0.6,
+      "tint": "#dfe7ec",
+      "encloses": true,
+      "thicknessFt": 0.25,
+      "render": {
+        "style": "glass",
+        "widthPx": 4,
+        "color": "@apertureGlass",
+        "fill": "#dfe7ec66",
+        "postEveryFt": 6
+      }
+    },
+    "glass_partition": {
+      "label": "Glass partition (interior)",
+      "group": "Transparent",
+      "transmission": 0.92,
+      "encloses": true,
+      "thicknessFt": 0.15,
+      "render": {
+        "style": "glass",
+        "widthPx": 2.4,
+        "color": "@apertureGlass",
+        "fill": "#cfe3ee33",
+        "postEveryFt": 8
+      }
+    },
+    "curtain_wall": {
+      "label": "Curtain wall / structural glazing",
+      "group": "Transparent",
+      "transmission": 0.8,
+      "tint": "#9fc4d6",
+      "encloses": true,
+      "thicknessFt": 0.4,
+      "render": {
+        "style": "double",
+        "widthPx": 2,
+        "gapPx": 4,
+        "color": "@apertureGlass",
+        "fill": "#9fc4d644"
+      }
+    },
+    "polycarbonate": {
+      "label": "Polycarbonate sheet",
+      "group": "Transparent",
+      "transmission": 0.65,
+      "tint": "#e8e4c8",
+      "encloses": true,
+      "thicknessFt": 0.15,
+      "render": {
+        "style": "dashed",
+        "widthPx": 2.6,
+        "color": "@wallThin",
+        "dash": "10 3",
+        "fill": "#e8e4c855"
+      }
+    },
+    "jali": {
+      "label": "Jali / perforated screen",
+      "group": "Transparent",
+      "transmission": 0.5,
+      "encloses": true,
+      "thicknessFt": 0.5,
+      "heightFt": 8,
+      "render": {
+        "style": "scallop",
+        "widthPx": 2,
+        "color": "@wallThin",
+        "fill": "@wallThin"
+      }
+    }
+  },
+  "_openings_comment": "Openings are cut INTO a boundary. Each carries its own transmission, which multiplies the boundary's: a curtained window in a glass wall is 0.9 × 0.25. `defaultOpen` matters for doors — an unsensored door, or one whose sensor is dead, draws open, because claiming a door is shut when nothing knows is worse than the reverse.",
+  "openingTypes": {
+    "door": {
+      "label": "Door",
+      "transmission": 0.15,
+      "defaultOpen": true,
+      "render": {
+        "style": "swing"
+      },
+      "props": {
+        "w": 2.75,
+        "h": 6.75,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 1,
+        "covering": null
+      }
+    },
+    "door_double": {
+      "label": "Double door",
+      "transmission": 0.15,
+      "defaultOpen": true,
+      "render": {
+        "style": "swing"
+      },
+      "props": {
+        "w": 5.5,
+        "h": 6.75,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 2,
+        "covering": null
+      }
+    },
+    "door_sliding": {
+      "label": "Sliding door",
+      "transmission": 0.5,
+      "defaultOpen": true,
+      "render": {
+        "style": "slide"
+      },
+      "props": {
+        "w": 5,
+        "h": 6.75,
+        "slideTo": "start",
+        "covering": null
+      }
+    },
+    "door_pocket": {
+      "label": "Pocket door",
+      "transmission": 0.1,
+      "defaultOpen": true,
+      "render": {
+        "style": "pocket"
+      },
+      "props": {
+        "w": 2.75,
+        "h": 6.75,
+        "slideTo": "start",
+        "covering": null
+      }
+    },
+    "door_folding": {
+      "label": "Bi-fold / folding",
+      "transmission": 0.4,
+      "defaultOpen": true,
+      "render": {
+        "style": "fold"
+      },
+      "props": {
+        "w": 6,
+        "h": 6.75,
+        "leaves": 4,
+        "covering": null
+      }
+    },
+    "window": {
+      "label": "Window",
+      "transmission": 0.85,
+      "defaultOpen": false,
+      "render": {
+        "style": "glazed"
+      },
+      "props": {
+        "w": 3,
+        "h": 4,
+        "sill": 2.5,
+        "curtain": 1,
+        "covering": null
+      }
+    },
+    "window_fixed": {
+      "label": "Fixed glazing",
+      "transmission": 0.9,
+      "defaultOpen": false,
+      "render": {
+        "style": "glazed"
+      },
+      "props": {
+        "w": 4,
+        "h": 4,
+        "sill": 2.5,
+        "curtain": 1,
+        "fixed": true,
+        "covering": null
+      }
+    },
+    "window_bay": {
+      "label": "Bay window",
+      "transmission": 0.85,
+      "defaultOpen": false,
+      "render": {
+        "style": "bay"
+      },
+      "props": {
+        "w": 6,
+        "h": 4.5,
+        "sill": 1.5,
+        "projectFt": 1.5,
+        "covering": null
+      }
+    },
+    "clerestory": {
+      "label": "Clerestory",
+      "transmission": 0.8,
+      "defaultOpen": false,
+      "render": {
+        "style": "glazed"
+      },
+      "props": {
+        "w": 6,
+        "h": 1.5,
+        "sill": 7,
+        "covering": null
+      }
+    },
+    "skylight": {
+      "label": "Skylight",
+      "transmission": 0.9,
+      "defaultOpen": false,
+      "render": {
+        "style": "glazed"
+      },
+      "props": {
+        "w": 4,
+        "h": 4,
+        "overhead": true,
+        "covering": null
+      }
+    },
+    "opening": {
+      "label": "Cased opening",
+      "transmission": 1,
+      "defaultOpen": true,
+      "render": {
+        "style": "cased"
+      },
+      "props": {
+        "w": 5,
+        "h": 7,
+        "covering": null
+      }
+    },
+    "arch": {
+      "label": "Arch",
+      "transmission": 1,
+      "defaultOpen": true,
+      "render": {
+        "style": "arch"
+      },
+      "props": {
+        "w": 5,
+        "h": 7.5,
+        "covering": null
+      }
+    },
+    "grill_vent": {
+      "label": "Vent / grill",
+      "transmission": 0.6,
+      "defaultOpen": false,
+      "render": {
+        "style": "bars"
+      },
+      "props": {
+        "w": 3,
+        "h": 2,
+        "sill": 5,
+        "covering": null
+      }
+    }
+  },
+  "_coverings_comment": "What hangs in front of an opening. `open` and `closed` are the light that gets through at each extreme; the opening's own `covering.position` (0 closed .. 100 open, Home Assistant's own scale for a cover) picks a point between them. Bind `covering.entity` to a cover entity and the position follows it live — `current_position` when the cover reports one, otherwise its open/closed state. Adding one is a JSON entry: nothing in the renderer knows the word \"blind\".",
+  "coverings": {
+    "none": {
+      "label": "None",
+      "group": "Bare",
+      "open": 1,
+      "closed": 1,
+      "render": "none"
+    },
+    "mesh": {
+      "label": "Insect mesh",
+      "group": "Fixed",
+      "open": 0.92,
+      "closed": 0.92,
+      "render": "mesh"
+    },
+    "film": {
+      "label": "Solar film",
+      "group": "Fixed",
+      "open": 0.62,
+      "closed": 0.62,
+      "render": "none"
+    },
+    "frosted": {
+      "label": "Frosted glazing",
+      "group": "Fixed",
+      "open": 0.7,
+      "closed": 0.7,
+      "render": "none"
+    },
+    "sheer": {
+      "label": "Sheer curtain",
+      "group": "Curtains",
+      "open": 1,
+      "closed": 0.55,
+      "render": "drape"
+    },
+    "drape": {
+      "label": "Curtain / drape",
+      "group": "Curtains",
+      "open": 1,
+      "closed": 0.12,
+      "render": "drape"
+    },
+    "blackout": {
+      "label": "Blackout curtain",
+      "group": "Curtains",
+      "open": 1,
+      "closed": 0.02,
+      "render": "drape"
+    },
+    "day_night": {
+      "label": "Day/night curtain pair",
+      "group": "Curtains",
+      "open": 1,
+      "closed": 0.3,
+      "render": "drape"
+    },
+    "roller": {
+      "label": "Roller blind",
+      "group": "Blinds",
+      "open": 1,
+      "closed": 0.08,
+      "render": "roller"
+    },
+    "roman": {
+      "label": "Roman blind",
+      "group": "Blinds",
+      "open": 1,
+      "closed": 0.1,
+      "render": "roller"
+    },
+    "honeycomb": {
+      "label": "Honeycomb blind",
+      "group": "Blinds",
+      "open": 1,
+      "closed": 0.06,
+      "render": "roller"
+    },
+    "venetian": {
+      "label": "Venetian blind",
+      "group": "Blinds",
+      "open": 1,
+      "closed": 0.18,
+      "render": "slats"
+    },
+    "vertical": {
+      "label": "Vertical blind",
+      "group": "Blinds",
+      "open": 1,
+      "closed": 0.16,
+      "render": "slats"
+    },
+    "bamboo": {
+      "label": "Bamboo / reed blind",
+      "group": "Blinds",
+      "open": 1,
+      "closed": 0.22,
+      "render": "slats"
+    },
+    "shutter": {
+      "label": "Plantation shutter",
+      "group": "Shutters",
+      "open": 1,
+      "closed": 0.06,
+      "render": "slats"
+    },
+    "rolling_shutter": {
+      "label": "Rolling shutter",
+      "group": "Shutters",
+      "open": 1,
+      "closed": 0,
+      "render": "roller"
+    },
+    "louvre_panel": {
+      "label": "Louvred panel",
+      "group": "Shutters",
+      "open": 1,
+      "closed": 0.2,
+      "render": "slats"
+    },
+    "awning": {
+      "label": "Awning",
+      "group": "Outside",
+      "open": 1,
+      "closed": 0.35,
+      "render": "awning"
+    },
+    "pergola_slat": {
+      "label": "Adjustable pergola slats",
+      "group": "Outside",
+      "open": 1,
+      "closed": 0.1,
+      "render": "slats"
+    }
+  }
+}

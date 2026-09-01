@@ -1,0 +1,47 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Controls how much diagnostic information Floorplan Studio writes to the app log.
+  entity_refresh_seconds:
+    name: Entity refresh interval
+    description: Seconds to cache the Home Assistant entity catalogue and state snapshot before refreshing it.
+  mcp_enabled:
+    name: Enable the MCP endpoint
+    description: >-
+      Serves /mcp so an AI client can drive the editor. Callers must present a
+      valid Home Assistant token, which the app checks against Home Assistant
+      itself. Turn this off and /mcp answers 404 with nothing to connect to. The
+      editor in the sidebar is unaffected either way.
+  mcp_allow_dashboard_install:
+    name: Let MCP clients install dashboards
+    description: >-
+      Off by default. An AI connected over MCP can always draw and edit the plan;
+      only with this on can it also write a Lovelace dashboard to Home Assistant.
+      While it is off, the install_dashboard tool is not even listed to the
+      client. Has no effect when the MCP endpoint is disabled.
+  ssl_cert:
+    name: SSL certificate
+    description: >-
+      Certificate filename in Home Assistant's shared ssl folder, or an absolute
+      path. Set together with the SSL key to also serve MCP over HTTPS; leave both
+      empty to keep MCP on plain HTTP only. Worth setting before forwarding the
+      MCP port through a router, so your Home Assistant token never crosses the
+      internet in cleartext.
+  ssl_key:
+    name: SSL key
+    description: >-
+      Private key filename in Home Assistant's shared ssl folder, or an absolute
+      path. Only used when an SSL certificate is set as well.
+  mcp_ssl_port:
+    name: MCP HTTPS port
+    description: >-
+      Port inside the container for the HTTPS MCP listener. Only listened on once
+      both the SSL certificate and key are set. Nothing but /mcp is served there.
+
+network:
+  8099/tcp: >-
+    Floorplan Studio's MCP endpoint (/mcp) for AI clients, plain HTTP. The editor
+    itself is reached through the Home Assistant sidebar (Ingress), not this port.
+  8443/tcp: >-
+    The same MCP endpoint over HTTPS — only active once ssl_cert and ssl_key are
+    both set. Nothing else is served on this port.

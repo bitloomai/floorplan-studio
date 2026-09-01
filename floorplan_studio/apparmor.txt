@@ -1,0 +1,181 @@
+#include <tunables/global>
+
+# Floorplan Studio — AppArmor profile.
+#
+# The profile name must be the app slug from config.yaml. Home Assistant
+# Supervisor picks this file up by filename alone; there is nothing to declare
+# in config.yaml.
+#
+# ## Why this looks nothing like the template in the Home Assistant docs
+#
+# That template grants `file,` — every path on the filesystem — and then spends
+# most of its length on s6-overlay, bashio, /bin/**, /usr/bin/** and a shell.
+# None of that exists here. This app's image is
+# `gcr.io/distroless/nodejs24-debian13`: its ENTRYPOINT is `/nodejs/bin/node`,
+# there is no shell, no package manager, no init scripts and no busybox, and
+# the app has no npm dependencies. So the profile can name every file the
+# process is allowed to touch instead of granting the filesystem, and the
+# absence of `file,` is the point of the exercise.
+#
+# ## Reading the rules
+#
+# The whole runtime surface is five directories:
+#
+#   /nodejs   the interpreter                      execute, read, mmap
+#   /app      this app's own code and assets    read
+#   /fixtures the shipped sample project           read
+#   /SKILL.md the MCP working guide                read
+#   /data     the Supervisor's per-app volume   read/write  (the only one)
+#   /ssl      Home Assistant's shared certs        read        (mapped `ssl:ro`)
+#
+# There is no `capability` rule anywhere below, which denies all of them. The
+# server binds 8099 and 8443 — both above 1024 — so it never needs
+# CAP_NET_BIND_SERVICE, and nothing here changes uid, mounts, or loads modules.
+#
+# ## THIS PROFILE HAS NOT BEEN RUN ON HOME ASSISTANT OS
+#
+# It is derived from the image's own contents and the app's source, not from
+# audit logs on real hardware, which is what the Home Assistant documentation
+# asks for. A too-tight profile stops the app from starting. Before treating
+# it as verified, follow "Verifying the AppArmor profile" in DOCS.md: load it in
+# complain mode, exercise the editor, dashboard generate, MCP and the optional
+# TLS listener, then read `dmesg | grep apparmor` for ALLOWED lines and fold any
+# genuine ones in here.
+
+profile floorplan_studio flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # ---- process control -----------------------------------------------------
+  #
+  # `init: true` in config.yaml puts Docker's init (tini) at PID 1 to forward
+  # signals and reap children; it execs node and then does nothing else.
+  signal (receive) set=(kill,term,int,hup,cont),
+  signal (send) set=(term,int,cont) peer=floorplan_studio,
+
+  /sbin/docker-init ix,
+  /dev/init ix,
+
+  # ---- the interpreter -----------------------------------------------------
+  #
+  # `m` is not optional: V8 maps its own JIT pages, and node will not start
+  # without permission to mmap its executable.
+  /nodejs/bin/node rmix,
+  /nodejs/LICENSE r,
+
+  # ---- this app ---------------------------------------------------------
+  #
+  # Read-only, deliberately. Nothing in the design writes to its own code: the
+  # registries are seeded from /app/defaults into /data on first run and are
+  # user-owned in /data thereafter, so an app update can never find a
+  # modified file here. If a write to /app is ever denied at runtime, that is a
+  # bug in the app, not a missing rule.
+  /app/ r,
+  /app/** r,
+  /package.json r,
+  /LICENSE r,
+  /NOTICE r,
+  /THIRD_PARTY_NOTICES.md r,
+
+  # The MCP working guide, served by the get_guide tool.
+  /SKILL.md r,
+
+  # The shipped sample project (FPS_FIXTURES_DIR), read by /api/fixtures.
+  /fixtures/ r,
+  /fixtures/** r,
+
+  # ---- the only writable place --------------------------------------------
+  #
+  # /data is the Supervisor's per-app volume: options.json, the project and
+  # the five registries, plus backups/. Writes are tmp-file-plus-rename, so the
+  # directory itself needs w, not just the files. `k` is file locking.
+  /data/ rw,
+  /data/** rwk,
+
+  # ---- Home Assistant's shared certificates --------------------------------
+  #
+  # Mapped `ssl:ro` in config.yaml, and only opened at all when the ssl_cert and
+  # ssl_key options are both set, to serve MCP over TLS. Read-only here as well
+  # as in the mount, so the two agree.
+  /ssl/ r,
+  /ssl/** r,
+
+  # ---- network -------------------------------------------------------------
+  #
+  # Listens on 8099 (Ingress + /mcp) and optionally 8443 (MCP over TLS), and
+  # connects out to http://supervisor/core/api and the Home Assistant WebSocket.
+  # Stream sockets only: no raw, packet or netlink.
+  network inet stream,
+  network inet6 stream,
+  network unix stream,
+
+  # Name resolution for the `supervisor` hostname. Spelled out rather than
+  # pulled in via abstractions/nameservice, so the profile does not depend on
+  # which abstraction files the host happens to ship.
+  /etc/nsswitch.conf r,
+  /etc/host.conf r,
+  /etc/hosts r,
+  /etc/resolv.conf r,
+  /etc/gai.conf r,
+  /etc/services r,
+  /etc/passwd r,
+  /etc/group r,
+  /run/systemd/resolve/stub-resolv.conf r,
+
+  # TLS trust store. SSL_CERT_FILE is set to this path by the base image.
+  /etc/ssl/certs/ r,
+  /etc/ssl/certs/** r,
+  /etc/ssl/openssl.cnf r,
+  /usr/lib/ssl/** r,
+
+  # ---- what node reads about the box it is on ------------------------------
+  #
+  # Heap sizing from the cgroup memory limit, thread-pool sizing from the cpu
+  # count, and the usual /proc/self introspection. All read-only.
+  @{PROC}/ r,
+  @{PROC}/@{pid}/** r,
+  @{PROC}/sys/vm/overcommit_memory r,
+  @{PROC}/sys/kernel/random/uuid r,
+  @{PROC}/sys/kernel/pid_max r,
+  @{PROC}/cpuinfo r,
+  @{PROC}/meminfo r,
+  @{PROC}/stat r,
+  @{PROC}/uptime r,
+  @{PROC}/loadavg r,
+  @{PROC}/version r,
+  /sys/fs/cgroup/** r,
+  /sys/devices/system/cpu/ r,
+  /sys/devices/system/cpu/** r,
+  /sys/kernel/mm/transparent_hugepage/** r,
+
+  /dev/null rw,
+  /dev/zero rw,
+  /dev/full rw,
+  /dev/random r,
+  /dev/urandom r,
+  /dev/tty rw,
+
+  # ---- explicit denials ----------------------------------------------------
+  #
+  # None of these are granted above, so these lines add no enforcement. They are
+  # here because a `deny` in AppArmor cannot be overridden by a later allow, so
+  # they pin the app's promises against a careless future widening of the
+  # rules: no writes outside /data, no Home Assistant configuration directory,
+  # no /share, no host secrets, and no shell.
+  deny /config/** wl,
+  deny /share/** rwklx,
+  deny /addons/** rwklx,
+  deny /backup/** rwklx,
+  deny /media/** rwklx,
+  deny /ssl/** wl,
+  deny /app/** wl,
+  deny /fixtures/** wl,
+  deny /root/** rwklx,
+  deny /home/** rwklx,
+  deny /etc/shadow rwklx,
+  deny /bin/** x,
+  deny /usr/bin/** x,
+  deny /usr/local/bin/** x,
+  deny mount,
+  deny umount,
+  deny ptrace,
+}

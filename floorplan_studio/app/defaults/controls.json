@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Room control surfaces. A DESIGN says what the surface looks like and where it sits; SECTIONS say what goes in it; a section's FILTER says which of the room's entities qualify. A card can populate every device in a room and let configuration narrow it — that is what `source: \"all\"` plus a filter is for. Three layers merge (house -> floor -> room), sections by id, so one room overriding one row inherits everything else.",
+
+  "designs": {
+    "sheet": {
+      "label": "Bottom sheet",
+      "description": "Slides up from the bottom over the plan. The default: reachable one-handed on a phone, and it never covers the room you just tapped.",
+      "surface": "sheet",
+      "anchor": "bottom",
+      "size": { "width": "min(560px, 94vw)", "maxHeight": "70vh" },
+      "columns": 3,
+      "density": "comfortable",
+      "animation": "slide-up",
+      "backdrop": true,
+      "grabBar": true
+    },
+    "rail": {
+      "label": "Side rail",
+      "description": "A drawer down one edge. Good on a tablet in landscape, where a bottom sheet wastes the short axis.",
+      "surface": "drawer",
+      "anchor": "right",
+      "size": { "width": "340px", "maxHeight": "100%" },
+      "columns": 2,
+      "density": "comfortable",
+      "animation": "slide-in",
+      "backdrop": false,
+      "grabBar": false
+    },
+    "dock": {
+      "label": "Docked panel",
+      "description": "Sits BESIDE the plan rather than over it, so the plan stays visible and stays interactive. On a wide screen this is the one that uses the empty space either side of a square floor plan.",
+      "surface": "inline",
+      "anchor": "side",
+      "size": { "width": "320px" },
+      "columns": 2,
+      "density": "comfortable",
+      "animation": "none",
+      "backdrop": false,
+      "grabBar": false,
+      "persistent": true
+    },
+    "popover": {
+      "label": "Popover at the room",
+      "description": "A small card anchored to the room you tapped. Least disruptive, but only fits a handful of controls — pair it with a tight filter.",
+      "surface": "popover",
+      "anchor": "room",
+      "size": { "width": "300px", "maxHeight": "50vh" },
+      "columns": 2,
+      "density": "compact",
+      "animation": "fade",
+      "backdrop": true,
+      "grabBar": false
+    },
+    "bar": {
+      "label": "Compact bar",
+      "description": "A single strip across the bottom. Room name, a few group buttons, nothing else. For rooms where you only ever hit All on / All off.",
+      "surface": "bar",
+      "anchor": "bottom",
+      "size": { "width": "100%", "height": "62px" },
+      "columns": 0,
+      "density": "compact",
+      "animation": "slide-up",
+      "backdrop": false,
+      "grabBar": false,
+      "inlineSections": true
+    },
+    "grid": {
+      "label": "Tile grid",
+      "description": "Everything in the room as equal tiles, no section headings. Reads like a dashboard page rather than a control sheet — best with `source: \"all\"`.",
+      "surface": "modal",
+      "anchor": "center",
+      "size": { "width": "min(880px, 94vw)", "maxHeight": "82vh" },
+      "columns": 4,
+      "density": "comfortable",
+      "animation": "fade",
+      "backdrop": true,
+      "grabBar": false,
+      "tiles": true,
+      "flattenSections": true
+    },
+    "fullscreen": {
+      "label": "Full screen",
+      "description": "Takes the whole viewport. For a room with a lot in it, or for a wall-mounted tablet where the plan is not the point once you have chosen a room.",
+      "surface": "modal",
+      "anchor": "center",
+      "size": { "width": "100vw", "maxHeight": "100vh" },
+      "columns": 5,
+      "density": "comfortable",
+      "animation": "fade",
+      "backdrop": false,
+      "grabBar": false
+    }
+  },
+
+  "_shortcuts_comment": "SHORTCUTS are the user's own actions, and the builder has no vocabulary of its own for them. A shortcut is a label plus something to do: an entity to toggle, a scene to activate, a script to run with variables, or a service call written out. What it MEANS — do-not-disturb, turbo, movie night, holiday mode — is the label, and belongs to the house, not to this file. They live on `project.shortcuts`, `floor.shortcuts` and `room.shortcuts` and accumulate across the three, so a house shortcut appears in every room and a room's appears in one. `slot: \"header\"` puts one in the panel's button row; anything else lands in the section named by `section` (default `shortcuts`). Nothing here is created in Home Assistant: a shortcut only ever references an entity or service that already exists.",
+  "shortcutSchema": {
+    "id": "unique within its layer; used to override or hide an inherited shortcut from a nearer one",
+    "label": "what the button says",
+    "entity": "the entity it acts on. Alone, its domain decides what a tap does — see domainActions below",
+    "service": "domain.service to call instead of the domain default, e.g. script.turn_on",
+    "data": "extra service data, e.g. {\"speed\": 3} for a script that takes variables",
+    "state": "the entity that decides whether the button looks lit; defaults to `entity`",
+    "slot": "header | section   (default: section)",
+    "section": "which section it lands in when slot is section (default: shortcuts)",
+    "confirm": "true to ask before running it",
+    "enabled": "false to hide one inherited from a further layer",
+    "order": "sort position within its row"
+  },
+
+  "_domainActions_comment": "What a tap DOES, and which widget an entity gets, BY DOMAIN — Home Assistant's vocabulary, not any one house's. This is the registry that replaces a switch statement in every backend: the card, the editor preview and the marker tap all ask the same question here. `control` picks the widget (toggle | button | number | select | text | readout); `tap` is the primary service; `alt` is what a hold offers where a hold means something other than more-info; `set` is how a value widget writes back. `onRule` answers “is this on”, the same question the library asks of a marker — `on` (the default), `notOff`, `numeric`, or `momentary` for a scene or a button that has no on-state at all. Where a domain's off-states are simply a list of words (`closed`, `locked`, `idle`), say so with `offStates` instead; it beats `onRule` and needs no new rule name.",
+  "domainActions": {
+    "default": { "control": "toggle", "tap": "toggle", "onRule": "on" },
+    "byDomain": {
+      "light":          { "control": "toggle", "tap": "toggle" },
+      "switch":         { "control": "toggle", "tap": "toggle" },
+      "fan":            { "control": "toggle", "tap": "toggle" },
+      "siren":          { "control": "toggle", "tap": "toggle" },
+      "humidifier":     { "control": "toggle", "tap": "toggle" },
+      "valve":          { "control": "toggle", "tap": "toggle" },
+      "climate":        { "control": "toggle", "tap": "toggle", "onRule": "notOff" },
+      "media_player":   { "control": "toggle", "tap": { "service": "media_player.media_play_pause" }, "offStates": ["off", "idle", "standby"] },
+      "cover":          { "control": "toggle", "tap": "toggle", "offStates": ["closed", "closing"] },
+      "lock":           { "control": "toggle", "tap": { "service": "lock.unlock" }, "alt": { "service": "lock.lock" }, "altLabel": "Lock", "offStates": ["locked", "locking"] },
+      "vacuum":         { "control": "toggle", "tap": "toggle", "offStates": ["off", "idle", "docked"] },
+      "camera":         { "control": "button", "onRule": "notOff", "verb": "View", "_comment": "A camera is not a switch. With no entry here it fell through to the default toggle, so tapping one called camera.toggle. It names no `tap` service on purpose: the runtime falls back to more-info when a domain declares none, and more-info on a camera IS the live stream." },
+
+      "scene":          { "control": "button", "tap": { "service": "scene.turn_on" }, "onRule": "momentary", "verb": "Activate" },
+      "script":         { "control": "button", "tap": { "service": "script.turn_on" }, "alt": { "service": "script.turn_off" }, "verb": "Run" },
+      "automation":     { "control": "toggle", "tap": "toggle", "alt": { "service": "automation.trigger" }, "altLabel": "Run now" },
+
+      "input_boolean":  { "control": "toggle", "tap": "toggle" },
+      "input_button":   { "control": "button", "tap": { "service": "input_button.press" }, "onRule": "momentary", "verb": "Press" },
+      "button":         { "control": "button", "tap": { "service": "button.press" }, "onRule": "momentary", "verb": "Press" },
+      "input_number":   { "control": "number", "onRule": "numeric", "set": { "service": "input_number.set_value", "field": "value" }, "range": { "min": "min", "max": "max", "step": "step" } },
+      "number":         { "control": "number", "onRule": "numeric", "set": { "service": "number.set_value", "field": "value" }, "range": { "min": "min", "max": "max", "step": "step" } },
+      "input_select":   { "control": "select", "onRule": "never", "set": { "service": "input_select.select_option", "field": "option" }, "optionsFrom": "options" },
+      "select":         { "control": "select", "onRule": "never", "set": { "service": "select.select_option", "field": "option" }, "optionsFrom": "options" },
+      "input_text":     { "control": "text", "onRule": "never", "set": { "service": "input_text.set_value", "field": "value" } },
+      "text":           { "control": "text", "onRule": "never", "set": { "service": "text.set_value", "field": "value" } },
+      "counter":        { "control": "button", "tap": { "service": "counter.increment" }, "alt": { "service": "counter.reset" }, "altLabel": "Reset", "onRule": "numeric", "verb": "Count" },
+      "timer":          { "control": "button", "tap": { "service": "timer.start" }, "alt": { "service": "timer.cancel" }, "altLabel": "Cancel", "offStates": ["idle"], "verb": "Start" },
+      "input_datetime": { "control": "readout", "onRule": "never" },
+      "schedule":       { "control": "readout" },
+      "sensor":         { "control": "readout", "onRule": "numeric" },
+      "binary_sensor":  { "control": "readout" },
+      "person":         { "control": "readout", "onRule": "never" },
+      "device_tracker": { "control": "readout", "onRule": "never" }
+    }
+  },
+
+  "_filter_comment": "Every key is optional and they AND together. Omit the lot and the section shows whatever its source produced. `include` is applied after everything else and always wins, so one stubborn entity can be forced back in without loosening the whole filter.",
+  "filterSchema": {
+    "domains": "array of entity domains to keep, e.g. [\"light\",\"switch\"]",
+    "excludeDomains": "array of domains to drop",
+    "kinds": "array of marker kinds to keep: fixture | device | furniture",
+    "types": "array of library type ids to keep, e.g. [\"spot\",\"tube\"]",
+    "excludeTypes": "array of library type ids to drop",
+    "deviceClasses": "array of device_class values to keep",
+    "shortcuts": "array of shortcut ids to keep — only ever matches candidates that came from the shortcuts source",
+    "match": "text matched against entity id and friendly name. May be an ARRAY — any one matching keeps the candidate. The token \"@room\" expands to the room's own match keys (room.keys, else its id and name), which is how one shipped section serves every room.",
+    "matchMode": "contains | word | regex   (default: contains). In `word` mode a needle ending in `_` is a plain prefix test, because requiring a boundary after \"gr_\" would demand a second underscore right where the entity id's next word starts.",
+    "entityPattern": "regex the entity id must match, e.g. \"^script\\\\.my_home_\" to scope a namespace",
+    "excludePattern": "regex on the entity id that drops it, e.g. \"^scene\\\\.internal_\" for automation-internal scenes nobody should tap",
+    "exclude": "array of entity ids to drop outright",
+    "include": "array of entity ids to force in, applied last",
+    "hideUnavailable": "drop entities with no state, or unavailable/unknown",
+    "onlyControllable": "drop types the library marks readOnly",
+    "sort": "name | entity | type | none   (default: name)",
+    "limit": "keep at most N after sorting; 0 = no limit"
+  },
+
+  "default": {
+    "enabled": true,
+    "design": "sheet",
+    "openOn": { "chipTap": true, "floorTap": true, "chipHold": "allOn", "markerHold": "moreInfo" },
+    "dismiss": { "close": true, "backdrop": true, "escape": true, "grabBar": true, "retap": true },
+    "header": {
+      "show": true,
+      "showCount": true,
+      "countFormat": "{on} of {total} on",
+      "buttons": [
+        { "id": "all_on", "label": "All on", "action": "allOn", "enabled": true },
+        { "id": "all_off", "label": "All off", "action": "allOff", "enabled": true },
+        { "id": "details", "label": "Details", "action": "moreInfo", "target": "master", "enabled": true },
+        { "id": "close", "label": "Close", "action": "close", "enabled": true }
+      ],
+      "_buttons_note": "Four built-ins, and that is all the framework has an opinion about. Everything else in this row is a SHORTCUT the house defined — a do-not-disturb boolean, a turbo switch, a goodnight scene — placed here with `slot: \"header\"`. They are appended in order after these, or wherever `order` puts them."
+    },
+    "sections": [
+      {
+        "id": "brightness", "type": "brightness", "label": "Brightness", "enabled": true,
+        "filter": { "domains": ["light"] },
+        "_note": "Drives every dimmable light the filter keeps."
+      },
+      {
+        "id": "groups", "type": "groups", "label": "Groups", "enabled": true,
+        "groupBy": "type",
+        "_note": "One button per fixture type present. groupBy 'group' honours a fixture's own `group` override, which is how a marker drawn as a spot can be kept out of the room's Spots button."
+      },
+      {
+        "id": "lights", "type": "entities", "label": "Lights", "enabled": true,
+        "source": "lights", "swatch": true, "shortLabels": true,
+        "filter": { "sort": "name" }
+      },
+      {
+        "id": "devices", "type": "entities", "label": "Devices", "enabled": true,
+        "source": "devices", "swatch": false, "shortLabels": true,
+        "filter": { "onlyControllable": true, "sort": "name" }
+      },
+      {
+        "id": "sensors", "type": "entities", "label": "Sensors", "enabled": false,
+        "source": "devices", "readOnly": true,
+        "filter": { "kinds": ["device"], "domains": ["sensor", "binary_sensor"], "sort": "name" },
+        "_note": "Off by default — most rooms do not need their motion sensor as a button. Turn it on for a room where the readings matter."
+      },
+      {
+        "id": "scenes", "type": "entities", "label": "Scenes", "enabled": true,
+        "sources": [
+          { "source": "shortcuts", "filter": { "domains": ["scene", "script"] } },
+          { "source": "catalogue", "filter": { "domains": ["scene"], "match": "@room", "matchMode": "word" } }
+        ],
+        "filter": { "sort": "name" },
+        "_note": "Two ways in, on purpose. A scene the house made a SHORTCUT of is named and always shows. A scene MATCHED from the catalogue costs no configuration at all and picks up the ones you add later — matched with word boundaries, because 'informal' literally contains 'formal' and that crossed two rooms' scenes in the hand-written version. Give a room `keys: [\"guest_room\", \"gr_\"]` when its entities are named after something other than the room's own id.",
+        "_extending": "Scripts are deliberately NOT keyword-matched here: a bare `script.` would drag in every unrelated script with a room word in its name. Scope them to your own namespace by adding a third source — {\"source\":\"catalogue\",\"filter\":{\"domains\":[\"script\"],\"entityPattern\":\"^script\\\\.my_home_\",\"match\":\"@room\",\"matchMode\":\"word\"}} — and drop automation-internal scenes with an `excludePattern` such as \"^scene\\\\.internal_\"."
+      },
+      {
+        "id": "automations", "type": "entities", "label": "Automations", "enabled": false,
+        "sources": [
+          { "source": "shortcuts", "filter": { "domains": ["automation"] } },
+          { "source": "catalogue", "filter": { "domains": ["automation"], "match": "@room", "matchMode": "word" } }
+        ],
+        "filter": { "sort": "name" },
+        "_note": "Off by default: an automation is something you occasionally disable, not something you reach for daily. Tapping one enables or disables it; holding runs it."
+      },
+      {
+        "id": "shortcuts", "type": "entities", "label": "Shortcuts", "enabled": true,
+        "sources": [
+          { "source": "shortcuts", "filter": { "excludeDomains": ["scene", "script", "automation"] } },
+          { "source": "all", "filter": { "kinds": ["logic"] } }
+        ],
+        "filter": { "sort": "none" },
+        "_note": "Where a shortcut lands unless it named another section or asked for the header — plus any logic marker standing in the room. The two rows above skim the scenes and automations off this one, so a house that puts everything in `shortcuts` still gets them sorted; a house that wants one undivided row turns those two off. Sorted by the order they were written, because the person who wrote them chose it."
+      },
+      {
+        "id": "climate", "type": "entities", "label": "Climate", "enabled": false,
+        "source": "all",
+        "filter": { "domains": ["climate", "fan", "humidifier"], "sort": "name" }
+      },
+      {
+        "id": "covers", "type": "entities", "label": "Covers", "enabled": false,
+        "source": "all",
+        "filter": { "domains": ["cover"], "sort": "name" }
+      },
+      {
+        "id": "everything", "type": "entities", "label": "Everything here", "enabled": false,
+        "source": "all",
+        "filter": { "hideUnavailable": true, "sort": "type" },
+        "_note": "Populates every entity bound to anything in this room. This is the 'show it all and let the filter narrow it' section — set a filter rather than hand-listing."
+      },
+      {
+        "id": "extras", "type": "entities", "label": "More", "enabled": false,
+        "source": "explicit", "entities": [],
+        "_note": "Hand-picked entities with no marker on the plan — an AC's Eco/Turbo switch, a room's humidifier."
+      }
+    ]
+  },
+
+  "presets": {
+    "full": { "_label": "Everything (sheet)" },
+    "lights_only": {
+      "_label": "Lights only",
+      "sections": [
+        { "id": "brightness", "enabled": true }, { "id": "groups", "enabled": true },
+        { "id": "lights", "enabled": true }, { "id": "devices", "enabled": false },
+        { "id": "sensors", "enabled": false }, { "id": "scenes", "enabled": false },
+        { "id": "automations", "enabled": false }, { "id": "shortcuts", "enabled": false },
+        { "id": "climate", "enabled": false }, { "id": "covers", "enabled": false },
+        { "id": "everything", "enabled": false }, { "id": "extras", "enabled": false }
+      ]
+    },
+    "compact": {
+      "_label": "Compact bar",
+      "design": "bar",
+      "header": { "showCount": false, "buttons": [
+        { "id": "all_on", "enabled": true }, { "id": "all_off", "enabled": true },
+        { "id": "details", "enabled": false }, { "id": "close", "enabled": true }
+      ] },
+      "sections": [
+        { "id": "brightness", "enabled": false }, { "id": "groups", "enabled": true },
+        { "id": "lights", "enabled": false }, { "id": "devices", "enabled": false },
+        { "id": "sensors", "enabled": false }, { "id": "scenes", "enabled": false },
+        { "id": "automations", "enabled": false }, { "id": "shortcuts", "enabled": false },
+        { "id": "climate", "enabled": false }, { "id": "covers", "enabled": false },
+        { "id": "everything", "enabled": false }, { "id": "extras", "enabled": false }
+      ]
+    },
+    "everything_grid": {
+      "_label": "Everything, as a tile grid",
+      "design": "grid",
+      "sections": [
+        { "id": "brightness", "enabled": false }, { "id": "groups", "enabled": false },
+        { "id": "lights", "enabled": false }, { "id": "devices", "enabled": false },
+        { "id": "sensors", "enabled": false }, { "id": "scenes", "enabled": true },
+        { "id": "automations", "enabled": false }, { "id": "shortcuts", "enabled": true },
+        { "id": "climate", "enabled": false }, { "id": "covers", "enabled": false },
+        { "id": "everything", "enabled": true }, { "id": "extras", "enabled": false }
+      ]
+    },
+    "logic": {
+      "_label": "Scenes, automations & shortcuts",
+      "sections": [
+        { "id": "brightness", "enabled": false }, { "id": "groups", "enabled": true },
+        { "id": "lights", "enabled": false }, { "id": "devices", "enabled": false },
+        { "id": "sensors", "enabled": false }, { "id": "scenes", "enabled": true },
+        { "id": "automations", "enabled": true }, { "id": "shortcuts", "enabled": true },
+        { "id": "climate", "enabled": false }, { "id": "covers", "enabled": false },
+        { "id": "everything", "enabled": false }, { "id": "extras", "enabled": false }
+      ],
+      "_note": "The room as a control panel rather than a light switch — for a room where what you actually reach for is a mood or a shortcut, not an individual downlight."
+    },
+    "docked": {
+      "_label": "Docked beside the plan",
+      "design": "dock"
+    },
+    "popover_quick": {
+      "_label": "Quick popover",
+      "design": "popover",
+      "header": { "showCount": true, "buttons": [
+        { "id": "all_on", "enabled": true }, { "id": "all_off", "enabled": true },
+        { "id": "details", "enabled": false }, { "id": "close", "enabled": true }
+      ] },
+      "sections": [
+        { "id": "brightness", "enabled": true }, { "id": "groups", "enabled": true },
+        { "id": "lights", "enabled": false }, { "id": "devices", "enabled": false },
+        { "id": "sensors", "enabled": false }, { "id": "scenes", "enabled": false },
+        { "id": "automations", "enabled": false }, { "id": "shortcuts", "enabled": false },
+        { "id": "climate", "enabled": false }, { "id": "covers", "enabled": false },
+        { "id": "everything", "enabled": false }, { "id": "extras", "enabled": false }
+      ]
+    },
+    "readonly": {
+      "_label": "Read-only",
+      "header": { "buttons": [
+        { "id": "all_on", "enabled": false }, { "id": "all_off", "enabled": false },
+        { "id": "details", "enabled": true }, { "id": "close", "enabled": true }
+      ] },
+      "sections": [
+        { "id": "brightness", "enabled": false }, { "id": "groups", "enabled": false },
+        { "id": "lights", "enabled": true }, { "id": "devices", "enabled": true },
+        { "id": "sensors", "enabled": true }, { "id": "scenes", "enabled": false },
+        { "id": "automations", "enabled": false }, { "id": "shortcuts", "enabled": false },
+        { "id": "climate", "enabled": false }, { "id": "covers", "enabled": false },
+        { "id": "everything", "enabled": false }, { "id": "extras", "enabled": false }
+      ]
+    },
+    "disabled": { "_label": "No controls", "enabled": false }
+  }
+}

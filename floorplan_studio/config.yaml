@@ -1,0 +1,98 @@
+name: Floorplan Studio
+version: "0.10.0"
+slug: floorplan_studio
+description: >-
+  Draw multi-floor house plans in the browser, place devices on them straight
+  from your Home Assistant entity list, and generate a floor-plan dashboard —
+  without hand-editing JSON.
+url: "https://github.com/bitloomai/floorplan-studio/tree/main/floorplan_studio"
+arch:
+  - aarch64
+  - amd64
+stage: experimental
+startup: application
+boot: auto
+init: true
+backup: hot
+
+# Ingress puts the editor inside the Home Assistant sidebar, authenticated by
+# HA itself, so a human never needs a separate login for it.
+ingress: true
+ingress_port: 8099
+watchdog: http://[HOST]:[PORT:8099]/api/health
+panel_icon: mdi:floor-plan
+panel_title: Floorplan
+panel_admin: true
+
+# The one exception to "no exposed port": /mcp, for an AI client (Claude Code,
+# Claude Desktop, a remote MCP connector) to drive the editor directly. Ingress
+# can't serve that — it authenticates by a per-browser-session cookie only
+# Home Assistant's own frontend can mint, which a generic HTTP/MCP client has
+# no way to obtain. /mcp is reachable on this port instead, guarded by its own
+# check: it asks Home Assistant whether the caller's Bearer token is valid, so
+# no separate secret exists to generate, store, or leak. Every other path on
+# this port still requires the Ingress proxy, exactly as before — see
+# `allowIngressPeer()` in server.js.
+# The host-side ports (the second number on each line) are only the DEFAULTS
+# — Settings > Apps > Floorplan Studio > Configuration > Network lets a
+# user remap either to any free port on their host without touching this
+# file; that remapping is a stock Supervisor feature for any app that
+# declares `ports`, not something this app implements itself. 8443 is only
+# ever listened on when ssl_cert/ssl_key (below) are both set — otherwise
+# nothing answers there.
+ports:
+  8099/tcp: 8099
+  8443/tcp: 8443
+ports_description:
+  8099/tcp: Floorplan Studio's MCP endpoint (/mcp) for AI clients, plain HTTP. The editor itself is reached through the Home Assistant sidebar (Ingress), not this port.
+  8443/tcp: The same MCP endpoint over HTTPS — only active once ssl_cert and ssl_key are both set. Nothing else is served on this port.
+
+# Lets ssl_cert/ssl_key (below) name a file that already lives in Home
+# Assistant's own shared certificate folder, the same one its own HTTPS setup
+# uses — nothing app-specific to provision. Read-only: this app only
+# ever reads a cert/key pair to serve MCP over TLS, never writes to `/ssl`.
+map:
+  - ssl:ro
+
+# The editor lists entities so you can bind one to a marker, and reads their
+# states to draw them live. That access is read-only by construction: lib/ha.js
+# has one request function and it hardcodes GET, so nothing in THIS PROCESS can
+# call a service. (The dashboard card it generates does call services — but it
+# runs in the viewer's browser under the viewer's own Home Assistant session,
+# never with this token. See "The dashboard it writes is not the app" in
+# DOCS.md.) The app writes a Lovelace dashboard, over the WebSocket API, only
+# to the path selected in the dialog (or by the install_dashboard MCP tool,
+# off by default — see mcp_allow_dashboard_install below), and only when asked
+# — see lib/ha-write.js and lib/mcp.js. Ownership of an existing dashboard at
+# that path is enforced by a provenance stamp (lib/provenance.js).
+homeassistant_api: true
+
+options:
+  log_level: info
+  entity_refresh_seconds: 60
+  mcp_enabled: true
+  mcp_allow_dashboard_install: false
+  ssl_cert: ""
+  ssl_key: ""
+  mcp_ssl_port: 8443
+schema:
+  log_level: list(trace|debug|info|notice|warning|error|fatal)
+  entity_refresh_seconds: int(10,3600)
+  # The full off switch for MCP: false and /mcp answers 404, as if lib/mcp.js
+  # were never loaded — no token check to reach, nothing to connect to.
+  mcp_enabled: bool
+  # Off by default: an AI connected over MCP can draw and edit the plan freely
+  # either way, but cannot write anything to Home Assistant until a human
+  # turns this on. When off, install_dashboard is not even listed among the
+  # tools an MCP client sees. Has no effect when mcp_enabled is false.
+  mcp_allow_dashboard_install: bool
+  # Both empty (the default) means MCP stays plain HTTP on 8099 only, exactly
+  # as before this option existed. Set both to a filename already present in
+  # Home Assistant's shared /ssl folder (or an absolute path) to ALSO serve
+  # MCP over HTTPS on mcp_ssl_port — the plain-HTTP port keeps working
+  # unchanged, this is additive. Worth doing before ever forwarding the MCP
+  # port through your router: otherwise your Home Assistant Bearer token
+  # would cross the internet in cleartext.
+  ssl_cert: str
+  ssl_key: str
+  mcp_ssl_port: int(1024,65535)
