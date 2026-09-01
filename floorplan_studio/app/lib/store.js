@@ -20,11 +20,19 @@ const DATA_DIR = process.env.FPS_DATA_DIR || path.join(__dirname, '..', 'data');
 /* Whoever else changed the project — a human's autosave, or an MCP tool call
  * from an AI driving the plan — the editor's live view needs to know a new
  * copy is on disk, without polling. One in-process pub/sub, subscribed to by
- * the SSE endpoint in server.js; nothing here knows or cares who is listening. */
+ * the SSE endpoint in server.js; nothing here knows or cares who is listening.
+ *
+ * `origin` is WHO wrote it, when the caller knows: an opaque id the editor
+ * sends with its own save. It is carried through untouched so a listener can
+ * tell its own write from somebody else's — without it, the editor's own
+ * autosave comes straight back at it as "the plan changed elsewhere", which
+ * is both wrong and the one message guaranteed to make someone distrust the
+ * tool with unsaved work in it. A writer that names no origin (MCP) is
+ * genuinely somebody else and every listener hears about it. */
 const changeListeners = new Set();
 function onProjectChange(fn) { changeListeners.add(fn); return () => changeListeners.delete(fn); }
-function notifyProjectChange(project) {
-  for (const fn of changeListeners) { try { fn(project); } catch (e) { /* one bad listener must not break the rest */ } }
+function notifyProjectChange(project, origin) {
+  for (const fn of changeListeners) { try { fn(project, origin || null); } catch (e) { /* one bad listener must not break the rest */ } }
 }
 
 const FILES = {
@@ -404,14 +412,17 @@ module.exports = {
   backupDashboard,
 
   readProject: () => readDoc('project'),
-  async writeProject(project) {
+  /* `opts.origin` identifies the writer for the live-view listeners above.
+   * Optional on purpose: a caller that does not care (MCP) passes nothing and
+   * is reported to everyone, which is the correct answer for it. */
+  async writeProject(project, opts) {
     if (!project || typeof project !== 'object') throw new Error('project must be an object');
     if (!Array.isArray(project.floors)) throw new Error('project.floors must be an array');
     await snapshotProject();
     project.savedAt = new Date().toISOString();
     project.schemaVersion = project.schemaVersion || 1;
     const saved = await writeAtomic(path.join(DATA_DIR, FILES.project), project);
-    notifyProjectChange(saved);
+    notifyProjectChange(saved, opts && opts.origin);
     return saved;
   },
   onProjectChange,

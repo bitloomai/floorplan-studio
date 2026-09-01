@@ -7,8 +7,29 @@
 window.API = (function () {
   'use strict';
 
+  /* Identifies THIS tab to the server, so the live-update stream can tell
+   * this editor's own save from somebody else's and not report it back as a
+   * change made elsewhere. It never leaves this page's own app and means
+   * nothing to anything else, so it is a random string rather than anything
+   * derived from the user or the session.
+   *
+   * `crypto.randomUUID` exists only in a secure context, and Home Assistant is
+   * routinely reached over plain http on a LAN — so the fallback is the path
+   * that actually runs for many people, not a theoretical one. */
+  const CLIENT_ID = (() => {
+    try {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    } catch (e) { /* not a secure context */ }
+    return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  })();
+
   async function req(path, opts) {
-    const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+    /* Merge headers rather than let opts replace them wholesale: a caller
+     * adding one header used to silently drop the Content-Type every JSON
+     * body here depends on. */
+    const o = Object.assign({}, opts);
+    o.headers = Object.assign({ 'Content-Type': 'application/json' }, (opts && opts.headers) || {});
+    const res = await fetch(path, o);
     const text = await res.text();
     let body = null;
     if (text) { try { body = JSON.parse(text); } catch { body = text; } }
@@ -28,7 +49,12 @@ window.API = (function () {
   return {
     bootstrap: () => req('api/bootstrap'),
     project: () => req('api/project'),
-    saveProject: (project) => req('api/project', { method: 'PUT', body: JSON.stringify(project) }),
+    clientId: () => CLIENT_ID,
+    saveProject: (project) => req('api/project', {
+      method: 'PUT',
+      headers: { 'X-FPS-Client': CLIENT_ID },
+      body: JSON.stringify(project),
+    }),
     saveLibrary: (lib) => req('api/library', { method: 'PUT', body: JSON.stringify(lib) }),
     saveThemes: (themes) => req('api/themes', { method: 'PUT', body: JSON.stringify(themes) }),
     saveFlooring: (doc) => req('api/flooring', { method: 'PUT', body: JSON.stringify(doc) }),

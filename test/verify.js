@@ -19,6 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const http = require('http');
 const https = require('https');
 const { execFileSync, spawn } = require('child_process');
 
@@ -3590,6 +3591,108 @@ await okAsync('a valid import reports warnings without refusing', async () => wi
   const r = await postUpload(port, { files: [upload('ground.json', legacySpec('ground'))] });
   return r.status === 200 && Array.isArray(r.body.warnings);
 }));
+
+
+/* ------------------------------------------------- the live-view stream ---
+ *
+ * Every project write reaches `/api/project/stream`, the editor's own autosave
+ * included, and `notifyProjectChange` fires BEFORE the PUT's own response —
+ * so a tab reliably heard its own save land while `S.dirty` was still true for
+ * the keystrokes made since, and told the person "the plan changed elsewhere"
+ * on every single autosave. There was no second client involved.
+ *
+ * The event carries `origin`, the id of whoever wrote, so a tab can drop the
+ * echo of its own write and still react to everyone else's. These pin both
+ * halves: the echo is identifiable, and a writer that names nobody (MCP) is
+ * still reported to everybody. */
+
+console.log('\n== live-view stream ==');
+
+/* Open the stream, then trigger a write, and hand back the first project
+ * event. The trigger runs only once the stream is actually connected — fired
+ * before that, the write happens with nothing subscribed and the test waits
+ * out its timeout for an event that already came and went. */
+function projectEvent(port, trigger, timeoutMs = 6000) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (fn, v) => { if (done) return; done = true; clearTimeout(timer); req.destroy(); fn(v); };
+    const timer = setTimeout(() => finish(reject, new Error('no project event arrived')), timeoutMs);
+    const req = http.get({ host: '127.0.0.1', port, path: '/api/project/stream' }, (res) => {
+      if (res.statusCode !== 200) return finish(reject, new Error('stream returned ' + res.statusCode));
+      let buf = '';
+      res.on('data', (c) => {
+        buf += c.toString();
+        const m = /event: project\r?\ndata: (.+)\r?\n/.exec(buf);
+        if (!m) return;
+        try { finish(resolve, JSON.parse(m[1])); } catch (e) { finish(reject, e); }
+      });
+      /* `retry:` arrives as soon as the handler runs, which is the earliest
+       * point the subscription provably exists. */
+      res.once('data', () => { Promise.resolve().then(trigger).catch((e) => finish(reject, e)); });
+    });
+    req.on('error', (e) => finish(reject, e));
+  });
+}
+
+const putProject = (port, headers) => async () => {
+  const current = await (await fetch(`http://127.0.0.1:${port}/api/project`)).json();
+  const res = await fetch(`http://127.0.0.1:${port}/api/project`, {
+    method: 'PUT',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+    body: JSON.stringify(current),
+  });
+  if (!res.ok) throw new Error('PUT returned ' + res.status);
+};
+
+await okAsync('a save reports WHO made it, so a tab can recognise its own', async () => {
+  return withServer({}, async (port) => {
+    const ev = await projectEvent(port, putProject(port, { 'X-FPS-Client': 'tab-one' }));
+    return ev.origin === 'tab-one' && typeof ev.savedAt === 'string';
+  });
+});
+
+await okAsync('a writer that names nobody is reported to everybody', async () => {
+  /* An MCP tool call writes without an origin, and that is exactly the change
+   * every open editor does need to hear about. */
+  return withServer({}, async (port) => {
+    const ev = await projectEvent(port, putProject(port, {}));
+    return ev.origin === null && typeof ev.savedAt === 'string';
+  });
+});
+
+await okAsync('the origin is clamped before it is echoed to every listener', async () => {
+  /* It is opaque to the server and only ever compared for equality, but it
+   * goes back out to every subscriber, so it does not travel as raw input. */
+  return withServer({}, async (port) => {
+    const ev = await projectEvent(port, putProject(port, { 'X-FPS-Client': 'a b"c<>/\\;' + 'x'.repeat(200) }));
+    return typeof ev.origin === 'string' && ev.origin.length <= 64 && /^[A-Za-z0-9_-]+$/.test(ev.origin);
+  });
+});
+
+ok('the editor sends its own id with every project save, and only there', (() => {
+  /* The id has to reach the server on the save itself — the stream has no
+   * other way to learn who wrote. */
+  const api = fs.readFileSync(path.join(APP, 'public', 'js', 'api.js'), 'utf8');
+  return /X-FPS-Client/.test(api) && /clientId/.test(api)
+    && /saveProject[\s\S]{0,200}X-FPS-Client/.test(api);
+})());
+
+ok('the editor drops the echo of its own write rather than warning about it', (() => {
+  const main = fs.readFileSync(path.join(APP, 'public', 'js', 'main.js'), 'utf8');
+  /* The guard must come BEFORE the dirty check, or the toast fires first and
+   * the suppression never runs. */
+  const guard = main.indexOf('API.clientId()');
+  const dirty = main.indexOf('if (S.dirty)', main.indexOf('addEventListener(\'project\''));
+  return guard > 0 && dirty > 0 && guard < dirty;
+})());
+
+ok('a request helper merges headers instead of replacing them', (() => {
+  /* `saveProject` adds one header; the old Object.assign handed fetch the
+   * caller's headers wholesale and silently dropped the Content-Type every
+   * JSON body in this file depends on. */
+  const api = fs.readFileSync(path.join(APP, 'public', 'js', 'api.js'), 'utf8');
+  return /Object\.assign\(\{ 'Content-Type': 'application\/json' \}, \(opts && opts\.headers\) \|\| \{\}\)/.test(api);
+})());
 
 
 /* ------------------------------------------------------- your own house ---

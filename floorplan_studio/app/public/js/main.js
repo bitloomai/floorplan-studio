@@ -306,7 +306,16 @@
     let fetchTimer = null;
     let lastNudge = 0;
     const es = new EventSource('api/project/stream');
-    es.addEventListener('project', () => {
+    es.addEventListener('project', (ev) => {
+      /* Our OWN autosave reaches this stream like any other write, and the
+       * server notifies before it answers the PUT — so this tab hears its own
+       * save land while `S.dirty` is still true for the keystrokes made since,
+       * and used to warn that the plan had changed elsewhere on every single
+       * autosave. Drop the echo of our own write; react to everything else. */
+      let data = {};
+      try { data = JSON.parse(ev.data || '{}'); } catch (e) { /* treat as somebody else's */ }
+      if (data.origin && data.origin === API.clientId()) return;
+
       if (S.dirty) {
         const now = Date.now();
         if (now - lastNudge > 5000) {

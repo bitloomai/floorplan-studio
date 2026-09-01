@@ -209,7 +209,12 @@ async function handleApi(req, res, pathname, query) {
     if (method === 'GET') return sendJson(res, 200, await store.readProject());
     if (method === 'PUT') {
       const body = await readBody(req);
-      const saved = await store.writeProject(body);
+      /* Who is saving, so the live stream below can tell this editor's own
+       * write from somebody else's. Opaque to the server — it is only ever
+       * compared for equality — but it is echoed to every listener, so it is
+       * clamped to a short plain-text id rather than passed through raw. */
+      const origin = String(req.headers['x-fps-client'] || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || null;
+      const saved = await store.writeProject(body, { origin });
       log('debug', 'project saved,', (saved.floors || []).length, 'floors');
       return sendJson(res, 200, { ok: true, savedAt: saved.savedAt, floors: (saved.floors || []).length });
     }
@@ -217,10 +222,19 @@ async function handleApi(req, res, pathname, query) {
 
   /* Tells the open editor that the project on disk changed — from an MCP tool
    * call, most likely, since the editor's own edits already know about
-   * themselves. One event carries only `savedAt`; the client re-fetches the
-   * project itself rather than this pushing the (much larger) document on
-   * every change. Plain Server-Sent Events: one long-lived GET, no library,
-   * and it works through Ingress exactly like any other relative fetch here. */
+   * themselves. One event carries only `savedAt` and `origin`; the client
+   * re-fetches the project itself rather than this pushing the (much larger)
+   * document on every change. Plain Server-Sent Events: one long-lived GET, no
+   * library, and it works through Ingress exactly like any other relative
+   * fetch here.
+   *
+   * `origin` is what makes "the editor's own edits already know about
+   * themselves" actually true. Every save reaches this stream, the editor's
+   * autosave included, and the notify happens BEFORE the PUT's own response —
+   * so without an id to compare, a tab reliably heard its own save land while
+   * it still had unsaved keystrokes and told the person their plan had changed
+   * elsewhere. A tab drops events carrying its own id and reacts to every
+   * other one, so a second tab and an MCP client are both still live. */
   if (pathname === '/api/project/stream' && method === 'GET') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -228,8 +242,8 @@ async function handleApi(req, res, pathname, query) {
       Connection: 'keep-alive',
     });
     res.write('retry: 2000\n\n');
-    const unsubscribe = store.onProjectChange((project) => {
-      res.write(`event: project\ndata: ${JSON.stringify({ savedAt: project.savedAt })}\n\n`);
+    const unsubscribe = store.onProjectChange((project, origin) => {
+      res.write(`event: project\ndata: ${JSON.stringify({ savedAt: project.savedAt, origin })}\n\n`);
     });
     const heartbeat = setInterval(() => { try { res.write(':\n\n'); } catch (e) { /* client gone */ } }, 25000);
     req.on('close', () => { clearInterval(heartbeat); unsubscribe(); });

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### The editor no longer warns you about your own edits
+
+- **"The plan changed elsewhere" appeared on ordinary local editing**, with no
+  second tab and no MCP client involved. Every project write reaches the live
+  stream — the editor's own autosave included — and the notification is sent
+  before the save's own response, so a tab heard its own write land while it
+  still had unsaved keystrokes and reported it as somebody else's change.
+- The change event now carries `origin`, an opaque id the editor sends with
+  its own save, so a tab drops the echo of its own write and reacts to
+  everything else. A writer that names nobody — an MCP tool call — is still
+  reported to every open editor, which is the case the stream exists for.
+- A second browser tab still gets the notice, since it carries a different id.
+  Unsaved local work is untouched either way, as before.
+- Fixed alongside it: the browser's request helper replaced the request headers
+  wholesale when a caller supplied any, silently dropping the `Content-Type`
+  that every JSON body in the editor depends on.
+
 ### Plans are imported by uploading them
 
 - **Import… now takes files, not a directory path.** The old box asked for a
