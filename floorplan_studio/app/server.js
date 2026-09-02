@@ -42,6 +42,7 @@ const exporter = require('./lib/export-spec');
 const cardBuild = require('./lib/card-build');
 const dashboard = require('./lib/dashboard');
 const mcp = require('./lib/mcp');
+const appApi = require('./lib/app-api');
 
 /* FPS_PORT is this app's own knob; PORT is what a generic host hands a
  * process it launched. Honouring both means the dev server can be started by
@@ -66,6 +67,7 @@ function loadOptions() {
     log_level: 'info', entity_refresh_seconds: 60,
     mcp_enabled: true, mcp_allow_dashboard_install: false,
     ssl_cert: '', ssl_key: '', mcp_ssl_port: 8443,
+    headless_endpoints_enabled: false,
   };
   const file = process.env.FPS_OPTIONS_FILE;
   if (!file || !fs.existsSync(file)) return defaults;
@@ -622,10 +624,47 @@ async function mcpRequestHandler(req, res) {
   }
 }
 
+
+/* The headless surface, served on the SAME listeners as /mcp and gated by its
+ * own option. Separate from `mcp_enabled` deliberately: an AI client and a
+ * phone are different callers that merely share a port, so turning one off
+ * must never silently turn the other off. Off means 404 on every port, as if
+ * lib/app-api.js were never loaded — the same shape of switch MCP has.
+ *
+ * `tls` is passed through so /session can tell a client whether the
+ * connection it arrived on was encrypted, which is what lets the app refuse to
+ * send a Home Assistant token over cleartext to a non-local address. */
+function appApiEnabled() {
+  return OPTIONS.headless_endpoints_enabled === true;
+}
+
+async function appApiRequestHandler(req, res, pathname, query, tls) {
+  if (!appApiEnabled()) {
+    return sendJson(res, 404, { error: 'The headless endpoints are off — turn on the "headless_endpoints_enabled" app option to use them.' });
+  }
+  return appApi.handleRequest(req, res, pathname, query, { tls: !!tls });
+}
+
+/* WebSocket upgrades reach a listener separately from requests, so the same
+ * gate has to be applied again here rather than assumed from the route above. */
+function appApiUpgradeHandler(req, socket, head, tls) {
+  const { pathname } = appPath(req);
+  if (!appApiEnabled() || pathname !== appApi.PREFIX + '/ws') {
+    /* CRLF built from char codes rather than escapes: this line has been
+     * mangled by shell heredocs twice. */
+    const CRLF = String.fromCharCode(13, 10);
+    socket.write('HTTP/1.1 404 Not Found' + CRLF + 'Connection: close' + CRLF + CRLF);
+    return socket.destroy();
+  }
+  return appApi.handleUpgrade(req, socket, head, { tls: !!tls });
+}
+
 const server = http.createServer(async (req, res) => {
   const { pathname, query } = appPath(req);
 
   if (pathname === '/mcp') return mcpRequestHandler(req, res);
+
+  if (appApi.isAppApiPath(pathname)) return appApiRequestHandler(req, res, pathname, query, false);
 
   if (!allowIngressPeer(req)) return sendJson(res, 403, { error: 'ingress proxy required' });
   try {
@@ -668,6 +707,8 @@ function loadTlsCredentials() {
   }
 }
 
+server.on('upgrade', (req, socket, head) => appApiUpgradeHandler(req, socket, head, false));
+
 store.init().then(() => {
   server.listen(PORT, '0.0.0.0', () => {
     log('info', `listening on :${PORT}`);
@@ -683,8 +724,14 @@ store.init().then(() => {
     const tls = loadTlsCredentials();
     if (tls) {
       const sslPort = Number(OPTIONS.mcp_ssl_port) || 8443;
-      https.createServer(tls, (req, res) => mcpRequestHandler(req, res)).listen(sslPort, '0.0.0.0', () => {
-        log('info', `MCP (TLS) https://<this-host>:${sslPort}/mcp — nothing else is served on this port`);
+      const tlsServer = https.createServer(tls, (req, res) => {
+        const { pathname, query } = appPath(req);
+        if (appApi.isAppApiPath(pathname)) return appApiRequestHandler(req, res, pathname, query, true);
+        return mcpRequestHandler(req, res);
+      });
+      tlsServer.on('upgrade', (req, socket, head) => appApiUpgradeHandler(req, socket, head, true));
+      tlsServer.listen(sslPort, '0.0.0.0', () => {
+        log('info', `MCP (TLS) https://<this-host>:${sslPort}/mcp${appApiEnabled() ? ' and ' + appApi.PREFIX : ''} — nothing else is served on this port`);
       });
     }
   }

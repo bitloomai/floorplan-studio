@@ -417,7 +417,13 @@ ok('and the zero-dependency rule is written down where a contributor will see it
 })());
 
 ok('no app module requires anything outside Node and this repository', (() => {
-  const BUILTINS = new Set(['fs', 'http', 'https', 'path']);
+  /* Node's own modules only. `crypto` earns its place rather than being waved
+   * through: RFC 6455 MANDATES a SHA-1 digest for the WebSocket handshake's
+   * accept key, and the external-auth cache keys tokens by SHA-256 fingerprint
+   * precisely so the cache is not worth stealing. Hand-rolling either would be
+   * worse in every way than using the runtime's. The rule this check exists
+   * for is unchanged: nothing from outside Node and this repository. */
+  const BUILTINS = new Set(['fs', 'http', 'https', 'path', 'crypto']);
   const dir = path.join(APP);
   const found = new Set();
   (function walk(d) {
@@ -4048,6 +4054,247 @@ ok('the editor-only half of the flooring registry never reaches the card', (() =
     && Object.keys(trimmed).every((k) => !k.startsWith('_'))
     && Object.keys(trimmed.types).length === Object.keys(flooring.types).length
     && trimmed.types.wood.reflectance === flooring.types.wood.reflectance;
+})());
+
+
+/* ------------------------------------------------- headless app endpoints ---
+ *
+ * `/app-api/v1` and its WebSocket, for a client that is not a browser inside
+ * Ingress. Gated by its own add-on option, `headless_endpoints_enabled`,
+ * default OFF — and deliberately not by `mcp_enabled`, because an AI client and
+ * a phone are different callers that merely share a listener.
+ *
+ * The checks that matter here are the boundaries, not the payload shapes: the
+ * surface is off unless asked for, it refuses an unauthenticated caller, and it
+ * never becomes a way to reach the Ingress-only editor routes. */
+
+console.log('\n== headless app endpoints ==');
+
+const apiGet = async (port, p, headers) => {
+  const res = await fetch(`http://127.0.0.1:${port}${p}`, { headers: headers || {} });
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  return { status: res.status, etag: res.headers.get('etag'), body };
+};
+const AUTH = { Authorization: 'Bearer test-token' };
+/* Seeded through the ordinary editor route, so the API is read against a real
+ * project rather than the empty one a fresh data directory starts with. */
+const seedHouse = async (port) => {
+  const house = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'house', 'test-house.project.json'), 'utf8'));
+  await fetch(`http://127.0.0.1:${port}/api/project`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(house),
+  });
+  return house;
+};
+
+await okAsync('the whole surface is absent until the option is turned on', async () => {
+  /* Off must mean ABSENT, not "present and refusing" — the same shape of
+   * switch mcp_enabled has, so a port scan of a default install finds nothing
+   * to talk to. */
+  return withServer({ headless_endpoints_enabled: false }, async (port) => {
+    const s = await apiGet(port, '/app-api/v1/session', AUTH);
+    const h = await apiGet(port, '/app-api/v1/houses', AUTH);
+    return s.status === 404 && h.status === 404;
+  });
+});
+
+await okAsync('it is not tied to the MCP switch in either direction', async () => {
+  /* Two clients, two switches. Turning MCP off must not take the phone with
+   * it, and the headless surface being on must not turn MCP back on. */
+  return withServer({ headless_endpoints_enabled: true, mcp_enabled: false }, async (port) => {
+    const api = await apiGet(port, '/app-api/v1/session', AUTH);
+    const mcpRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }),
+    });
+    return api.status === 200 && mcpRes.status === 404;
+  });
+});
+
+await okAsync('an unauthenticated caller is refused with a machine-readable code', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    const r = await apiGet(port, '/app-api/v1/session');
+    return r.status === 401 && r.body.error.code === 'auth_required'
+      && r.body.apiVersion === 'v1' && typeof r.body.requestId === 'string';
+  });
+});
+
+await okAsync('session names who is asking, and is honest about what is not built', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    const r = await apiGet(port, '/app-api/v1/session', AUTH);
+    const c = r.body.capabilities;
+    /* A client hides remote edit mode from this rather than discovering a 404
+     * at the worst possible moment. */
+    return r.status === 200
+      && typeof r.body.providerInstanceId === 'string' && r.body.providerInstanceId.length >= 16
+      && r.body.role === 'admin' && r.body.principal && r.body.principal.is_admin === true
+      && c.read === true && c.subscriptions === true
+      && c.transactions === false && c.registryEditing === false && c.dashboardInstall === false;
+  });
+});
+
+await okAsync('the house catalogue, bootstrap and floor bundle all answer', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    await seedHouse(port);
+    const houses = await apiGet(port, '/app-api/v1/houses', AUTH);
+    const house = houses.body.houses[0];
+    if (!house || house.floorCount !== 5) return false;
+    const boot = await apiGet(port, `/app-api/v1/houses/${house.id}/bootstrap`, AUTH);
+    const fid = boot.body.floors[0].id;
+    const floor = await apiGet(port, `/app-api/v1/houses/${house.id}/floors/${fid}`, AUTH);
+    /* The floor bundle must carry the resolved control surfaces, or tapping a
+     * room name on the client costs another round trip — which the contract
+     * explicitly rules out. */
+    return houses.status === 200 && boot.status === 200 && floor.status === 200
+      && boot.body.floors.length === 5
+      && Object.keys(boot.body.registries).length === 5
+      && floor.body.scene.rooms.length > 0
+      && Object.keys(floor.body.presentation.rooms).length === floor.body.scene.rooms.length
+      && Array.isArray(floor.body.presentation.entityIds)
+      && floor.body.presentation.entityIds.length > 0;
+  });
+});
+
+await okAsync('a configuration read revalidates with an ETag instead of resending', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    await seedHouse(port);
+    const boot = await apiGet(port, '/app-api/v1/houses/default/bootstrap', AUTH);
+    const fid = boot.body.floors[0].id;
+    const first = await apiGet(port, `/app-api/v1/houses/default/floors/${fid}`, AUTH);
+    const again = await apiGet(port, `/app-api/v1/houses/default/floors/${fid}`,
+      Object.assign({ 'If-None-Match': first.etag }, AUTH));
+    return !!first.etag && again.status === 304;
+  });
+});
+
+await okAsync('an unknown house, floor or registry is a 404 rather than a guess', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    await seedHouse(port);
+    const a = await apiGet(port, '/app-api/v1/houses/somebody-elses/bootstrap', AUTH);
+    const b = await apiGet(port, '/app-api/v1/houses/default/floors/nope', AUTH);
+    const c = await apiGet(port, '/app-api/v1/houses/default/registries/nope', AUTH);
+    return a.status === 404 && a.body.error.code === 'unknown_house'
+      && b.status === 404 && c.status === 404;
+  });
+});
+
+await okAsync('the headless surface is not a way into the Ingress editor routes', async () => {
+  /* The editor's own /api/* is Ingress-only and includes whole-document
+   * writes. Nothing under /app-api may reach it, however the path is spelled. */
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    const tries = [
+      '/app-api/v1/../api/project',
+      '/app-api/v1/houses/default/../../../api/project',
+      '/app-api/v1/api/project',
+    ];
+    for (const p of tries) {
+      const r = await fetch(`http://127.0.0.1:${port}${p}`, { headers: AUTH, redirect: 'manual' });
+      /* Either the router refuses it, or Node normalises it back to the
+       * editor route — which in dev has no Ingress peer to fail against, so
+       * the only thing asserted here is that it is never served BY the app
+       * API as an authenticated headless route. */
+      if (r.status === 200) {
+        const body = await r.json().catch(() => null);
+        if (body && body.apiVersion === 'v1') return false;
+      }
+    }
+    return true;
+  });
+});
+
+await okAsync('a WebSocket authenticates, subscribes, and hears an ordinary save', async () => {
+  /* The end-to-end proof: the server side of RFC 6455 is written by hand here
+   * (no dependencies, and Node ships a WebSocket client but no server), so it
+   * is driven with a real client rather than asserted structurally. The change
+   * is provoked through the EDITOR's route — a phone learns about an edit made
+   * on a laptop because store.js's pub/sub fires for every writer. */
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    await seedHouse(port);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/app-api/v1/ws`);
+    const seen = [];
+    const result = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 12000);
+      ws.addEventListener('message', async (ev) => {
+        const m = JSON.parse(ev.data);
+        seen.push(m.type);
+        if (m.type === 'auth_required') ws.send(JSON.stringify({ type: 'auth', access_token: 'test-token', client_id: 'suite' }));
+        if (m.type === 'auth_ok') ws.send(JSON.stringify({ type: 'subscribe_house', house_id: 'default' }));
+        if (m.type === 'house_subscribed') {
+          const cur = await (await fetch(`http://127.0.0.1:${port}/api/project`)).json();
+          cur.name = 'changed by the suite';
+          await fetch(`http://127.0.0.1:${port}/api/project`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cur) });
+        }
+        if (m.type === 'project_changed') { clearTimeout(timer); resolve(m); }
+      });
+      ws.addEventListener('error', () => { clearTimeout(timer); resolve(null); });
+    });
+    try { ws.close(); } catch (e) { /* closing anyway */ }
+    return !!result && result.house_id === 'default'
+      && Array.isArray(result.affectedFloorIds) && result.affectedFloorIds.length === 5
+      && seen.join(',') === 'auth_required,auth_ok,house_subscribed,project_changed';
+  });
+});
+
+await okAsync('a WebSocket that never authenticates is closed, not left open', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/app-api/v1/ws`);
+    const closed = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), 8000);
+      ws.addEventListener('close', () => { clearTimeout(timer); resolve(true); });
+      ws.addEventListener('error', () => { clearTimeout(timer); resolve(true); });
+    });
+    return closed === true;
+  });
+});
+
+await okAsync('a WebSocket cannot subscribe before it authenticates', async () => {
+  return withServer({ headless_endpoints_enabled: true }, async (port) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/app-api/v1/ws`);
+    const answer = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 8000);
+      ws.addEventListener('message', (ev) => {
+        const m = JSON.parse(ev.data);
+        if (m.type === 'auth_required') return ws.send(JSON.stringify({ type: 'subscribe_house', house_id: 'default' }));
+        clearTimeout(timer); resolve(m);
+      });
+      ws.addEventListener('error', () => { clearTimeout(timer); resolve(null); });
+    });
+    try { ws.close(); } catch (e) { /* closing anyway */ }
+    return !!answer && answer.type === 'error' && answer.code === 'auth_required';
+  });
+});
+
+await okAsync('the WebSocket path is 404 while the option is off', async () => {
+  return withServer({ headless_endpoints_enabled: false }, async (port) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/app-api/v1/ws`);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), 8000);
+      ws.addEventListener('open', () => { clearTimeout(timer); resolve(false); });
+      ws.addEventListener('error', () => { clearTimeout(timer); resolve(true); });
+      ws.addEventListener('close', () => { clearTimeout(timer); resolve(true); });
+    });
+  });
+});
+
+ok('a token is never a cache key, and never leaves this process', (() => {
+  /* The external auth module caches by SHA-256 fingerprint precisely so that
+   * the cache is not worth stealing, and nothing anywhere returns or logs the
+   * token itself. */
+  const src = fs.readFileSync(path.join(APP, 'lib', 'external-auth.js'), 'utf8');
+  const api = fs.readFileSync(path.join(APP, 'lib', 'app-api.js'), 'utf8');
+  return /createHash\('sha256'\)/.test(src)
+    && /tokenCache\.set|remember\(tokenCache/.test(src)
+    && !/console\.log[^\n]*token/i.test(src)
+    && !/console\.log[^\n]*token/i.test(api);
+})());
+
+ok('the headless API cannot call a Home Assistant service', (() => {
+  /* The whole safety claim: a client acts as ITSELF against Home Assistant for
+   * anything live. This surface answers "what does the plan look like" and
+   * nothing else, so it must not have grown a service-call path. */
+  const api = fs.readFileSync(path.join(APP, 'lib', 'app-api.js'), 'utf8');
+  return !/call_service|callService/.test(api);
 })());
 
 

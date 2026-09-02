@@ -19,6 +19,16 @@ configuration:
       only with this on can it also write a Lovelace dashboard to Home Assistant.
       While it is off, the install_dashboard tool is not even listed to the
       client. Has no effect when the MCP endpoint is disabled.
+  headless_endpoints_enabled:
+    name: Enable the headless app endpoints
+    description: >-
+      Off by default. Serves /app-api/v1 and its WebSocket on the same ports as
+      MCP, for a phone or other client that is not a browser in the sidebar.
+      Callers present a Home Assistant token, which the app checks against Home
+      Assistant; reading needs any valid user and editing needs an admin. This
+      is separate from the MCP switch on purpose, so turning one off never
+      silently turns the other off. Set the SSL certificate and key before
+      reaching this from outside your network.
   ssl_cert:
     name: SSL certificate
     description: >-

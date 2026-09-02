@@ -75,6 +75,7 @@ options:
   ssl_cert: ""
   ssl_key: ""
   mcp_ssl_port: 8443
+  headless_endpoints_enabled: false
 schema:
   log_level: list(trace|debug|info|notice|warning|error|fatal)
   entity_refresh_seconds: int(10,3600)
@@ -86,6 +87,18 @@ schema:
   # turns this on. When off, install_dashboard is not even listed among the
   # tools an MCP client sees. Has no effect when mcp_enabled is false.
   mcp_allow_dashboard_install: bool
+  # The headless surface: /app-api/v1 REST plus its WebSocket, for a native or
+  # remote client that is not a browser inside Ingress. Off by default and
+  # DELIBERATELY separate from mcp_enabled — an AI client and a phone are two
+  # different callers that merely happen to share a listener, so turning one
+  # off must never silently turn the other off. When this is false those paths
+  # answer 404 on every port, exactly as if the module were not loaded.
+  # Callers authenticate with a Home Assistant token, checked against Home
+  # Assistant itself, and writes additionally require that token to belong to
+  # an admin. Worth setting ssl_cert/ssl_key before exposing this beyond the
+  # LAN, for the same reason MCP is: a Bearer token in cleartext is a
+  # credential on the wire.
+  headless_endpoints_enabled: bool
   # Both empty (the default) means MCP stays plain HTTP on 8099 only, exactly
   # as before this option existed. Set both to a filename already present in
   # Home Assistant's shared /ssl folder (or an absolute path) to ALSO serve
