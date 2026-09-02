@@ -826,7 +826,24 @@ window.PanelsExtra = (function () {
         + '0° is up the screen; the compass mapping lives in the Sun dialog, not here.'));
     }
 
-    if (has('fov')) {
+    /* A type whose cone can be switched off says so here, and the numbers the
+     * cone is drawn FROM only appear once it is on — a field of view that
+     * changes nothing you can see reads as a broken control. The values are
+     * kept either way, so turning it back on restores what was set. */
+    const hasConeToggle = has('cone');
+    const coneOn = hasConeToggle
+      ? (item.props.cone !== undefined ? item.props.cone !== false : d.cone !== false)
+      : true;
+
+    if (hasConeToggle) {
+      box.appendChild(h('div', { class: 'field' }, h('label', {},
+        h('input', {
+          type: 'checkbox', checked: coneOn, style: 'width:auto;margin-right:6px',
+          onchange: (e) => Store.mutate(() => { item.props.cone = e.target.checked; }, 'detection cone'),
+        }), 'Detection cone')));
+    }
+
+    if (has('fov') && coneOn) {
       const fov = Number(val('fov', 90));
       const range = Number(val('range', 14));
       box.appendChild(h('div', { class: 'field row' },
@@ -836,6 +853,9 @@ window.PanelsExtra = (function () {
       const area = (Math.PI * range * range) * (Math.min(360, Math.max(0, fov)) / 360);
       box.appendChild(h('p', { class: 'hint' },
         `Covers about ${Math.round(area)} sq ft. The wedge on the plan is that area — it is drawn from these two numbers, not decoration.`));
+    } else if (has('fov') && !coneOn) {
+      box.appendChild(h('p', { class: 'hint' },
+        'The cone is off, so this marker draws no wedge. Switch it on to set the field of view and range — whatever was set before is kept.'));
     } else if (has('range')) {
       box.appendChild(field('Range (ft)', numInput(Number(val('range', 14)), (v) => Store.mutate(() => { item.props.range = v; }, 'range'), 0.5)));
     }

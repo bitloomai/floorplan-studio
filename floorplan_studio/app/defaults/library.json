@@ -2645,6 +2645,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Detection cone",
+          "type": "boolean",
+          "hint": "Draw what this covers. Off by default — a house with several sensors close together ends up with more wedge than plan. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -2674,7 +2680,8 @@
         "fov": 110,
         "range": 16,
         "size": 8.5,
-        "variant": "dome"
+        "variant": "dome",
+        "cone": false
       }
     },
     "device.occupancy": {
@@ -2938,6 +2945,12 @@
           "max": 359
         },
         {
+          "key": "cone",
+          "label": "Detection cone",
+          "type": "boolean",
+          "hint": "Draw what this covers. Off by default — a house with several sensors close together ends up with more wedge than plan. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -2973,7 +2986,8 @@
         "fov": 90,
         "range": 22,
         "size": 8.5,
-        "variant": "turret"
+        "variant": "turret",
+        "cone": false
       }
     },
     "device.smoke": {

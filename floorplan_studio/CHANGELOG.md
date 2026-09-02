@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### Room names stop landing on top of ceiling fans
+
+- **A room's name now finds a clear spot instead of always sitting at the
+  centre.** The centre is the right answer for an empty room and the wrong one
+  for a real house, because a ceiling fan, a pendant or a chandelier is almost
+  always hung exactly there — so the label was drawn on top of the fan. On the
+  five-floor test house this was **12 of 39 labels**; it is now none.
+- The search is a fixed, ordered ladder of offsets — vertical first, since a
+  name reads better above or below a marker than beside it, then horizontal,
+  then diagonal — and it takes the first position that is both inside the room
+  and clear of every marker near it. Fixed and ordered rather than nearest-fit,
+  so a plan renders identically every time and an exported SVG matches the
+  editor. A room with nowhere clear falls back to the centre, exactly as before.
+- **A position set by hand still wins outright.** Nothing second-guesses it.
+- **The name's position is editable at last.** `chip_at` has been in the data
+  model from the start with no control anywhere in the editor; the room panel
+  now has nudge buttons, a readout of where it sits, an **Auto** button to hand
+  it back to automatic placement, and a rotation field. Room names themselves
+  were always editable — that is the Name box at the top of the same panel.
+
+### Detection cones are off until you ask for them
+
+- **A camera and a PIR no longer draw a coverage wedge by default.** Vision
+  sensors cluster at doors and corners, so a handful of them leaves a plan with
+  more wedge than plan — the same reasoning that made coverage a per-floor
+  setting, applied one level down. On the test house that is 16 markers that
+  were each throwing a cone nobody had asked for.
+- **Switching the cone on is what makes field of view and range matter**, and
+  the panel now reflects that: the two numbers appear only once the cone is on.
+  A number that changes nothing you can see reads as a broken control.
+- Both values are kept while the cone is off, so turning it back on restores
+  what was set rather than starting from the type's default.
+- Only those two types changed. A speaker, an AC, a TV, a router — anything
+  that declares no default of its own — behaves exactly as it always has, and
+  so do `occupancy`, `doorbell` and `fixture.flood`. Per-marker `cone` and the
+  house/floor coverage setting are ANDed, so coverage off still drops every
+  wedge in one move.
+
 ### Floor finishes can be edited
 
 - **There was no way to change what a finish IS.** The room panel chose which

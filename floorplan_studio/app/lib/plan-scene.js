@@ -1146,8 +1146,21 @@
     /* Coverage: what a camera sees, what a speaker throws, where an AC blows.
      * One code path for all of them, driven entirely by the type's declared
      * `render.cone.style` plus the item's own fov/range/rot — so adding it to a
-     * new device is a library entry, never a branch here. */
-    if (r.cone && (!ctx || ctx.coverage !== false)) {
+     * new device is a library entry, never a branch here.
+     *
+     * Whether it is drawn at all is THREE answers, narrowest first: this item's
+     * own `cone` prop, else the type's `defaults.cone`, else on. A type that
+     * declares neither behaves exactly as it always has, which is what lets
+     * `device.pir` and `device.camera` default to OFF without touching the
+     * speaker, the AC or the router. The reasoning is the same one that made
+     * coverage a per-floor setting: a house whose sensors sit close together
+     * ends up with more wedge than plan, and a detection cone is the worst
+     * offender because vision sensors cluster at doors and corners.
+     *
+     * `fov` and `range` are still read and still stored while it is off — they
+     * are what the wedge is drawn FROM, so turning it back on costs nothing. */
+    const coneOn = props.cone !== undefined ? props.cone !== false : defs.cone !== false;
+    if (r.cone && coneOn && (!ctx || ctx.coverage !== false)) {
       for (const n of coneNodes(r.cone, {
         cx, cy, P, theme, facing, live: sk.on,
         fov: num(props.fov, num(defs.fov, 90)),
@@ -1852,10 +1865,30 @@
       { show: true, counts: true, hideWhenAtMost: 1, hideRooms: [], style: 'pill' },
       project.chips || {},
     );
+    /* Everything the label has to keep off, as circles in screen space.
+     *
+     * Built once for the floor rather than per room, and deliberately WITHOUT
+     * asking which room each marker belongs to: a collision is a fact about
+     * pixels, and a ceiling fan hung near a doorway overlaps the label next
+     * door just as badly as its own. `markerRadius` is the same function the
+     * canvas draws and hit-tests from, so the label dodges what is actually
+     * on screen rather than an estimate of it. */
+    const labelBlockers = [];
+    for (const item of floor.items || []) {
+      const t = resolveType(library, item);
+      if (!t) continue;
+      const [ix, iy] = item.at || [0, 0];
+      labelBlockers.push({ x: P.X(ix), y: P.Y(iy), r: markerRadius(item, t, P) });
+    }
+    const boxHitsBlocker = (x, y, w, h, b) => {
+      const nx = Math.max(x - w / 2, Math.min(b.x, x + w / 2));
+      const ny = Math.max(y - h / 2, Math.min(b.y, y + h / 2));
+      const dx = b.x - nx, dy = b.y - ny;
+      return dx * dx + dy * dy < b.r * b.r;
+    };
+
     for (const room of floor.rooms || []) {
       if (room.noLabel || room.part_of || chipCfg.show === false) continue;
-      const at = room.chip_at || roomCentroid(room);
-      const cx = P.X(at[0]), cy = P.Y(at[1]);
       const name = (room.name || room.id).toUpperCase();
       const lvl = roomLevels.get(room.id) || { on: 0, total: 0 };
       const showCount = chipCfg.counts !== false
@@ -1873,6 +1906,52 @@
       const wCount = count ? count.length * 6.6 + 10 : 0;
       const w = wName + wCount + 18;
       const h = 18;
+
+      /* Where the name sits.
+       *
+       * The centroid is the right answer for an empty room and the wrong one
+       * for a real house: a ceiling fan, a pendant or a chandelier is almost
+       * always AT the middle of the room, which is exactly where the label
+       * wants to be — so the label was drawn on top of the fan.
+       *
+       * `chip_at` still wins outright. A position someone set by hand is a
+       * decision, not a starting point, and second-guessing it would make the
+       * control useless. Otherwise the label takes the centroid when it is
+       * clear and the first clear rung of a FIXED ladder of offsets when it is
+       * not — vertical first because a name reads better above or below a
+       * marker than beside it, then horizontal, then diagonal, at increasing
+       * distance. Fixed and ordered, never random or nearest-fit, so the same
+       * plan renders identically every time and the exported SVG matches what
+       * the editor drew.
+       *
+       * If nothing is clear it falls back to the centroid, which is exactly
+       * what it did before — a crowded room is no worse off than it was. */
+      const centre = room.chip_at || roomCentroid(room);
+      let at = centre;
+      if (!room.chip_at && labelBlockers.length) {
+        /* Searched in FEET and projected once per candidate, so the room test
+         * is the same `pointInRoom` every other piece of geometry here uses. */
+        const halfFt = ((w / 2) * 0.9) / (P.ppf || 22);
+        const clearAt = (fx, fy) => {
+          /* Both ends have to be inside, not just the middle: a pill reaching
+           * out through the wall of a narrow room reads as a mistake. */
+          if (!pointInRoom(room, fx, fy)) return false;
+          if (!pointInRoom(room, fx - halfFt, fy)) return false;
+          if (!pointInRoom(room, fx + halfFt, fy)) return false;
+          const px = P.X(fx), py = P.Y(fy);
+          return !labelBlockers.some((b) => boxHitsBlocker(px, py, w, h, b));
+        };
+        if (!clearAt(centre[0], centre[1])) {
+          for (let ring = 1; ring <= 3 && at === centre; ring++) {
+            const d = 1.4 * ring;
+            for (const [dx, dy] of [[0, -d], [0, d], [-d, 0], [d, 0], [-d, -d], [d, -d], [-d, d], [d, d]]) {
+              if (clearAt(centre[0] + dx, centre[1] + dy)) { at = [centre[0] + dx, centre[1] + dy]; break; }
+            }
+          }
+        }
+      }
+      const cx = P.X(at[0]), cy = P.Y(at[1]);
+
       const rot = room.chip_rotate ? `rotate(${room.chip_rotate} ${cx} ${cy})` : undefined;
 
       if (chipCfg.style === 'pill') {

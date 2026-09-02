@@ -428,6 +428,41 @@ window.Panels = (function () {
       }), ' Hide name on the plan'),
     ));
 
+    /* Where the name sits.
+     *
+     * Left alone, the label finds its own clear spot — the room's centre when
+     * nothing is there, and the nearest clear place when something is, which is
+     * usually the ceiling fan sitting exactly where the centre is. `chip_at`
+     * overrides that outright: a position set by hand is a decision, so nothing
+     * second-guesses it afterwards. Nudging simply writes the first one. */
+    if (!room.noLabel) {
+      const centre = PlanScene.roomCentroid(room);
+      const nudge = (dx, dy) => Store.mutate(() => {
+        const from = room.chip_at || centre;
+        room.chip_at = [Math.round((from[0] + dx) * 10) / 10, Math.round((from[1] + dy) * 10) / 10];
+      }, 'move room label');
+      box.appendChild(h('div', { class: 'field' },
+        h('label', {}, 'Name position'),
+        h('div', { style: 'display:flex;gap:4px;align-items:center;flex-wrap:wrap' },
+          h('button', { class: 'btn tiny', title: 'Up 1 ft', onclick: () => nudge(0, -1) }, '↑'),
+          h('button', { class: 'btn tiny', title: 'Down 1 ft', onclick: () => nudge(0, 1) }, '↓'),
+          h('button', { class: 'btn tiny', title: 'Left 1 ft', onclick: () => nudge(-1, 0) }, '←'),
+          h('button', { class: 'btn tiny', title: 'Right 1 ft', onclick: () => nudge(1, 0) }, '→'),
+          room.chip_at
+            ? h('button', {
+              class: 'btn tiny',
+              title: 'Go back to placing it automatically',
+              onclick: () => Store.mutate(() => { room.chip_at = null; }, 'auto room label'),
+            }, 'Auto')
+            : null,
+          h('span', { class: 'hint', style: 'margin:0 0 0 4px' },
+            room.chip_at ? `set to ${room.chip_at[0]}, ${room.chip_at[1]} ft` : 'placed automatically'),
+        ),
+      ));
+      box.appendChild(field('Rotate the name (°)', numInput(room.chip_rotate || 0,
+        (v) => Store.mutate(() => { room.chip_rotate = ((Math.round(v || 0) % 360) + 360) % 360; }, 'rotate room label'), 15)));
+    }
+
     PanelsExtra.roomExtras(box, floor, room);
 
     const inRoom = (floor.items || []).filter((i) => PlanScene.pointInRoom(room, i.at[0], i.at[1]));
@@ -529,7 +564,11 @@ window.Panels = (function () {
      * box — see below. */
     const props = (t.props || []).filter((p) => p.type !== 'channels');
     const SIZE = new Set(['w', 'h']);
-    const AIM = new Set(['rot', 'fov', 'range']);
+    /* `cone` belongs here rather than in the generic list: it gates whether
+     * `fov` and `range` are shown at all, so the three have to be drawn by one
+     * function or the checkbox appears twice and the wrong copy is the one
+     * people find. */
+    const AIM = new Set(['rot', 'fov', 'range', 'cone']);
     const LAMP = new Set(['watt', 'count', 'efficacy', 'beam', 'kelvin']);
 
     /* ---- Look ----

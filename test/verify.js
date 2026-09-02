@@ -1769,7 +1769,10 @@ ok('every cone names a style the renderer draws',
 const camProj = { name: 'rot', ppf: 20, floors: [{
   id: 'f', name: 'F', extent: { w: 20, h: 20 },
   rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20] }],
-  openings: [], items: [{ id: 'c1', kind: 'device', type: 'camera', entity: 'camera.a', at: [10, 10], props: { rot: 0 } }],
+  /* `cone: true` explicitly, because a camera's cone now defaults to OFF —
+   * these checks are about the cone's GEOMETRY and the coverage setting, not
+   * about which way the default points, and that is asserted separately below. */
+  openings: [], items: [{ id: 'c1', kind: 'device', type: 'camera', entity: 'camera.a', at: [10, 10], props: { rot: 0, cone: true } }],
 }] };
 const camScene = (deg) => {
   const p = JSON.parse(JSON.stringify(camProj));
@@ -1786,8 +1789,11 @@ ok('a camera cone is drawn at all', !!conePath(camScene(0)));
  * The marker itself must survive: turning coverage off is a statement about
  * drawing what a device REACHES, never about whether the device is there. A
  * house whose sensors sit close together can end up with more wedge than plan,
- * which is a fact about one house — hence a setting rather than a new default,
- * and hence the default below stays on. */
+ * which is a fact about one house — hence a setting rather than a new default.
+ *
+ * The setting is the house-wide switch; `props.cone` is the per-marker one, and
+ * they are ANDed. Coverage off drops every wedge no matter what an item asks
+ * for, which is what makes it usable as one control. */
 const coverScene = (where, enabled) => {
   const p = JSON.parse(JSON.stringify(camProj));
   (where === 'floor' ? p.floors[0] : p).coverage = { enabled };
@@ -1799,6 +1805,54 @@ ok('floor.coverage.enabled false drops them for that floor', !conePath(coverScen
 ok('and setting it true again brings them back', !!conePath(coverScene('project', true)));
 ok('the marker itself survives coverage being off',
   coverScene('project', false).layers.markers.some((n) => n.tag === 'circle'));
+
+/* A detection cone is off until it is asked for.
+ *
+ * PIR and camera cluster at doors and corners, so a house with a handful of
+ * them ends up with more wedge than plan — the same reasoning that made
+ * coverage a per-floor setting, applied one level down. Only these two were
+ * changed: a speaker, an AC or a router still draws by default, because a type
+ * that declares no `defaults.cone` behaves exactly as it always has. */
+/* Counting NODES rather than sniffing for an arc path: a PIR's own marker
+ * glyph contains an arc, so a shape heuristic matches the marker itself and
+ * reports a cone that is not there. The cone is additive, so "more nodes with
+ * it on than off" is the only claim that cannot be fooled by the drawing. */
+const coneNodeCount = (type, props) => {
+  const p = { name: 'c', ppf: 20, floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 },
+    rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20] }],
+    openings: [], items: [{ id: 'x1', kind: 'device', type, entity: 'x.a', at: [10, 10], props: props || {} }],
+  }] };
+  const s = scene.build(p, p.floors[0], lib, themes.themes.frosted.plan,
+    { states: { 'x.a': { state: 'on', attributes: {} } }, boundaries, flooring });
+  return s.layers.markers.length;
+};
+const drawsCone = (type, props) => coneNodeCount(type, props) > coneNodeCount(type, { cone: false });
+ok('a camera draws no detection cone until asked', drawsCone('camera') === false);
+ok('a PIR draws no detection cone until asked', drawsCone('pir') === false);
+ok('switching the cone on draws it', drawsCone('camera', { cone: true }) && drawsCone('pir', { cone: true }));
+ok('switching it explicitly off keeps it off', drawsCone('camera', { cone: false }) === false);
+ok('a device that never declared a default still draws its cone', drawsCone('speaker') === true);
+ok('both types expose the toggle as a real property, before fov and range', (() => {
+  /* The order matters in the panel: the two numbers only mean something once
+   * the cone is on, so the switch has to come first. */
+  for (const key of ['device.pir', 'device.camera']) {
+    const props = (lib.types[key].props || []).map((p) => p.key);
+    const c = props.indexOf('cone'), f = props.indexOf('fov'), r = props.indexOf('range');
+    if (c < 0 || f < 0 || r < 0 || c > f || c > r) return false;
+    if (lib.types[key].defaults.cone !== false) return false;
+  }
+  return true;
+})());
+ok('fov and range survive the cone being off, so turning it back on costs nothing', (() => {
+  const d = lib.types['device.camera'].defaults;
+  return d.fov > 0 && d.range > 0;
+})());
+ok('the editor hides the field of view and range while the cone is off', (() => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
+  return /has\('fov'\) && coneOn/.test(src) && /has\('fov'\) && !coneOn/.test(src);
+})());
+
 
 /* ---- a multi-gang switch, through the real renderer ----
  *
