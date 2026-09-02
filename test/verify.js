@@ -1806,6 +1806,138 @@ ok('and setting it true again brings them back', !!conePath(coverScene('project'
 ok('the marker itself survives coverage being off',
   coverScene('project', false).layers.markers.some((n) => n.tag === 'circle'));
 
+/* The dashed quarter-circle a door leaf sweeps through is drawing convention,
+ * not information — the leaf already shows which way the door opens — so it is
+ * switchable, and scoped house -> floor -> opening like everything else here.
+ * Default on, because that is what a floor plan looks like. */
+const arcScene = (mut) => {
+  const p = { name: 'd', ppf: 12, origin: [0, 0], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 },
+    rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20] }],
+    openings: [
+      { id: 'o1', type: 'door', room: 'r', wall: 'n', at: 3, w: 3, h: 4, swing: 'in' },
+      { id: 'o2', type: 'door', room: 'r', wall: 's', at: 12, w: 3, h: 4, swing: 'in' }],
+    items: [],
+  }] };
+  if (mut) mut(p);
+  const s = scene.build(p, p.floors[0], lib, themes.themes.frosted.plan, { states: {}, boundaries, flooring });
+  return s.layers.openings.filter((n) => n.tag === 'path' && /A /.test(n.attrs.d || '') && n.attrs['stroke-dasharray']).length;
+};
+
+
+ok('two saves in flight together do not race for one temp file', (() => {
+  /* This raced: the temp path was keyed on the pid alone, so both writes used
+   * `project.json.tmp-<pid>`, the first rename moved it and the second failed
+   * with ENOENT — an ordinary save returning 500. It surfaced about once in
+   * eight suite runs and reproduced in none of ~30 targeted attempts, because
+   * it needs two writes genuinely overlapping. */
+  const BS = String.fromCharCode(92);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fps-atomic-'));
+  try {
+    const out = execFileSync(process.execPath, ['-e', `
+      process.env.FPS_DATA_DIR = ${JSON.stringify(dir.split(BS).join("/"))};
+      const store = require(${JSON.stringify(path.join(APP, 'lib', 'store.js').split(BS).join("/"))});
+      const floors = [{ id: 'f', name: 'F', extent: { w: 10, h: 10 }, rooms: [], openings: [], items: [] }];
+      store.init().then(async () => {
+        const runs = [];
+        for (let i = 0; i < 24; i++) runs.push(store.writeProject({ name: 'p' + i, floors }));
+        const r = await Promise.allSettled(runs);
+        const bad = r.filter((x) => x.status === 'rejected').map((x) => String(x.reason && x.reason.message).slice(0, 80));
+        const left = require('fs').readdirSync(${JSON.stringify(dir.split(BS).join("/"))}).filter((f) => f.includes('.tmp-'));
+        console.log(JSON.stringify({ failures: bad, strays: left }));
+      });
+    `], { encoding: 'utf8' });
+    const r = JSON.parse(out.trim().split('\n').pop());
+    return r.failures.length === 0 && r.strays.length === 0;
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+})());
+
+ok('a door draws its swing arc by default', arcScene() === 2);
+ok('the house can switch every swing arc off', arcScene((p) => { p.doors = { swingArc: false }; }) === 0);
+ok('a floor can switch them off for itself', arcScene((p) => { p.floors[0].doors = { swingArc: false }; }) === 0);
+ok('a floor saying yes beats a house saying no', arcScene((p) => {
+  p.doors = { swingArc: false }; p.floors[0].doors = { swingArc: true };
+}) === 2);
+ok('one door can opt out on its own', arcScene((p) => { p.floors[0].openings[0].arc = false; }) === 1);
+ok('and one door can opt in while the house says no', arcScene((p) => {
+  p.doors = { swingArc: false }; p.floors[0].openings[0].arc = true;
+}) === 1);
+
+ok('switching arcs off changes nothing else about the door', (() => {
+  /* The leaf, the reveal and the sensor pip are what the door IS; only the
+   * dashed sweep is decoration. */
+  const count = (mut) => {
+    const p = { name: 'd', ppf: 12, origin: [0, 0], floors: [{
+      id: 'f', name: 'F', extent: { w: 20, h: 20 },
+      rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20] }],
+      openings: [{ id: 'o1', type: 'door', room: 'r', wall: 'n', at: 3, w: 3, h: 4, swing: 'in', sensor: 'binary_sensor.d' }],
+      items: [],
+    }] };
+    if (mut) mut(p);
+    const s = scene.build(p, p.floors[0], lib, themes.themes.frosted.plan,
+      { states: { 'binary_sensor.d': { state: 'on', attributes: {} } }, boundaries, flooring });
+    return s.layers.openings.filter((n) => !(n.tag === 'path' && n.attrs['stroke-dasharray'])).length;
+  };
+  return count() === count((p) => { p.doors = { swingArc: false }; });
+})());
+
+/* The swing itself is geometry, and the arc has to sweep INTO the room that
+ * owns the opening on every wall — the failure this pins is an arc taking the
+ * 270-degree way round and looping outside the building. */
+/* A swing arc has to turn about the HINGE. That is the one property which
+ * separates a correct symbol from the mirrored one, and it is exactly what the
+ * first version of this check missed: of the two 90-degree arcs through the
+ * leaf tip and the far jamb, the wrong sweep flag picks the one centred on the
+ * OPPOSITE corner — still a quarter circle, still the right radius, still on
+ * the room's side of the wall. Span and side both passed while every door in
+ * the app drew its arc bending the wrong way. Assert the centre. */
+ok('every swing arc turns about its own hinge, on every wall and either hinge', (() => {
+  const chosenCentre = (x0, y0, x1, y1, r, sweep) => {
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy);
+    const hh = Math.sqrt(Math.max(0, r * r - (d / 2) * (d / 2)));
+    for (const C of [[mx - dy / d * hh, my + dx / d * hh], [mx + dy / d * hh, my - dx / d * hh]]) {
+      const a0 = Math.atan2(y0 - C[1], x0 - C[0]);
+      const a1 = Math.atan2(y1 - C[1], x1 - C[0]);
+      let da = a1 - a0;
+      if (sweep === 1) { while (da < 0) da += 2 * Math.PI; } else { while (da > 0) da -= 2 * Math.PI; }
+      if (Math.abs(da) <= Math.PI + 1e-9) return { C, span: Math.abs(da) * 180 / Math.PI };
+    }
+    return null;
+  };
+  const bad = [];
+  for (const wall of ['n', 'e', 's', 'w']) {
+    for (const hinge of ['start', 'end']) {
+      const p = { name: 'a', ppf: 10, origin: [0, 0], floors: [{
+        id: 'f', name: 'F', extent: { w: 20, h: 20 },
+        rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20] }],
+        openings: [{ id: 'o', type: 'door', room: 'r', wall, at: 8, w: 4, h: 4, swing: 'in', hinge }],
+        items: [],
+      }] };
+      const s = scene.build(p, p.floors[0], lib, themes.themes.frosted.plan, { states: {}, boundaries, flooring });
+      const arc = s.layers.openings.find((n) => n.tag === 'path' && /A /.test(n.attrs.d || ''));
+      const leaf = s.layers.openings.filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 2)[0];
+      if (!arc || !leaf) { bad.push(`${wall}/${hinge}: missing`); continue; }
+      const m = /M ([-\d.]+) ([-\d.]+) A ([-\d.]+) ([-\d.]+) 0 0 ([01]) ([-\d.]+) ([-\d.]+)/.exec(arc.attrs.d);
+      if (!m) { bad.push(`${wall}/${hinge}: unparsed`); continue; }
+      const got = chosenCentre(+m[1], +m[2], +m[6], +m[7], +m[3], +m[5]);
+      /* The leaf runs hinge -> tip, and the arc starts at that same tip, so the
+       * hinge is the leaf end the arc does NOT begin at. */
+      const tip = [+m[1], +m[2]];
+      const ends = [[+leaf.attrs.x1, +leaf.attrs.y1], [+leaf.attrs.x2, +leaf.attrs.y2]];
+      const hingePt = Math.hypot(ends[0][0] - tip[0], ends[0][1] - tip[1]) < 1 ? ends[1] : ends[0];
+      if (!got) { bad.push(`${wall}/${hinge}: no minor arc`); continue; }
+      if (Math.hypot(got.C[0] - hingePt[0], got.C[1] - hingePt[1]) > 1) {
+        bad.push(`${wall}/${hinge}: centred (${got.C.map((v) => v.toFixed(0))}) not on hinge (${hingePt.map((v) => v.toFixed(0))})`);
+      }
+      if (got.span < 80 || got.span > 100) bad.push(`${wall}/${hinge}: span ${got.span.toFixed(0)}`);
+    }
+  }
+  if (bad.length) console.log('        ' + bad.slice(0, 3).join(' | '));
+  return bad.length === 0;
+})(), '4 walls x 2 hinges');
+
+
 /* A detection cone is off until it is asked for.
  *
  * PIR and camera cluster at doors and corners, so a house with a handful of
@@ -1832,7 +1964,19 @@ ok('a camera draws no detection cone until asked', drawsCone('camera') === false
 ok('a PIR draws no detection cone until asked', drawsCone('pir') === false);
 ok('switching the cone on draws it', drawsCone('camera', { cone: true }) && drawsCone('pir', { cone: true }));
 ok('switching it explicitly off keeps it off', drawsCone('camera', { cone: false }) === false);
-ok('a device that never declared a default still draws its cone', drawsCone('speaker') === true);
+ok('every coverage cone is opt-in, whatever draws it', (() => {
+  /* Detection wedges were the complaint that started this, but an AC blowing
+   * chevrons across the room it sits in and a speaker ringing it are the same
+   * defect: what a device REACHES is a different question from where it is,
+   * and on a real plan the reaching buries the drawing. Every type that draws
+   * a wedge now ships the same switch and the same default. */
+  const coned = Object.entries(lib.types).filter(([, t]) => t.render && t.render.cone);
+  const on = coned.filter(([, t]) => (t.defaults || {}).cone !== false).map(([k]) => k);
+  const noSwitch = coned.filter(([, t]) => !(t.props || []).some((x) => x.key === 'cone')).map(([k]) => k);
+  return coned.length >= 20 && on.length === 0 && noSwitch.length === 0;
+})());
+ok('an AC and a speaker draw no cone until asked', drawsCone('ac') === false && drawsCone('speaker') === false);
+ok('and both draw one the moment they are', drawsCone('ac', { cone: true }) && drawsCone('speaker', { cone: true }));
 ok('both types expose the toggle as a real property, before fov and range', (() => {
   /* The order matters in the panel: the two numbers only mean something once
    * the cone is on, so the switch has to come first. */
@@ -3348,9 +3492,18 @@ function withServerOnce(options, run, readyPattern) {
      * actual error text has finished arriving. */
     child.on('close', (code) => { if (code) finish(reject, new Error('server exited early (' + code + '): ' + out)); });
     child.stderr.on('data', (d) => { out += d.toString(); });
+    /* `launched` is set SYNCHRONOUSLY, before `run` is called. `settled` is not
+     * enough on its own: it only becomes true once `run` has resolved, and the
+     * server prints half a dozen startup lines — so every further chunk that
+     * arrived while the body was still in flight started ANOTHER copy of it.
+     * Every server-backed test here has been running two or more times at
+     * once, which is what produced an intermittent 500 from two overlapping
+     * PUTs racing for the same temp file. */
+    let launched = false;
     child.stdout.on('data', (d) => {
       out += d.toString();
-      if (settled || !ready.test(out)) return;
+      if (launched || settled || !ready.test(out)) return;
+      launched = true;
       Promise.resolve(run(port)).then((result) => finish(resolve, result), (e) => finish(reject, e));
     });
   });
@@ -3701,7 +3854,11 @@ const putProject = (port, headers) => async () => {
     headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
     body: JSON.stringify(current),
   });
-  if (!res.ok) throw new Error('PUT returned ' + res.status);
+  /* Carry the server's own message. This has failed intermittently with a bare
+   * "500" that reproduced in none of ~30 targeted attempts, so the next
+   * occurrence needs to say what actually threw rather than only that
+   * something did. */
+  if (!res.ok) throw new Error('PUT returned ' + res.status + ': ' + (await res.text()).slice(0, 300));
 };
 
 await okAsync('a save reports WHO made it, so a tab can recognise its own', async () => {

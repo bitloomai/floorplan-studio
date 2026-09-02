@@ -1001,7 +1001,19 @@ window.PanelsExtra = (function () {
           }, ...['start', 'end'].map((v) => h('option', { value: v, selected: (op.hinge || 'start') === v }, v)))),
         ));
         box.appendChild(field('Leaves', numInput(op.leaves ?? props.leaves ?? 1, (v) => Store.mutate(() => { op.leaves = v || 1; }, 'leaves'), 1)));
-        box.appendChild(h('p', { class: 'hint' }, 'Swing is drawn live — read the arc rather than trusting the word. Which side “in” lands on depends on whether the door sits on the room’s min or max edge.'));
+        box.appendChild(h('p', { class: 'hint' }, 'Swing is drawn live — read the arc rather than trusting the word. Which side “in” lands on depends on whether the door sits on the room’s min or max edge, and “Hinge” flips which jamb it turns on.'));
+
+        /* The house sets whether arcs are drawn; this door can disagree. Blank
+         * inherits, exactly like every other scoped setting here. */
+        const houseArc = (S.project.doors || {}).swingArc !== false;
+        box.appendChild(field('Swing arc', h('select', {
+          onchange: (e) => Store.mutate(() => {
+            if (e.target.value === '') delete op.arc; else op.arc = e.target.value === 'on';
+          }, 'swing arc'),
+        },
+        h('option', { value: '', selected: op.arc === undefined }, `Follow the house (${houseArc ? 'shown' : 'hidden'})`),
+        h('option', { value: 'on', selected: op.arc === true }, 'Always show'),
+        h('option', { value: 'off', selected: op.arc === false }, 'Always hide'))));
       }
 
       box.appendChild(entityRow('Contact sensor', op.sensor, ['binary_sensor'],

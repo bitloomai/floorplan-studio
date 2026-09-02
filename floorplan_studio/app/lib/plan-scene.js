@@ -526,7 +526,7 @@
     return typeDef.defaultOpen !== false;
   }
 
-  function openingNodes(op, room, floor, bDoc, theme, P, states) {
+  function openingNodes(op, room, floor, bDoc, theme, P, states, arcDefault) {
     const edges = roomEdges(room);
     const edge = edges.find((e) => e.wall === op.wall);
     if (!edge) return [];
@@ -553,6 +553,7 @@
     const ix = Math.sin(inAng), iy = -Math.cos(inAng);
     const swingSign = op.swing === 'out' ? -1 : 1;
     const hingeAtStart = (op.hinge || 'start') === 'start';
+    const swingArc = op.arc !== undefined ? op.arc !== false : arcDefault !== false;
 
     switch (style) {
       case 'glazed': {
@@ -632,12 +633,42 @@
           if (open) {
             const ex = hx + ix * leafLen * swingSign, ey = hy + iy * leafLen * swingSign;
             nodes.push({ tag: 'line', attrs: { x1: hx, y1: hy, x2: ex, y2: ey, stroke: line, 'stroke-width': 2 } });
-            const ax = hx + ux * leafLen * dirAlong, ay = hy + uy * leafLen * dirAlong;
-            const sweep = (swingSign * dirAlong > 0) ? 1 : 0;
-            nodes.push({
-              tag: 'path',
-              attrs: { d: `M ${ex} ${ey} A ${leafLen} ${leafLen} 0 0 ${sweep} ${ax} ${ay}`, fill: 'none', stroke: line, 'stroke-width': 1, opacity: 0.55, 'stroke-dasharray': '3 3' },
-            });
+            /* The dashed quarter-circle the leaf sweeps through. It is the
+             * drawing convention rather than information — the leaf already
+             * says which way the door opens — so it is switchable: a plan with
+             * many doors close together can read better without it. Narrowest
+             * answer first, exactly like coverage: this opening, then the
+             * floor, then the house, then on. */
+            if (swingArc !== false) {
+              const ax = hx + ux * leafLen * dirAlong, ay = hy + uy * leafLen * dirAlong;
+              /* The arc has to turn about the HINGE — that is the whole meaning
+               * of a swing symbol, and what makes the dashed curve the path the
+               * leaf edge actually travels.
+               *
+               * Of the two 90-degree arcs through these endpoints, one is
+               * centred on the hinge and the other on the opposite corner. The
+               * wrong one is still a quarter circle, still the right radius and
+               * still on the room's side of the wall — so it reads as
+               * almost-right, and a check asserting only span and side passes
+               * it. The centre is the only thing that separates them.
+               *
+               * Which flag lands on the hinge depends on the handedness of
+               * (along the wall) x (into the room), and THAT FLIPS BETWEEN
+               * WALLS: north and east wind one way, south and west the other.
+               * The old expression was a constant and so was right on exactly
+               * half of them. Compute the turn direction from the two vectors
+               * instead — tip about the hinge, round to the closed jamb — and
+               * every wall follows from the same arithmetic.
+               *
+               * `y` grows downward here, so a positive cross product is a
+               * clockwise turn on screen, which is SVG's sweep flag 1. */
+              const turn = (ix * swingSign) * (uy * dirAlong) - (iy * swingSign) * (ux * dirAlong);
+              const sweep = turn > 0 ? 1 : 0;
+              nodes.push({
+                tag: 'path',
+                attrs: { d: `M ${ex} ${ey} A ${leafLen} ${leafLen} 0 0 ${sweep} ${ax} ${ay}`, fill: 'none', stroke: line, 'stroke-width': 1, opacity: 0.55, 'stroke-dasharray': '3 3' },
+              });
+            }
           } else {
             const ax = hx + ux * leafLen * dirAlong, ay = hy + uy * leafLen * dirAlong;
             nodes.push({ tag: 'line', attrs: { x1: hx, y1: hy, x2: ax, y2: ay, stroke: line, 'stroke-width': 2.6 } });
@@ -1542,10 +1573,19 @@
       }
     }
 
+    /* The dashed quarter-circle a door leaf sweeps through. Scoped house →
+     * floor like coverage, and overridable per opening below it, because it is
+     * drawing convention rather than information: the leaf already says which
+     * way the door opens, and a plan with many doors close together can read
+     * better without them. Default on — it is what a floor plan looks like. */
+    const swingArcDefault = Object.assign(
+      { swingArc: true }, project.doors || {}, floor.doors || {},
+    ).swingArc !== false;
+
     for (const op of floor.openings || []) {
       const room = (floor.rooms || []).find((r) => r.id === op.room);
       if (!room) { warnings.push({ kind: 'orphan-opening', message: `opening on unknown room "${op.room}"` }); continue; }
-      for (const n of openingNodes(op, room, floor, bDoc, theme, P, states)) {
+      for (const n of openingNodes(op, room, floor, bDoc, theme, P, states, swingArcDefault)) {
         n.openingId = op.id; layers.openings.push(n);
       }
     }
@@ -1878,13 +1918,35 @@
       const t = resolveType(library, item);
       if (!t) continue;
       const [ix, iy] = item.at || [0, 0];
-      labelBlockers.push({ x: P.X(ix), y: P.Y(iy), r: markerRadius(item, t, P) });
+      /* Furniture has a real footprint and its `at` is the TOP-LEFT corner, so
+       * it blocks as the rectangle it actually covers. Treating it as a circle
+       * of radius w/2 — which is what a marker is — made a sofa block a
+       * quarter of the room and left dense rooms with nowhere to put a label
+       * at all. A marker's `at` is its centre and a disc is what it draws. */
+      if (item.kind === 'furniture') {
+        const p = item.props || {};
+        const d = t.defaults || {};
+        const fw = P.S(num(p.w, num(d.w, 2))), fh = P.S(num(p.h, num(d.h, 2)));
+        labelBlockers.push({
+          rect: true, weight: 1,
+          x: P.X(ix) + fw / 2, y: P.Y(iy) + fh / 2, w: fw, h: fh,
+        });
+      } else {
+        const r = markerRadius(item, t, P);
+        /* A marker sitting under a name is the thing that actually looks
+         * broken — a fan especially — so it costs more than furniture does. */
+        labelBlockers.push({ rect: false, weight: 6, x: P.X(ix), y: P.Y(iy), r });
+      }
     }
-    const boxHitsBlocker = (x, y, w, h, b) => {
-      const nx = Math.max(x - w / 2, Math.min(b.x, x + w / 2));
-      const ny = Math.max(y - h / 2, Math.min(b.y, y + h / 2));
-      const dx = b.x - nx, dy = b.y - ny;
-      return dx * dx + dy * dy < b.r * b.r;
+    /* Area of overlap, not a yes/no: in a fully furnished room nothing is
+     * completely clear, and "least covered" is a far better answer than
+     * "give up and sit on the ceiling fan". */
+    const overlap = (x, y, w, h, b) => {
+      const bw = b.rect ? b.w : b.r * 2;
+      const bh = b.rect ? b.h : b.r * 2;
+      const ox = Math.min(x + w / 2, b.x + bw / 2) - Math.max(x - w / 2, b.x - bw / 2);
+      const oy = Math.min(y + h / 2, b.y + bh / 2) - Math.max(y - h / 2, b.y - bh / 2);
+      return ox > 0 && oy > 0 ? ox * oy * b.weight : 0;
     };
 
     for (const room of floor.rooms || []) {
@@ -1929,26 +1991,41 @@
       const centre = room.chip_at || roomCentroid(room);
       let at = centre;
       if (!room.chip_at && labelBlockers.length) {
-        /* Searched in FEET and projected once per candidate, so the room test
-         * is the same `pointInRoom` every other piece of geometry here uses. */
+        /* Searched in FEET and projected per candidate, so the room test is the
+         * same `pointInRoom` the rest of this file uses. */
         const halfFt = ((w / 2) * 0.9) / (P.ppf || 22);
-        const clearAt = (fx, fy) => {
-          /* Both ends have to be inside, not just the middle: a pill reaching
-           * out through the wall of a narrow room reads as a mistake. */
-          if (!pointInRoom(room, fx, fy)) return false;
-          if (!pointInRoom(room, fx - halfFt, fy)) return false;
-          if (!pointInRoom(room, fx + halfFt, fy)) return false;
+        const insideRoom = (fx, fy) => pointInRoom(room, fx, fy)
+          /* Both ends, not just the middle: a pill reaching out through the
+           * wall of a narrow room reads as a mistake. */
+          && pointInRoom(room, fx - halfFt, fy)
+          && pointInRoom(room, fx + halfFt, fy);
+        const cost = (fx, fy) => {
           const px = P.X(fx), py = P.Y(fy);
-          return !labelBlockers.some((b) => boxHitsBlocker(px, py, w, h, b));
+          let sum = 0;
+          for (const b of labelBlockers) sum += overlap(px, py, w, h, b);
+          return sum;
         };
-        if (!clearAt(centre[0], centre[1])) {
-          for (let ring = 1; ring <= 3 && at === centre; ring++) {
-            const d = 1.4 * ring;
-            for (const [dx, dy] of [[0, -d], [0, d], [-d, 0], [d, 0], [-d, -d], [d, -d], [-d, d], [d, d]]) {
-              if (clearAt(centre[0] + dx, centre[1] + dy)) { at = [centre[0] + dx, centre[1] + dy]; break; }
-            }
+
+        let best = null;
+        const consider = (fx, fy) => {
+          if (best && best.cost === 0) return;
+          if (!insideRoom(fx, fy)) return;
+          const c = cost(fx, fy);
+          if (!best || c < best.cost) best = { at: [fx, fy], cost: c };
+        };
+        consider(centre[0], centre[1]);
+        /* A fixed, ordered ladder: vertical first because a name reads better
+         * above or below a marker than beside it, then horizontal, then
+         * diagonal, widening. Ordered rather than nearest-fit so the same plan
+         * renders identically every time — ties keep the earliest rung, and the
+         * centroid is rung zero, so an empty room never moves its label. */
+        for (let ring = 1; ring <= 6 && !(best && best.cost === 0); ring++) {
+          const d = 1.2 * ring;
+          for (const [dx, dy] of [[0, -d], [0, d], [-d, 0], [d, 0], [-d, -d], [d, -d], [-d, d], [d, d]]) {
+            consider(centre[0] + dx, centre[1] + dy);
           }
         }
+        if (best) at = best.at;
       }
       const cx = P.X(at[0]), cy = P.Y(at[1]);
 

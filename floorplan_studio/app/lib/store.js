@@ -88,11 +88,52 @@ async function ensureFile(key) {
   return target;
 }
 
-async function writeAtomic(file, obj) {
-  const tmp = file + '.tmp-' + process.pid;
+/* A counter, so two writes to the SAME file from this process cannot pick the
+ * same temp path. Keyed on the pid alone they did: both wrote
+ * `project.json.tmp-<pid>`, the first rename moved it, and the second failed
+ * with ENOENT — surfacing as a 500 from an ordinary save. Rare, because it
+ * needs two writes genuinely in flight together (an autosave landing while an
+ * MCP call writes, say), and silent when it happened. */
+let tmpSeq = 0;
+
+/* One queue per file, so two writes to the SAME document never overlap.
+ *
+ * The unique temp name above stops them choosing the same scratch path, but it
+ * does not stop two renames landing on one target at once — which on Windows
+ * fails with EPERM rather than ENOENT, because a rename onto a file another
+ * handle is touching is simply not permitted. Both are the same underlying
+ * mistake: a document being replaced is not a thing two callers can do at once.
+ *
+ * Queueing is the whole fix, and it is cheap: writes to DIFFERENT documents
+ * still run in parallel, and the queue for one document is almost always empty
+ * — it exists for the case that actually happens, an editor autosave landing at
+ * the same moment an MCP call writes. The chain never rejects, so one failed
+ * write cannot wedge every write after it. */
+const writeQueues = new Map();
+
+/* Run `fn` after everything already queued for this file. The chain is kept
+ * rejection-free so one failed write cannot wedge every write behind it. */
+function enqueue(file, fn) {
+  const queued = (writeQueues.get(file) || Promise.resolve()).then(fn, fn);
+  writeQueues.set(file, queued.catch(() => {}));
+  return queued;
+}
+
+async function rawWriteAtomic(file, obj) {
+  const tmp = `${file}.tmp-${process.pid}-${++tmpSeq}`;
   await fsp.writeFile(tmp, JSON.stringify(obj, null, 2), 'utf8');
-  await fsp.rename(tmp, file);
+  try {
+    await fsp.rename(tmp, file);
+  } catch (e) {
+    /* Never leave the temp behind for someone to find and wonder about. */
+    await fsp.unlink(tmp).catch(() => {});
+    throw e;
+  }
   return obj;
+}
+
+function writeAtomic(file, obj) {
+  return enqueue(file, () => rawWriteAtomic(file, obj));
 }
 
 /* Fill in top-level keys a document gained after it was written.
@@ -449,10 +490,18 @@ module.exports = {
   async writeProject(project, opts) {
     if (!project || typeof project !== 'object') throw new Error('project must be an object');
     if (!Array.isArray(project.floors)) throw new Error('project.floors must be an array');
-    await snapshotProject();
-    project.savedAt = new Date().toISOString();
-    project.schemaVersion = project.schemaVersion || 1;
-    const saved = await writeAtomic(path.join(DATA_DIR, FILES.project), project);
+    const file = path.join(DATA_DIR, FILES.project);
+    /* Snapshot AND write inside one queue slot. Queuing only the write is not
+     * enough: `snapshotProject` copies the very file a concurrent rename is
+     * replacing, so the backup is what fails instead. `rawWriteAtomic` is used
+     * here rather than `writeAtomic` because we are already holding the slot —
+     * queueing again from inside it would wait on ourselves. */
+    const saved = await enqueue(file, async () => {
+      await snapshotProject();
+      project.savedAt = new Date().toISOString();
+      project.schemaVersion = project.schemaVersion || 1;
+      return rawWriteAtomic(file, project);
+    });
     notifyProjectChange(saved, opts && opts.origin);
     return saved;
   },

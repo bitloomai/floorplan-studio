@@ -862,7 +862,8 @@
         "count": 1,
         "efficacy": 100,
         "beam": 6.5,
-        "kelvin": 5000
+        "kelvin": 5000,
+        "cone": false
       },
       "props": [
         {
@@ -903,6 +904,12 @@
           "min": 1800,
           "max": 7000,
           "step": 50
+        },
+        {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
         },
         {
           "key": "fov",
@@ -1466,6 +1473,12 @@
           "step": 1
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Throw (ft)",
           "type": "number",
@@ -1487,7 +1500,8 @@
         "blades": 4,
         "range": 6,
         "size": 7,
-        "variant": "caged"
+        "variant": "caged",
+        "cone": false
       }
     },
     "device.ac": {
@@ -1559,6 +1573,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -1588,7 +1608,8 @@
         "range": 9,
         "tons": 1.5,
         "size": 8.5,
-        "variant": "split"
+        "variant": "split",
+        "cone": false
       }
     },
     "device.ac_outdoor": {
@@ -1752,6 +1773,12 @@
           "max": 12000
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -1773,7 +1800,8 @@
         "watt": 1500,
         "range": 8,
         "size": 8.5,
-        "variant": "radiant"
+        "variant": "radiant",
+        "cone": false
       }
     },
     "device.geyser": {
@@ -2097,6 +2125,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -2117,7 +2151,8 @@
         "rot": 0,
         "range": 8,
         "size": 8.5,
-        "variant": "purifier"
+        "variant": "purifier",
+        "cone": false
       }
     },
     "device.tv": {
@@ -2185,6 +2220,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Viewing angle (deg)",
           "type": "number",
@@ -2232,7 +2273,8 @@
         "fov": 120,
         "range": 12,
         "size": 8.5,
-        "variant": "flat"
+        "variant": "flat",
+        "cone": false
       }
     },
     "device.stb": {
@@ -2383,6 +2425,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -2412,7 +2460,8 @@
         "fov": 120,
         "range": 14,
         "size": 8.5,
-        "variant": "box"
+        "variant": "box",
+        "cone": false
       }
     },
     "device.console": {
@@ -2556,6 +2605,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -2576,7 +2631,8 @@
         "rot": 0,
         "range": 25,
         "size": 8.5,
-        "variant": "ap"
+        "variant": "ap",
+        "cone": false
       }
     },
     "device.pir": {
@@ -2648,7 +2704,7 @@
           "key": "cone",
           "label": "Detection cone",
           "type": "boolean",
-          "hint": "Draw what this covers. Off by default — a house with several sensors close together ends up with more wedge than plan. Turning it on is what makes the field of view and range below matter."
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
         },
         {
           "key": "fov",
@@ -2750,6 +2806,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -2779,7 +2841,8 @@
         "fov": 100,
         "range": 20,
         "size": 8.5,
-        "variant": "radar"
+        "variant": "radar",
+        "cone": false
       }
     },
     "device.contact": {
@@ -2948,7 +3011,7 @@
           "key": "cone",
           "label": "Detection cone",
           "type": "boolean",
-          "hint": "Draw what this covers. Off by default — a house with several sensors close together ends up with more wedge than plan. Turning it on is what makes the field of view and range below matter."
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
         },
         {
           "key": "fov",
@@ -3393,6 +3456,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -3422,7 +3491,8 @@
         "fov": 120,
         "range": 14,
         "size": 8.5,
-        "variant": "bell"
+        "variant": "bell",
+        "cone": false
       }
     },
     "device.siren": {
@@ -3491,6 +3561,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Spread (deg)",
           "type": "number",
@@ -3528,7 +3604,8 @@
         "db": 105,
         "fov": 360,
         "size": 8.5,
-        "variant": "horn"
+        "variant": "horn",
+        "cone": false
       }
     },
     "device.label": {
@@ -5563,6 +5640,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -5583,7 +5666,8 @@
         "rot": 0,
         "range": 35,
         "size": 8.5,
-        "variant": "router"
+        "variant": "router",
+        "cone": false
       }
     },
     "device.curtain": {
@@ -10399,6 +10483,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -10428,7 +10518,8 @@
         "fov": 180,
         "range": 14,
         "size": 8.5,
-        "variant": "solenoid"
+        "variant": "solenoid",
+        "cone": false
       }
     },
     "device.generator": {
@@ -11151,6 +11242,12 @@
           "max": 20000
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -11181,7 +11278,8 @@
         "fov": 100,
         "range": 14,
         "size": 8.5,
-        "variant": "window"
+        "variant": "window",
+        "cone": false
       },
       "onRule": "notOff"
     },
@@ -11258,6 +11356,12 @@
           "max": 20000
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -11279,7 +11383,8 @@
         "watt": 2200,
         "range": 16,
         "size": 8.5,
-        "variant": "cassette"
+        "variant": "cassette",
+        "cone": false
       },
       "onRule": "notOff"
     },
@@ -11866,6 +11971,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -11895,7 +12006,8 @@
         "fov": 140,
         "range": 8,
         "size": 8.5,
-        "variant": "slim"
+        "variant": "slim",
+        "cone": false
       }
     },
     "device.hood": {
@@ -11970,6 +12082,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "fov",
           "label": "Field of view (deg)",
           "type": "number",
@@ -11999,7 +12117,8 @@
         "fov": 90,
         "range": 6,
         "size": 8.5,
-        "variant": "caged"
+        "variant": "caged",
+        "cone": false
       }
     },
     "device.oven": {
@@ -14255,6 +14374,12 @@
           "step": 5
         },
         {
+          "key": "cone",
+          "label": "Coverage cone",
+          "type": "boolean",
+          "hint": "Draw what this reaches. Off by default: on a real plan the wedges bury the rooms they are drawn on. Turning it on is what makes the field of view and range below matter."
+        },
+        {
           "key": "range",
           "label": "Range (ft)",
           "type": "number",
@@ -14276,7 +14401,8 @@
         "range": 40,
         "fov": 360,
         "size": 8.5,
-        "variant": "ap"
+        "variant": "ap",
+        "cone": false
       }
     },
     "device.network_switch": {
