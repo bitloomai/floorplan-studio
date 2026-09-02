@@ -82,12 +82,10 @@ window.Canvas = (function () {
     frag.appendChild(defs);
 
     for (const key of scene.order) {
-      const g = el('g', { id: 'fps-' + key, 'pointer-events': key === 'floors' ? 'auto' : 'none' });
-      for (const n of scene.layers[key] || []) {
-        const e = nodeToEl(n);
-        if (key === 'floors' && n.roomId) { e.classList.add('room-hit'); e.dataset.room = n.roomId; }
-        g.appendChild(e);
-      }
+      /* Every rendered layer is inert; all hit-testing happens in #fps-hits
+       * below, which is the one place that decides what a click means. */
+      const g = el('g', { id: 'fps-' + key, 'pointer-events': 'none' });
+      for (const n of scene.layers[key] || []) g.appendChild(nodeToEl(n));
       frag.appendChild(g);
     }
 
@@ -95,6 +93,36 @@ window.Canvas = (function () {
      * the same number the finished dashboard card uses, so what is easy to grab
      * here is what will be easy to tap there. */
     const hits = el('g', { id: 'fps-hits' });
+
+    /* Rooms first, so every marker and opening added below sits ON TOP of them.
+     * SVG resolves a click to the topmost sibling, so this order is what makes
+     * "tap the lamp, not the room it stands in" true — the same back-to-front
+     * rule `PlanScene.hitTargets()` documents for the dashboard card.
+     *
+     * This is also the fix for rooms not being selectable AT ALL. The room hit
+     * shape used to be attached in the layer loop above, guarded by
+     * `key === 'floors'` — but the renderer's layer is called `flooring`, so
+     * that branch never ran and no room ever got a `data-room` attribute. Every
+     * layer is `pointer-events: none`, so clicking a room reached nothing and
+     * the only way to select one was through code.
+     *
+     * The shape is the room's own outline, so an L-shape and a curved wall are
+     * hit exactly where they are drawn rather than by their bounding box. The
+     * transparent STROKE is what makes clicking the wall itself select the
+     * room: a wall is not a separate object, it is this polygon's edge. */
+    for (const room of floor.rooms || []) {
+      const P = scene.projector;
+      const pts = PlanScene.roomPoints(room);
+      if (!pts.length) continue;
+      const d = pts.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z';
+      const e = el('path', {
+        d, fill: 'transparent', stroke: 'transparent', 'stroke-width': 12,
+        class: 'hit room-hit',
+      });
+      e.dataset.room = room.id;
+      hits.appendChild(e);
+    }
+
     for (const item of floor.items || []) {
       const t = PlanScene.resolveType(S.library, item) || {};
       const P = scene.projector;

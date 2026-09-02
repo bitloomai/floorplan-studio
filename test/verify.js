@@ -4298,6 +4298,108 @@ ok('the headless API cannot call a Home Assistant service', (() => {
 })());
 
 
+
+/* ------------------------------------------------- selecting and curving ---
+ *
+ * Clicking a room did not select it. Ever, on any plan. The hit shape was built
+ * in the layer loop under `key === 'floors'`, but the renderer's layer is
+ * called `flooring` — so the branch never ran, no element ever got a
+ * `data-room` attribute, and since every rendered layer is `pointer-events:
+ * none` a click on a room reached nothing at all. The only way to select one
+ * was through code, which is exactly how it survived: every test and every
+ * scripted check called `Store.select('room', id)` directly. */
+
+ok('every room gets a hit shape, and rooms come before markers', (() => {
+  /* SVG resolves a click to the topmost sibling, so rooms must be appended
+   * FIRST — "tap the lamp, not the room it stands in". */
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'canvas.js'), 'utf8');
+  const hits = src.indexOf("const hits = el('g', { id: 'fps-hits' })");
+  const rooms = src.indexOf('for (const room of floor.rooms || [])', hits);
+  const items = src.indexOf('for (const item of floor.items || [])', hits);
+  const openings = src.indexOf('for (const op of floor.openings || [])', hits);
+  return hits > 0 && rooms > hits && items > rooms && openings > items
+    && /dataset\.room = room\.id/.test(src);
+})());
+
+ok('no layer still claims a room hit shape it never built', (() => {
+  /* The dead branch is gone rather than left as a second, wrong idea of where
+   * room hit shapes come from. */
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'canvas.js'), 'utf8');
+  /* Comments stripped first: the fix is explained in a comment that names the
+   * dead branch, and a bare substring search matches the explanation as
+   * happily as the code. */
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  return !/key === 'floors'/.test(code) && !/dataset\.room = n\.roomId/.test(code);
+})());
+
+ok('a room hit shape follows the room outline, not its bounding box', (() => {
+  /* An L-shaped room must not be selectable in the notch it does not occupy,
+   * and a curved wall must be grabbable where it is drawn. */
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'canvas.js'), 'utf8');
+  const block = src.slice(src.indexOf("const hits = el('g', { id: 'fps-hits' })"));
+  return /PlanScene\.roomPoints\(room\)/.test(block.slice(0, 1600))
+    && /stroke: 'transparent'/.test(block.slice(0, 1600));
+})());
+
+/* Curved walls: the model stores a RADIUS on the corner a wall arrives at, and
+ * an arc has to reach both ends — so a radius below half the wall's length is
+ * impossible and degrades silently to a straight line. Asking a person for that
+ * number is asking them to compute a chord; the panel asks for the bulge. */
+ok('the bulge a person types converts to a radius that actually reaches', (() => {
+  const b2r = (s, d) => (s ? ((s * s + (d / 2) * (d / 2)) / (2 * Math.abs(s))) * (s < 0 ? -1 : 1) : 0);
+  for (const d of [4, 10.125, 16.4167, 40]) {
+    for (const s of [0.25, 1, 2, -3, d / 2]) {
+      const r = b2r(s, d);
+      if (Math.abs(r) < d / 2 - 1e-9) return false;   // would degrade to straight
+    }
+  }
+  return true;
+})());
+
+ok('and converts back to the same bulge, so the field shows what was set', (() => {
+  const b2r = (s, d) => (s ? ((s * s + (d / 2) * (d / 2)) / (2 * Math.abs(s))) * (s < 0 ? -1 : 1) : 0);
+  const r2b = (r, d) => {
+    const R = Math.abs(r);
+    if (!R || R < d / 2) return 0;
+    return Math.round((R - Math.sqrt(Math.max(0, R * R - (d / 2) * (d / 2)))) * (r < 0 ? -1 : 1) * 100) / 100;
+  };
+  for (const d of [10.125, 16.4167]) {
+    for (const s of [0.5, 1, 2, -2]) {
+      if (Math.abs(r2b(b2r(s, d), d) - s) > 0.02) return false;
+    }
+  }
+  return true;
+})());
+
+ok('a bowed wall actually renders as an arc rather than a straight line', (() => {
+  /* The check that would have caught the mislabelled control: a radius that
+   * cannot span the wall leaves the outline with its original corner count. */
+  const straight = { id: 'r', shape: 'poly', points: [[0, 0], [16, 0], [16, 10], [0, 10]] };
+  const bowed = { id: 'r', shape: 'poly', points: [[0, 0], [16, 0, 17.84], [16, 10], [0, 10]] };
+  const tooSmall = { id: 'r', shape: 'poly', points: [[0, 0], [16, 0, 3]], length: 0 };
+  return scene.roomPoints(straight).length === 4
+    && scene.roomPoints(bowed).length > 4
+    && scene.roomPoints({ id: 'r', shape: 'poly', points: [[0, 0], [16, 0, 3], [16, 10], [0, 10]] }).length === 4;
+})());
+
+ok('the room panel offers curved walls and names them like the wall picker', (() => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
+  return /Curved walls/.test(src)
+    && /bulgeToRadius/.test(src) && /radiusToBulge/.test(src)
+    && /PanelsExtra\.wallLabel/.test(src);
+})());
+
+ok('the generated dashboard collapses its control surfaces on a phone', (() => {
+  /* Every design assumes space beside the plan; a phone has none, so the
+     choice is honoured where it fits and overridden where it cannot be. */
+  const css = fs.readFileSync(path.join(APP, 'lib', 'card-css.js'), 'utf8');
+  return /@media \(max-width: 600px\)/.test(css)
+    && /@media \(max-width: 420px\)/.test(css)
+    && /@media \(min-width: 1100px\)/.test(css)
+    && /--fps-w: 100% !important/.test(css);
+})());
+
+
 /* ------------------------------------------------------- your own house ---
  *
  * Everything above ran against the synthetic house in `test/house/`, so that

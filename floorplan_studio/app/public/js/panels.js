@@ -413,6 +413,84 @@ window.Panels = (function () {
       }, 'Convert to rectangle'));
     }
 
+    /* ---- curved walls ----
+     *
+     * Every wall is straight until you bow one, which is the 90-degree room
+     * everybody starts from.
+     *
+     * The model stores a RADIUS on the corner a wall arrives at, and that is
+     * the wrong number to ask a person for: an arc has to reach both ends of
+     * the wall, so a radius below half the wall's length is geometrically
+     * impossible and degrades — silently — to a straight line. Type 3 into a
+     * radius box on a 16-foot wall and nothing happens at all.
+     *
+     * So the control is the BULGE: how far the middle of the wall bows out of
+     * line, which is the thing you can actually see and picture. It converts to
+     * a radius on the way in, and back on the way out, and the sign picks which
+     * side it bows. Zero is straight.
+     *
+     * Only a polygon can carry a radius — a rect is four numbers with nowhere
+     * to put one — so bowing a wall on a rectangular room converts it to an
+     * outline first. That conversion is lossless and is done rather than asked
+     * about, because it is not a question anyone can answer without already
+     * knowing this. Straightening every wall again does NOT convert back: the
+     * room may have been reshaped since, and squaring it off would discard
+     * that. */
+    const outlinePts = () => (room.shape === 'poly' ? room.points : (() => {
+      const [x, y, w, hh] = room.rect;
+      return [[x, y], [x + w, y], [x + w, y + hh], [x, y + hh]];
+    })());
+
+    /* sagitta -> radius, and back. R = (s² + (d/2)²) / 2s for a chord d. */
+    const bulgeToRadius = (s, d) => (s ? ((s * s + (d / 2) * (d / 2)) / (2 * Math.abs(s))) * (s < 0 ? -1 : 1) : 0);
+    const radiusToBulge = (r, d) => {
+      const R = Math.abs(r);
+      if (!R || R < d / 2) return 0;
+      const s = R - Math.sqrt(Math.max(0, R * R - (d / 2) * (d / 2)));
+      return Math.round(s * (r < 0 ? -1 : 1) * 100) / 100;
+    };
+
+    const setBulge = (index, feet) => Store.mutate(() => {
+      const pts = outlinePts().map((p) => p.slice());
+      if (room.shape !== 'poly') { room.shape = 'poly'; room.rect = null; }
+      const prev = pts[(index - 1 + pts.length) % pts.length];
+      const d = Math.hypot(pts[index][0] - prev[0], pts[index][1] - prev[1]);
+      const s = Number(feet) || 0;
+      /* Cap the bulge at a half-circle: past a semicircle the arc doubles back
+       * on itself and the room stops being a shape you can stand in. */
+      const capped = Math.max(-d / 2, Math.min(d / 2, s));
+      const r = bulgeToRadius(capped, d);
+      if (r) pts[index][2] = Math.round(r * 10000) / 10000; else pts[index].length = 2;
+      room.points = pts;
+    }, 'curve wall');
+
+    box.appendChild(h('div', { class: 'subhead' }, 'Curved walls'));
+    box.appendChild(h('p', { class: 'hint' },
+      'How far each wall bows out of a straight line, in feet. 0 is straight — a '
+      + 'square room is every wall at 0. A negative number bows it the other way, '
+      + 'and the bow is capped at a half-circle. Bowing a wall on a rectangular '
+      + 'room converts it to an outline so the curve has somewhere to live.'));
+
+    const pts = outlinePts();
+    const bb = PlanScene.roomBBox(room);
+    const curveRows = h('div', {});
+    pts.forEach((p, i) => {
+      const prev = pts[(i - 1 + pts.length) % pts.length];
+      const d = Math.hypot(p[0] - prev[0], p[1] - prev[1]);
+      /* Name the wall the way the Walls & railings section below names it, so
+       * the two lists are talking about the same edges. */
+      let label = `Wall ${i + 1}`;
+      const horiz = Math.abs(p[1] - prev[1]) < 1e-6;
+      const vert = Math.abs(p[0] - prev[0]) < 1e-6;
+      if (horiz) label = PanelsExtra.wallLabel(Math.abs(p[1] - bb[1]) < 1e-6 ? 'n' : 's');
+      else if (vert) label = PanelsExtra.wallLabel(Math.abs(p[0] - bb[0]) < 1e-6 ? 'w' : 'e');
+      curveRows.appendChild(h('div', { class: 'chanrow' },
+        h('span', { class: 'hint', style: 'margin:0;flex:1' }, `${label} · ${d.toFixed(1)} ft`),
+        numInput(radiusToBulge(p.length > 2 ? p[2] : 0, d), (v) => setBulge(i, v), 0.25),
+      ));
+    });
+    box.appendChild(curveRows);
+
     PanelsExtra.flooringField(box, room);
 
     box.appendChild(h('div', { class: 'field' },
