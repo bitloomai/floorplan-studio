@@ -988,9 +988,26 @@ const fillBands = (type) => {
 };
 const band = fillBands('wall_exterior');
 ok('a type with render.fill draws the wall to its own thickness', band.length === 1);
-/* 0.75 ft at 20 px/ft is a 15 px band, centred on the line. */
+/* 0.75 ft at 20 px/ft is a 15 px band, centred on the line. Measured from the
+ * path's own numbers rather than matched as a string: the band now runs half a
+ * thickness PAST each corner so adjacent walls mitre, and pinning the literal
+ * coordinates made a corner fix look like a thickness regression. Thickness is
+ * the perpendicular extent, and that is what this is about. */
+const bandExtent = (d) => {
+  const n = String(d).match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
+  return { across: Math.max(...ys) - Math.min(...ys), along: Math.max(...xs) - Math.min(...xs) };
+};
 ok('and the band is that thickness, not a hairline',
-  band.length === 1 && /M 0 -7.5 L 400 -7.5 L 400 7.5/.test(band[0].attrs.d), band.length && band[0].attrs.d);
+  band.length === 1 && Math.abs(bandExtent(band[0].attrs.d).across - 15) < 0.01,
+  band.length && band[0].attrs.d);
+ok('and it runs past the corner so two walls mitre instead of leaving a notch', (() => {
+  /* The wall spans 400 px; each end reaches half a thickness (7.5 px) beyond
+   * it, so the corner square is covered by both walls rather than by neither.
+   * Before this, every corner of every thick-walled plan had a bite out of it. */
+  if (band.length !== 1) return false;
+  return Math.abs(bandExtent(band[0].attrs.d).along - (400 + 15)) < 0.01;
+})());
 ok('a type without a fill still draws none', fillBands('metal_railing').length === 0);
 
 /* ------------------------------------------- boundaries, openings, doors */
@@ -4397,6 +4414,110 @@ ok('the generated dashboard collapses its control surfaces on a phone', (() => {
     && /@media \(max-width: 420px\)/.test(css)
     && /@media \(min-width: 1100px\)/.test(css)
     && /--fps-w: 100% !important/.test(css);
+})());
+
+
+
+/* --------------------------------------------------- walls and openings ---
+ *
+ * Three defects that all came from the same place: a wall is not an object, it
+ * is an edge, and an edge was being addressed by a compass LETTER that is not
+ * unique. */
+
+console.log('\n== walls and openings ==');
+
+const wallScene = (p) => scene.build(p, p.floors[0], lib, themes.themes.frosted.plan,
+  { states: {}, boundaries, flooring });
+
+ok('a door on an L-shaped room cuts one edge, not every edge sharing its letter', (() => {
+  /* An L-shape has six edges and four letters — two come back `e`, two `s`.
+   * The hole was cut by letter and the door drawn on the FIRST match, so the
+   * second east edge got a gap with no door in it. */
+  const p = { name: 'L', ppf: 10, origin: [0, 0], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 },
+    rooms: [{ id: 'L', name: 'L', shape: 'poly', points: [[0, 0], [20, 0], [20, 8], [10, 8], [10, 20], [0, 20]] }],
+    openings: [{ id: 'd1', type: 'door', room: 'L', wall: 'e', at: 2, w: 3, h: 4 }],
+    items: [],
+  }] };
+  const lines = wallScene(p).layers.boundaries.filter((n) => n.tag === 'line');
+  const onX = (x) => lines.filter((n) => Math.abs(+n.attrs.x1 - x) < 0.5 && Math.abs(+n.attrs.x2 - x) < 0.5).length;
+  /* The door's own edge is cut in two; the other east edge stays whole. */
+  return onX(200) === 2 && onX(100) === 1;
+})());
+
+ok('an opening can name the exact edge it sits on', (() => {
+  /* `edge` (an index) is what makes the second east edge reachable at all —
+   * by letter alone it is unaddressable. */
+  const mk = (op) => ({ name: 'L', ppf: 10, origin: [0, 0], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 },
+    rooms: [{ id: 'L', name: 'L', shape: 'poly', points: [[0, 0], [20, 0], [20, 8], [10, 8], [10, 20], [0, 20]] }],
+    openings: [op], items: [],
+  }] });
+  const byLetter = wallScene(mk({ id: 'd1', type: 'door', room: 'L', wall: 'e', at: 2, w: 3, h: 4 }));
+  const byIndex = wallScene(mk({ id: 'd1', type: 'door', room: 'L', wall: 'e', edge: 3, at: 10, w: 3, h: 4 }));
+  const seg = (s) => s.layers.boundaries.filter((n) => n.tag === 'line')
+    .filter((n) => Math.abs(+n.attrs.x1 - 100) < 0.5 && Math.abs(+n.attrs.x2 - 100) < 0.5).length;
+  /* Addressed by index, the door lands on the SECOND east edge (x=10) and cuts
+   * that one in two instead. */
+  return seg(byLetter) === 1 && seg(byIndex) === 2;
+})());
+
+const sharedProj = () => ({ name: 'S', ppf: 10, origin: [0, 0],
+  lighting: { zones: { enabled: true, spillFt: 4 } },
+  floors: [{ id: 'f', name: 'F', extent: { w: 20, h: 10 },
+    rooms: [{ id: 'A', name: 'A', shape: 'rect', rect: [0, 0, 10, 10] },
+      { id: 'B', name: 'B', shape: 'rect', rect: [10, 0, 10, 10] }],
+    openings: [{ id: 'w1', type: 'window', room: 'A', wall: 'e', at: 3, w: 4, h: 4, sill: 2 }],
+    items: [] }] });
+
+ok('the room on the other side of a shared window does not wall across it', (() => {
+  /* An opening belongs to one room; the hole is physical and belongs to both.
+   * Room B used to emit a single unbroken run straight over room A's window. */
+  const s = wallScene(sharedProj());
+  const seam = s.layers.boundaries.filter((n) => n.tag === 'line'
+    && Math.abs(+n.attrs.x1 - 100) < 0.5 && Math.abs(+n.attrs.x2 - 100) < 0.5);
+  const covers = seam.some((n) => {
+    const y1 = Math.min(+n.attrs.y1, +n.attrs.y2) / 10, y2 = Math.max(+n.attrs.y1, +n.attrs.y2) / 10;
+    return y1 < 6.9 && y2 > 3.1;          // overlaps the window at y 3..7
+  });
+  return seam.length === 4 && !covers;     // two runs each side, none over the glass
+})());
+
+ok('and light crosses a shared opening in both directions', (() => {
+  /* The zone took only its OWNER's openings, so a lamp lit one way through a
+   * door and not the other — which side it is filed under is bookkeeping. */
+  const s = wallScene(sharedProj());
+  const zones = s.layers.defs.filter((n) => n.tag === 'clipPath' && /Zone/.test((n.attrs || {}).id || ''));
+  const through = zones.filter((c) => {
+    const d = String((((c.children || [])[0] || {}).attrs || {}).d || '');
+    return (d.match(/M /g) || []).length > 1;   // room outline plus a spill quad
+  });
+  return zones.length === 2 && through.length === 2;
+})());
+
+ok('a boundary can cover part of a wall, and the rest stays a default wall', (() => {
+  /* `from`/`to` have always been read by the renderer and never written by the
+   * editor, so "the middle third of this balcony is glass" was a JSON edit. */
+  const p = { name: 'P', ppf: 10, origin: [0, 0], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 10 },
+    rooms: [{ id: 'A', name: 'A', shape: 'rect', rect: [0, 0, 20, 10] }],
+    openings: [],
+    boundaries: [{ id: 'b1', room: 'A', wall: 'n', edge: 0, type: 'glass_railing', from: 6, to: 14 }],
+    items: [] }] };
+  const north = wallScene(p).layers.boundaries.filter((n) => n.wall === 'n');
+  const xs = north.map((n) => [Math.min(+n.attrs.x1, +n.attrs.x2), Math.max(+n.attrs.x1, +n.attrs.x2)])
+    .filter((r) => isFinite(r[0]));
+  /* Three runs: default wall, the glazed middle, default wall. */
+  return xs.some((r) => Math.abs(r[0] - 60) < 1 && Math.abs(r[1] - 140) < 1) && xs.length >= 3;
+})());
+
+ok('the wall picker offers one row per real edge and can set a range', (() => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
+  return /PlanScene\.roomEdges\(room\)/.test(src)
+    && /next\.edge = edge\.index/.test(src)
+    && /Only part of this wall/.test(src)
+    /* The old picker looped four letters and could never reach a sixth edge. */
+    && !/for \(const wall of \['n', 'e', 's', 'w'\]\)/.test(src);
 })());
 
 

@@ -321,41 +321,105 @@ window.PanelsExtra = (function () {
   /* -------------------------------------------------------- room extras ---- */
 
   function roomExtras(box, floor, room) {
-    /* --- walls, railings, grills --- */
+    /* --- walls, railings, grills ---
+     *
+     * One row per REAL EDGE, not per compass letter. A letter is not unique —
+     * an L-shaped room has six edges and only four letters, so two come back
+     * "e" and two "s" — and a picker with four rows could only ever set both
+     * of a pair at once. Rows are keyed on the edge's own index, which is what
+     * `boundary.edge` addresses, and the letter is kept alongside so a plan
+     * written before this still resolves.
+     *
+     * Each row can also cover PART of its wall. The renderer has always read
+     * `from`/`to` and cut the edge at those marks; nothing ever wrote them, so
+     * "the middle third of this balcony is glass" was a JSON edit. */
     box.appendChild(h('div', { class: 'subhead' }, 'Walls & railings'));
     box.appendChild(h('p', { class: 'hint' },
       'Each edge is a wall unless you say otherwise. Change one to glass railing, grill or open and the daylight model follows for free — it only ever reads transmission.'));
+
     const bTypes = Object.entries((S.boundaries && S.boundaries.types) || {});
     const bGroups = [...new Set(bTypes.map(([, t]) => t.group || 'Other'))];
-    for (const wall of ['n', 'e', 's', 'w']) {
-      const existing = (floor.boundaries || []).find((b) => b.room === room.id && b.wall === wall);
+    const edges = PlanScene.roomEdges(room).filter((e) => !e.diagonal);
+
+    /* Same letter twice means the label alone cannot tell them apart, so those
+     * rows get a number. A plain rectangle never sees one. */
+    const letterCount = {};
+    for (const e of edges) letterCount[e.wall] = (letterCount[e.wall] || 0) + 1;
+    const seen = {};
+
+    const findBoundary = () => (floor.boundaries || []);
+    const boundaryFor = (edge) => findBoundary().find((b) => b.room === room.id
+      && (b.edge === edge.index || (b.edge === undefined && b.wall === edge.wall)));
+
+    const writeBoundary = (edge, changes) => Store.mutate(() => {
+      floor.boundaries = floor.boundaries || [];
+      const i = floor.boundaries.findIndex((b) => b.room === room.id
+        && (b.edge === edge.index || (b.edge === undefined && b.wall === edge.wall)));
+      const existing = i >= 0 ? floor.boundaries[i] : null;
+      const next = Object.assign({}, existing, changes);
+      if (!next.type) { if (i >= 0) floor.boundaries.splice(i, 1); return; }
+      /* Keep the id: MCP addresses boundaries by one (`b1`, `b2`, …) the same
+       * way it addresses openings, so a run drawn here has to be reachable
+       * there too, and one edited here must not lose the id it already had. */
+      if (!next.id) {
+        const taken = new Set(floor.boundaries.map((b) => b.id).filter(Boolean));
+        let n = 1; while (taken.has('b' + n)) n++;
+        next.id = 'b' + n;
+      }
+      next.room = room.id;
+      next.wall = edge.wall;
+      next.edge = edge.index;
+      /* A whole-edge run stores no range at all, so it keeps following the
+       * wall if the room is later reshaped. Only a deliberate partial one
+       * pins numbers down. */
+      if (next.from === undefined || next.from === null || Number(next.from) <= edge.lo + 1e-6) delete next.from;
+      if (next.to === undefined || next.to === null || Number(next.to) >= edge.hi - 1e-6) delete next.to;
+      if (i >= 0) floor.boundaries[i] = next; else floor.boundaries.push(next);
+    }, 'boundary');
+
+    for (const edge of edges) {
+      seen[edge.wall] = (seen[edge.wall] || 0) + 1;
+      const suffix = letterCount[edge.wall] > 1 ? ' ' + seen[edge.wall] : '';
+      const existing = boundaryFor(edge);
       const cur = existing ? existing.type : '';
       const def = cur && S.boundaries.types[cur];
+      const span = edge.hi - edge.lo;
+      const partial = !!(existing && (existing.from !== undefined || existing.to !== undefined));
+
       box.appendChild(h('div', { class: 'chanrow' },
-        h('span', { class: 'hint', style: 'margin:0' }, wallLabel(wall)),
+        h('span', { class: 'hint', style: 'margin:0;flex:1' }, `${wallLabel(edge.wall)}${suffix} · ${span.toFixed(1)} ft`),
         h('select', {
-          onchange: (e) => Store.mutate(() => {
-            floor.boundaries = floor.boundaries || [];
-            const i = floor.boundaries.findIndex((b) => b.room === room.id && b.wall === wall);
-            if (!e.target.value) { if (i >= 0) floor.boundaries.splice(i, 1); return; }
-            /* Keep the id: MCP addresses boundaries by one (`b1`, `b2`, …) the
-             * same way it addresses openings, so a run drawn here has to be
-             * reachable there too — and one edited here must not lose the id it
-             * already had. A wall picked in the UI and one set by an AI are the
-             * same kind of object; that only holds if both carry an id. */
-            const taken = new Set(floor.boundaries.map((b) => b.id).filter(Boolean));
-            let id = (i >= 0 && floor.boundaries[i].id) || '';
-            if (!id) { let n = 1; while (taken.has('b' + n)) n++; id = 'b' + n; }
-            const entry = { id, room: room.id, wall, type: e.target.value };
-            if (i >= 0) floor.boundaries[i] = entry; else floor.boundaries.push(entry);
-          }, 'boundary'),
+          onchange: (e) => writeBoundary(edge, { type: e.target.value }),
         }, h('option', { value: '', selected: !cur }, 'default wall'),
            ...bGroups.map((g) => h('optgroup', { label: g },
              ...bTypes.filter(([, t]) => (t.group || 'Other') === g)
                .map(([k, t]) => h('option', { value: k, selected: cur === k }, t.label || k))))),
         h('span', { class: 'hint', style: 'margin:0', title: 'light transmission' }, def ? `☀${Math.round(def.transmission * 100)}%` : ''),
       ));
+
+      /* The range only appears once the edge has a treatment: "part of a
+       * default wall" is not a thing you can express, and offering the fields
+       * anyway would suggest it is. */
+      if (!cur) continue;
+      box.appendChild(h('div', { class: 'field' },
+        h('label', { class: 'inline' }, h('input', {
+          type: 'checkbox', checked: partial,
+          onchange: (e) => writeBoundary(edge, e.target.checked
+            ? { from: Math.round((edge.lo + span * 0.25) * 100) / 100, to: Math.round((edge.lo + span * 0.75) * 100) / 100 }
+            : { from: null, to: null }),
+        }), ' Only part of this wall')));
+      if (partial) {
+        box.appendChild(h('div', { class: 'field row' },
+          h('div', {}, h('label', {}, `From (${edge.lo.toFixed(1)})`),
+            numInput(existing.from ?? edge.lo, (v) => writeBoundary(edge, { from: v }), 0.5)),
+          h('div', {}, h('label', {}, `To (${edge.hi.toFixed(1)})`),
+            numInput(existing.to ?? edge.hi, (v) => writeBoundary(edge, { to: v }), 0.5)),
+        ));
+        box.appendChild(h('p', { class: 'hint' },
+          'Measured along the wall in plan feet, not from its corner — the same numbers the room’s own coordinates use. The rest of the edge stays a default wall.'));
+      }
     }
+
 
     /* --- control surface --- */
     box.appendChild(h('div', { class: 'subhead' }, 'Room controls'));

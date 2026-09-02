@@ -275,6 +275,56 @@
     return edge.horizontal ? [t, edge.fixed] : [edge.fixed, t];
   }
 
+  /* WHICH edge does this opening sit on?
+   *
+   * `wall` is a letter, and a letter is not unique: an L-shaped room has six
+   * edges and only four letters, so two of them are `e` and two are `s`. Every
+   * place that resolved an opening picked `edges.find(e => e.wall === ...)` —
+   * the FIRST match — while the code that cut the hole in the wall matched by
+   * letter and so cut BOTH. The result was a gap in a wall with no door in it.
+   *
+   * `edge` (an index) addresses one exactly, the same way a boundary already
+   * could. Falling back to the letter keeps every existing plan working. */
+  function openingEdgeOf(room, op) {
+    const edges = roomEdges(room);
+    if (op.edge !== undefined && op.edge !== null) {
+      return edges.find((e) => e.index === op.edge) || null;
+    }
+    return edges.find((e) => e.wall === op.wall) || null;
+  }
+
+  /* Do two rooms' edges describe the same physical wall? Same orientation, same
+   * position, and an overlapping span. */
+  function edgesCoincide(a, b) {
+    if (!a || !b) return false;
+    if (!!a.horizontal !== !!b.horizontal) return false;
+    if (Math.abs(a.fixed - b.fixed) > 1e-6) return false;
+    return Math.min(a.hi, b.hi) - Math.max(a.lo, b.lo) > 1e-6;
+  }
+
+  /* Every opening that interrupts this edge — the room's own, and the
+   * neighbour's where the two rooms share the wall.
+   *
+   * A door between two rooms belongs to exactly one of them. Without the second
+   * half of this, the other room drew its wall straight across the doorway
+   * (proved: room B emitted one unbroken run over room A's window) and its
+   * light zone had no way through, so a lamp lit one direction only. Which side
+   * an opening happens to be filed under is bookkeeping; the hole in the wall
+   * is physical and belongs to both. */
+  function openingsOnEdge(floor, room, edge) {
+    const out = [];
+    for (const op of floor.openings || []) {
+      if (op.overhead) continue;
+      const owner = (floor.rooms || []).find((r) => r.id === op.room);
+      if (!owner) continue;
+      const oe = openingEdgeOf(owner, op);
+      if (!oe) continue;
+      if (owner.id === room.id) { if (oe.index === edge.index) out.push(op); }
+      else if (edgesCoincide(oe, edge)) out.push(op);
+    }
+    return out;
+  }
+
   /* Cut an edge into runs. Overrides set a boundary type over a sub-range;
    * openings remove a range entirely (they are drawn by the opening layer). */
   function edgeRuns(edge, room, floor, defaults, isExterior) {
@@ -286,8 +336,7 @@
       marks.push({ at: clamp(num(o.from, edge.lo), edge.lo, edge.hi) });
       marks.push({ at: clamp(num(o.to, edge.hi), edge.lo, edge.hi) });
     }
-    const holes = (floor.openings || []).filter((o) =>
-      o.room === room.id && o.wall === edge.wall && !o.overhead);
+    const holes = openingsOnEdge(floor, room, edge);
     for (const o of holes) {
       marks.push({ at: clamp(num(o.at, edge.lo), edge.lo, edge.hi) });
       marks.push({ at: clamp(num(o.at, edge.lo) + num(o.w, 2.5), edge.lo, edge.hi) });
@@ -410,10 +459,32 @@
       const len = Math.hypot(x2 - x1, y2 - y1) || 1;
       const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
       const nx = -uy * half, ny = ux * half;
+
+      /* Mitre the corners.
+       *
+       * The band is half a thickness wide either side of the wall line, but it
+       * used to stop dead ON the corner point — so where two thick walls meet,
+       * neither covered the little square outside their intersection and every
+       * corner of the plan had a notch bitten out of it. At 0.75 ft and a
+       * normal zoom that is a visibly ragged outline.
+       *
+       * Running each band half a thickness PAST a corner makes the two overlap
+       * and fills it, which is what a square linecap does for the hairline
+       * stroke below and why that one never looked wrong.
+       *
+       * Only at real corners. A run also ends wherever a door interrupts it or
+       * a sub-range boundary starts, and extending there would push wall into
+       * the doorway it is supposed to stop at. `edge.lo`/`edge.hi` are the
+       * edge's own ends, so a run touching them is at a corner and anything
+       * else is a join with something on the same wall. */
+      const atLo = Math.abs(run.from - edge.lo) < 1e-6 ? half : 0;
+      const atHi = Math.abs(run.to - edge.hi) < 1e-6 ? half : 0;
+      const ax = x1 - ux * atLo, ay = y1 - uy * atLo;
+      const bx = x2 + ux * atHi, by = y2 + uy * atHi;
       nodes.push({
         tag: 'path',
         attrs: {
-          d: `M ${x1 - nx} ${y1 - ny} L ${x2 - nx} ${y2 - ny} L ${x2 + nx} ${y2 + ny} L ${x1 + nx} ${y1 + ny} Z`,
+          d: `M ${ax - nx} ${ay - ny} L ${bx - nx} ${by - ny} L ${bx + nx} ${by + ny} L ${ax + nx} ${ay + ny} Z`,
           fill: colour(r.fill, theme, theme.wallThin),
           'fill-opacity': r.fillOpacity === undefined ? null : num(r.fillOpacity, 1),
           stroke: 'none',
@@ -528,7 +599,7 @@
 
   function openingNodes(op, room, floor, bDoc, theme, P, states, arcDefault) {
     const edges = roomEdges(room);
-    const edge = edges.find((e) => e.wall === op.wall);
+    const edge = openingEdgeOf(room, op);
     if (!edge) return [];
     const typeDef = (bDoc.openingTypes || {})[op.type] || {};
     const style = (typeDef.render && typeDef.render.style) || 'cased';
@@ -1475,9 +1546,18 @@
       const spill = num(zoneCfg.spillFt, 3.5);
       for (const op of floor.openings || []) {
         const owner = (floor.rooms || []).find((r) => r.id === op.room);
-        if (!owner || (primaryRoom(floor, owner) || owner).id !== room.id) continue;
-        const edge = roomEdges(owner).find((e) => e.wall === op.wall);
+        if (!owner) continue;
+        const edge = openingEdgeOf(owner, op);
         if (!edge) continue;
+        /* Mine, or the neighbour's on the wall we share.
+         *
+         * A door between two rooms is filed under one of them, and the zone
+         * used to take only its owner's — so light crossed it in exactly one
+         * direction. Which room an opening is recorded against is bookkeeping;
+         * the hole is physical, and both sides can see through it. */
+        const mine = (primaryRoom(floor, owner) || owner).id === room.id;
+        const shared = !mine && (roomEdges(room) || []).some((e) => edgesCoincide(e, edge));
+        if (!mine && !shared) continue;
         const t = openingTransmission(op, bDoc, null, states);
         if (t <= 0.02) continue;                 // shut: nothing gets through
         const tDef = (bDoc.openingTypes || {})[op.type] || {};
@@ -1597,7 +1677,7 @@
         const ops = (floor.openings || [])
           .filter((o) => o.room === room.id)
           .map((o) => {
-            const edge = roomEdges(room).find((e) => e.wall === o.wall);
+            const edge = openingEdgeOf(room, o);
             if (!edge) return null;
             const tDef = (bDoc.openingTypes || {})[o.type] || {};
             const at = num(o.at, edge.lo), w = num(o.w, (tDef.props && tDef.props.w) || 2.5);
@@ -2161,7 +2241,7 @@
     for (const op of floor.openings || []) {
       const room = (floor.rooms || []).find((r) => r.id === op.room);
       if (!room) continue;
-      const edge = roomEdges(room).find((e) => e.wall === op.wall);
+      const edge = openingEdgeOf(room, op);
       if (!edge) continue;
       const at = num(op.at, 0), w = num(op.w, 2.5);
       const a = pointOn(edge, at), b = pointOn(edge, at + w);
