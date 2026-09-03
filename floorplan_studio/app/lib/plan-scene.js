@@ -122,12 +122,27 @@
     if (!points.some((p) => p.length > 2 && p[2])) return points;
     if (flatCache && flatCache.has(points)) return flatCache.get(points);
     const out = [];
+    /* Which ORIGINAL corner each flattened point arrived at.
+     *
+     * Without this a curve loses its identity the moment it is flattened: a
+     * bowed east wall becomes six short diagonal segments, none of which is
+     * horizontal or vertical, so every one comes back with `wall: null`. A
+     * boundary already on that wall then resolves to nothing and stops being
+     * drawn — silently — and the wall picker cannot offer the wall at all,
+     * which makes a curved wall a wall you can never give a treatment.
+     *
+     * Carried as a property on the array rather than a third element of each
+     * point, because the third element already means something on the way IN
+     * (the radius) and every reader indexes p[0] and p[1]. */
+    const src = [];
     for (let i = 0; i < points.length; i++) {
       const prev = points[(i - 1 + points.length) % points.length];
       const p = points[i];
-      if (p.length > 2 && p[2]) out.push(...arcTo(prev, p, p[2]));
-      else out.push([p[0], p[1]]);
+      if (p.length > 2 && p[2]) {
+        for (const q of arcTo(prev, p, p[2])) { out.push(q); src.push(i); }
+      } else { out.push([p[0], p[1]]); src.push(i); }
     }
+    out.src = src;
     if (flatCache) flatCache.set(points, out);
     return out;
   }
@@ -256,14 +271,36 @@
       const a = pts[i], b = pts[(i + 1) % pts.length];
       const horizontal = Math.abs(a[1] - b[1]) < 1e-6;
       const vertical = Math.abs(a[0] - b[0]) < 1e-6;
-      if (!horizontal && !vertical) { out.push({ a, b, wall: null, diagonal: true, index: i }); continue; }
+      /* Which original corner this segment belongs to. For a straight outline
+       * that is just its own index; for a curve it is the corner the arc was
+       * bowed toward, so every segment of one bowed wall shares a source. */
+      const src = pts.src ? pts.src[(i + 1) % pts.length] : i;
+      if (!horizontal && !vertical) {
+        /* A segment of a curve is still part of a WALL, and the wall it is part
+         * of is the straight chord between the two original corners. Classify
+         * that instead, so a bowed east wall still answers to "east" and keeps
+         * whatever treatment it was given. */
+        let wall = null;
+        const srcPts = room.points;
+        if (srcPts && srcPts.length) {
+          const p1 = srcPts[(src - 1 + srcPts.length) % srcPts.length], p2 = srcPts[src];
+          if (p1 && p2) {
+            if (Math.abs(p1[1] - p2[1]) < 1e-6) wall = Math.abs(p1[1] - box[1]) < 1e-6 ? 'n' : 's';
+            else if (Math.abs(p1[0] - p2[0]) < 1e-6) wall = Math.abs(p1[0] - box[0]) < 1e-6 ? 'w' : 'e';
+          }
+        }
+        const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        out.push({ a, b, wall, diagonal: true, curved: !!(pts.src), src, index: i,
+          horizontal: false, fixed: null, lo: 0, hi: segLen });
+        continue;
+      }
       const wall = horizontal
         ? (Math.abs(a[1] - box[1]) < 1e-6 ? 'n' : 's')
         : (Math.abs(a[0] - box[0]) < 1e-6 ? 'w' : 'e');
       const lo = horizontal ? Math.min(a[0], b[0]) : Math.min(a[1], b[1]);
       const hi = horizontal ? Math.max(a[0], b[0]) : Math.max(a[1], b[1]);
       const fixed = horizontal ? a[1] : a[0];
-      out.push({ a, b, wall, horizontal, lo, hi, fixed, index: i });
+      out.push({ a, b, wall, horizontal, lo, hi, fixed, index: i, src });
     }
     return out;
   }
@@ -271,7 +308,16 @@
   /* Outward normal of an edge, in SCREEN degrees clockwise from up. */
   const WALL_NORMAL = { n: 0, e: 90, s: 180, w: 270 };
 
+  /* A position along an edge. Axis-aligned edges measure in plan coordinates —
+   * `t` IS the x or the y — which is what makes an opening's `at` an absolute
+   * number. A curve segment has no single axis, so it measures from its own
+   * start instead and is parameterised 0..length. */
   function pointOn(edge, t) {
+    if (edge.diagonal) {
+      const len = Math.hypot(edge.b[0] - edge.a[0], edge.b[1] - edge.a[1]) || 1;
+      const k = clamp(t, 0, len) / len;
+      return [edge.a[0] + (edge.b[0] - edge.a[0]) * k, edge.a[1] + (edge.b[1] - edge.a[1]) * k];
+    }
     return edge.horizontal ? [t, edge.fixed] : [edge.fixed, t];
   }
 
@@ -331,7 +377,7 @@
     const base = isExterior ? defaults.exterior : defaults.interior;
     const marks = [{ at: edge.lo }, { at: edge.hi }];
     const overrides = (floor.boundaries || []).filter((b) =>
-      b.room === room.id && (b.wall === edge.wall || b.edge === edge.index));
+      b.room === room.id && (b.wall === edge.wall || b.edge === edge.index || b.edge === edge.src));
     for (const o of overrides) {
       marks.push({ at: clamp(num(o.from, edge.lo), edge.lo, edge.hi) });
       marks.push({ at: clamp(num(o.to, edge.hi), edge.lo, edge.hi) });
@@ -1632,16 +1678,16 @@
     /* ---- boundaries + openings ---- */
     for (const room of floor.rooms || []) {
       for (const edge of roomEdges(room)) {
-        if (edge.diagonal) {
-          layers.boundaries.push({ tag: 'line', attrs: { x1: P.X(edge.a[0]), y1: P.Y(edge.a[1]), x2: P.X(edge.b[0]), y2: P.Y(edge.b[1]), stroke: theme.wallThin, 'stroke-width': 1.6 } });
-          continue;
-        }
-        // A seam between two rects of the SAME logical room is not a wall.
+        /* A seam between two rects of the SAME logical room is not a wall.
+         * Skipped for a curve segment: the probe steps along the wall's own
+         * normal, and a bowed segment's normal is not the wall's. */
         const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
-        const nrm = WALL_NORMAL[edge.wall] * RAD;
-        const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
-        const neighbour = roomAt(floor, probe[0], probe[1]);
-        if (neighbour && primaryRoom(floor, neighbour) === primaryRoom(floor, room) && neighbour !== room) continue;
+        if (!edge.diagonal) {
+          const nrm = WALL_NORMAL[edge.wall] * RAD;
+          const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
+          const neighbour = roomAt(floor, probe[0], probe[1]);
+          if (neighbour && primaryRoom(floor, neighbour) === primaryRoom(floor, room) && neighbour !== room) continue;
+        }
 
         const isExterior = onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
         for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {

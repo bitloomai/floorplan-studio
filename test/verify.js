@@ -4520,6 +4520,38 @@ ok('the wall picker offers one row per real edge and can set a range', (() => {
     && !/for \(const wall of \['n', 'e', 's', 'w'\]\)/.test(src);
 })());
 
+ok('a curved wall keeps its compass name and can carry a treatment', (() => {
+  /* Bowing a wall flattens it into a dozen short diagonals. Every one used to
+   * come back with `wall: null` and be drawn as a bare hairline that never
+   * reached boundaryNodes — so a boundary already on that wall silently stopped
+   * drawing, and the picker could not offer the wall at all. Found by auditing
+   * a real plan: a `louvre` on a curved courtyard edge had quietly vanished. */
+  const room = { id: 'c', shape: 'poly', points: [[0, 10.125], [10, 10.125], [10, 18, 9], [0, 18]] };
+  const edges = scene.roomEdges(room);
+  const curve = edges.filter((e) => e.diagonal);
+  if (curve.length < 3) return false;
+  /* Every segment of one bowed wall names the same wall and the same source. */
+  if (!curve.every((e) => e.wall === 'e' && e.src === curve[0].src)) return false;
+
+  const mk = (b) => ({ name: 't', ppf: 20, origin: [10, 10], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 }, rooms: [room],
+    openings: [], boundaries: b, items: [] }] });
+  const draw = (b) => {
+    const p = mk(b);
+    return scene.build(p, p.floors[0], lib, themes.themes.frosted.plan, { states: {}, boundaries, flooring })
+      .layers.boundaries.filter((n) => n.wall === 'e').length;
+  };
+  /* A treatment has to change what is drawn; before this it could not. */
+  return draw([]) > 0 && draw([{ room: 'c', wall: 'e', type: 'louvre' }]) > draw([]);
+})());
+
+ok('and the picker offers a curved wall once, not once per segment', (() => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
+  return /const key = e\.src === undefined \? e\.index : e\.src;/.test(src)
+    && /curved/.test(src);
+})());
+
+
 
 /* ------------------------------------------------------- your own house ---
  *

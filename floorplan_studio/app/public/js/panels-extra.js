@@ -339,7 +339,27 @@ window.PanelsExtra = (function () {
 
     const bTypes = Object.entries((S.boundaries && S.boundaries.types) || {});
     const bGroups = [...new Set(bTypes.map(([, t]) => t.group || 'Other'))];
-    const edges = PlanScene.roomEdges(room).filter((e) => !e.diagonal);
+    /* One row per WALL, which is not the same as one row per segment. A bowed
+     * wall is flattened into a dozen short diagonals that all share a `src` —
+     * the original corner they were bowed toward — so they are grouped back
+     * into the single wall a person sees. Without this a curved wall either
+     * vanished from the picker (it was filtered out as diagonal) or would have
+     * appeared a dozen times.
+     *
+     * A segment with no wall letter at all is a genuinely diagonal edge of a
+     * hand-drawn outline; it has no compass name to offer and is skipped. */
+    const segLen = (e) => (e.lo !== undefined && e.hi !== undefined
+      ? e.hi - e.lo
+      : Math.hypot(e.b[0] - e.a[0], e.b[1] - e.a[1]));
+    const grouped = new Map();
+    for (const e of PlanScene.roomEdges(room)) {
+      if (!e.wall) continue;
+      const key = e.src === undefined ? e.index : e.src;
+      const g = grouped.get(key);
+      if (!g) grouped.set(key, Object.assign({}, e, { index: key, len: segLen(e), curved: !!e.diagonal }));
+      else { g.len += segLen(e); g.curved = g.curved || !!e.diagonal; }
+    }
+    const edges = [...grouped.values()];
 
     /* Same letter twice means the label alone cannot tell them apart, so those
      * rows get a number. A plain rectangle never sees one. */
@@ -383,11 +403,11 @@ window.PanelsExtra = (function () {
       const existing = boundaryFor(edge);
       const cur = existing ? existing.type : '';
       const def = cur && S.boundaries.types[cur];
-      const span = edge.hi - edge.lo;
+      const span = edge.len;
       const partial = !!(existing && (existing.from !== undefined || existing.to !== undefined));
 
       box.appendChild(h('div', { class: 'chanrow' },
-        h('span', { class: 'hint', style: 'margin:0;flex:1' }, `${wallLabel(edge.wall)}${suffix} · ${span.toFixed(1)} ft`),
+        h('span', { class: 'hint', style: 'margin:0;flex:1' }, `${wallLabel(edge.wall)}${suffix} · ${span.toFixed(1)} ft${edge.curved ? ' · curved' : ''}`),
         h('select', {
           onchange: (e) => writeBoundary(edge, { type: e.target.value }),
         }, h('option', { value: '', selected: !cur }, 'default wall'),
@@ -401,6 +421,11 @@ window.PanelsExtra = (function () {
        * default wall" is not a thing you can express, and offering the fields
        * anyway would suggest it is. */
       if (!cur) continue;
+      if (edge.curved) {
+        box.appendChild(h('p', { class: 'hint' },
+          'A curved wall takes its treatment whole — there is no straight axis to measure a range along.'));
+        continue;
+      }
       box.appendChild(h('div', { class: 'field' },
         h('label', { class: 'inline' }, h('input', {
           type: 'checkbox', checked: partial,
