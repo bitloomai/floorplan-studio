@@ -13,7 +13,26 @@
   },
   "sun": null,
   "popup": null,
-  "boundaries": [],
+  "boundaries": [
+    {
+      "id": "terrace_br",
+      "room": "terrace_a",
+      "wall": "s",
+      "type": "glass_railing"
+    },
+    {
+      "id": "terrace_bm",
+      "room": "terrace_a",
+      "wall": "w",
+      "type": "metal_railing"
+    },
+    {
+      "id": "terrace_bn",
+      "room": "terrace_b",
+      "wall": "n",
+      "type": "parapet_glass"
+    }
+  ],
   "rooms": [
     {
       "id": "terrace_a",
@@ -100,12 +119,13 @@
       "type": "window",
       "room": "terrace_b",
       "wall": "e",
-      "at": 8,
+      "at": 4,
       "w": 5,
       "h": 4,
       "sill": 2.5,
       "curtain": 0.25,
-      "transmission": 0.85
+      "transmission": 0.85,
+      "edge": 1
     }
   ],
   "items": [

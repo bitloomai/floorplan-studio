@@ -1384,7 +1384,8 @@
           "type": "number",
           "min": 1,
           "max": 8,
-          "step": 0.25
+          "step": 0.25,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -1492,7 +1493,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -1592,7 +1594,9 @@
           "type": "number",
           "min": 0.5,
           "max": 10,
-          "step": 0.25
+          "step": 0.25,
+          "spec": "TR",
+          "advanced": true
         },
         {
           "key": "size",
@@ -1600,7 +1604,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -1792,7 +1797,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -1871,7 +1877,8 @@
           "label": "Capacity (L)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         },
         {
           "key": "watt",
@@ -1886,7 +1893,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -1965,7 +1973,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2041,7 +2050,8 @@
           "label": "Capacity (L)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         },
         {
           "key": "size",
@@ -2049,7 +2059,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2112,7 +2123,8 @@
             "round",
             "dock",
             "handheld",
-            "purifier"
+            "purifier",
+            "mower"
           ],
           "variantFamily": "robot"
         },
@@ -2144,7 +2156,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2207,7 +2220,9 @@
             "flat",
             "frame",
             "projector",
-            "box"
+            "box",
+            "crt",
+            "drop_screen"
           ],
           "variantFamily": "screen"
         },
@@ -2239,7 +2254,8 @@
           "type": "number",
           "min": 10,
           "max": 200,
-          "step": 1
+          "step": 1,
+          "spec": "in"
         },
         {
           "key": "throw",
@@ -2247,7 +2263,9 @@
           "type": "number",
           "min": 0,
           "max": 40,
-          "step": 0.5
+          "step": 0.5,
+          "spec": "ft throw",
+          "advanced": true
         },
         {
           "key": "range",
@@ -2263,7 +2281,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2325,7 +2344,9 @@
             "flat",
             "frame",
             "projector",
-            "box"
+            "box",
+            "crt",
+            "drop_screen"
           ],
           "variantFamily": "screen"
         },
@@ -2335,7 +2356,8 @@
           "type": "entity",
           "domains": [
             "remote"
-          ]
+          ],
+          "advanced": true
         },
         {
           "key": "rot",
@@ -2351,7 +2373,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2452,7 +2475,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2512,7 +2536,9 @@
             "flat",
             "frame",
             "projector",
-            "box"
+            "box",
+            "crt",
+            "drop_screen"
           ],
           "variantFamily": "screen"
         },
@@ -2530,7 +2556,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2624,7 +2651,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2728,7 +2756,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2833,7 +2862,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2912,7 +2942,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -2998,7 +3029,8 @@
           "type": "entity",
           "domains": [
             "binary_sensor"
-          ]
+          ],
+          "advanced": true
         },
         {
           "key": "rot",
@@ -3032,7 +3064,17 @@
         {
           "key": "mount",
           "label": "Mounted on",
-          "type": "text"
+          "type": "select",
+          "options": [
+            "wall",
+            "ceiling",
+            "corner",
+            "pole",
+            "doorbell"
+          ],
+          "spec": true,
+          "hint": "Where it is fixed. Shown when you hover the marker on the dashboard; it does not change the drawing.",
+          "advanced": true
         },
         {
           "key": "size",
@@ -3040,7 +3082,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "readOnly": true,
@@ -3050,7 +3093,8 @@
         "range": 22,
         "size": 8.5,
         "variant": "turret",
-        "cone": false
+        "cone": false,
+        "mount": "wall"
       }
     },
     "device.smoke": {
@@ -3128,7 +3172,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3213,7 +3258,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3291,7 +3337,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3367,7 +3414,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3483,7 +3531,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3587,7 +3636,9 @@
           "label": "Loudness (dB)",
           "type": "number",
           "min": 60,
-          "max": 130
+          "max": 130,
+          "spec": "dB",
+          "advanced": true
         },
         {
           "key": "size",
@@ -3595,7 +3646,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3667,7 +3719,8 @@
           "type": "number",
           "min": 100,
           "max": 900,
-          "step": 100
+          "step": 100,
+          "advanced": true
         },
         {
           "key": "rot",
@@ -3683,7 +3736,8 @@
           "type": "number",
           "min": 0,
           "max": 40,
-          "step": 1
+          "step": 1,
+          "advanced": true
         },
         {
           "key": "paddingY",
@@ -3691,12 +3745,14 @@
           "type": "number",
           "min": 0,
           "max": 24,
-          "step": 1
+          "step": 1,
+          "advanced": true
         },
         {
           "key": "borderColor",
           "label": "Border color",
-          "type": "color"
+          "type": "color",
+          "advanced": true
         },
         {
           "key": "borderWidth",
@@ -3704,7 +3760,8 @@
           "type": "number",
           "min": 0,
           "max": 8,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         },
         {
           "key": "borderStyle",
@@ -3714,7 +3771,8 @@
             "solid",
             "dashed",
             "none"
-          ]
+          ],
+          "advanced": true
         },
         {
           "key": "borderRadius",
@@ -3722,7 +3780,8 @@
           "type": "number",
           "min": 0,
           "max": 30,
-          "step": 1
+          "step": 1,
+          "advanced": true
         },
         {
           "key": "thresholdTarget",
@@ -3741,7 +3800,8 @@
               "value": "both",
               "label": "Text and border"
             }
-          ]
+          ],
+          "advanced": true
         },
         {
           "key": "thresholds",
@@ -3833,7 +3893,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3910,7 +3971,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -3991,7 +4053,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4071,7 +4134,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4154,7 +4218,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4237,7 +4302,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4335,7 +4401,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "_comment": "One plate, N gangs, each its own entity. Gangs draw from props.channels where bound and fall back to this marker's own entity where not, so a switch is useful before every gang has been wired up. See MARKERS.switch in shapes.js.",
@@ -4471,7 +4538,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4541,12 +4609,15 @@
           "type": "number",
           "min": 0.05,
           "max": 1,
-          "step": 0.05
+          "step": 0.05,
+          "advanced": true
         },
         {
-          "key": "hit_rect",
+          "key": "hitRect",
           "label": "Tap area",
-          "type": "rect"
+          "type": "rect",
+          "hint": "Set from “Tap area” in the marker panel. Four numbers in feet: x, y, width, height.",
+          "advanced": true
         },
         {
           "key": "rot",
@@ -4586,7 +4657,8 @@
           "type": "number",
           "min": 0,
           "max": 1,
-          "step": 0.01
+          "step": 0.01,
+          "advanced": true
         },
         {
           "key": "tilt",
@@ -4594,7 +4666,9 @@
           "type": "number",
           "min": 0,
           "max": 90,
-          "step": 1
+          "step": 1,
+          "spec": "° tilt",
+          "advanced": true
         },
         {
           "key": "azimuth",
@@ -4602,7 +4676,9 @@
           "type": "number",
           "min": 0,
           "max": 359,
-          "step": 1
+          "step": 1,
+          "spec": "° az",
+          "advanced": true
         },
         {
           "key": "size",
@@ -4610,7 +4686,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "readOnly": true,
@@ -4696,7 +4773,8 @@
           "type": "number",
           "min": 0.1,
           "max": 500,
-          "step": 0.1
+          "step": 0.1,
+          "spec": "kW"
         },
         {
           "key": "size",
@@ -4704,7 +4782,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4784,7 +4863,8 @@
           "type": "number",
           "min": 0.5,
           "max": 500,
-          "step": 0.5
+          "step": 0.5,
+          "spec": "kWh"
         },
         {
           "key": "size",
@@ -4792,7 +4872,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4871,7 +4952,8 @@
           "type": "number",
           "min": 0.1,
           "max": 500,
-          "step": 0.1
+          "step": 0.1,
+          "spec": "kW"
         },
         {
           "key": "size",
@@ -4879,7 +4961,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -4956,9 +5039,11 @@
           "variantFamily": "water"
         },
         {
-          "key": "hit_rect",
+          "key": "hitRect",
           "label": "Tap area",
-          "type": "rect"
+          "type": "rect",
+          "hint": "Set from “Tap area” in the marker panel. Four numbers in feet: x, y, width, height.",
+          "advanced": true
         },
         {
           "key": "rot",
@@ -4973,7 +5058,8 @@
           "label": "Capacity (L)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         },
         {
           "key": "size",
@@ -4981,7 +5067,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "readOnly": true,
@@ -5067,7 +5154,9 @@
           "label": "Flow (L/min)",
           "type": "number",
           "min": 1,
-          "max": 2000
+          "max": 2000,
+          "spec": "L/min",
+          "advanced": true
         },
         {
           "key": "size",
@@ -5075,7 +5164,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -5152,7 +5242,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -5468,7 +5559,8 @@
             "round",
             "dock",
             "handheld",
-            "purifier"
+            "purifier",
+            "mower"
           ],
           "variantFamily": "robot"
         },
@@ -5486,7 +5578,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -5564,7 +5657,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -5659,7 +5753,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -5720,7 +5815,10 @@
             "curtain",
             "roller",
             "venetian",
-            "shutter"
+            "shutter",
+            "awning",
+            "damper",
+            "projection"
           ],
           "variantFamily": "cover"
         },
@@ -5797,7 +5895,10 @@
             "curtain",
             "roller",
             "venetian",
-            "shutter"
+            "shutter",
+            "awning",
+            "damper",
+            "projection"
           ],
           "variantFamily": "cover"
         },
@@ -5874,7 +5975,10 @@
             "curtain",
             "roller",
             "venetian",
-            "shutter"
+            "shutter",
+            "awning",
+            "damper",
+            "projection"
           ],
           "variantFamily": "cover"
         },
@@ -5953,7 +6057,8 @@
             "venetian",
             "shutter",
             "awning",
-            "damper"
+            "damper",
+            "projection"
           ],
           "variantFamily": "cover"
         },
@@ -6032,7 +6137,8 @@
             "venetian",
             "shutter",
             "awning",
-            "damper"
+            "damper",
+            "projection"
           ],
           "variantFamily": "cover"
         },
@@ -6260,7 +6366,10 @@
             "curtain",
             "roller",
             "venetian",
-            "shutter"
+            "shutter",
+            "awning",
+            "damper",
+            "projection"
           ],
           "variantFamily": "cover"
         },
@@ -6913,10 +7022,22 @@
       "defaults": {
         "w": 5,
         "h": 1.4,
-        "shelves": 2
+        "shelves": 2,
+        "variant": "console"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "console",
+            "cabinet",
+            "open_shelf",
+            "floating"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -6961,10 +7082,22 @@
       },
       "defaults": {
         "w": 4.5,
-        "h": 0.4
+        "h": 0.4,
+        "variant": "flat"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "flat",
+            "curved",
+            "crt",
+            "projector"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -7315,7 +7448,8 @@
           "type": "number",
           "min": 0.8,
           "max": 2.5,
-          "step": 0.05
+          "step": 0.05,
+          "advanced": true
         }
       ]
     },
@@ -7890,10 +8024,22 @@
       },
       "defaults": {
         "w": 1.4,
-        "h": 2.4
+        "h": 2.4,
+        "variant": "close_coupled"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "close_coupled",
+            "wall_hung",
+            "back_to_wall",
+            "squat"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -7930,10 +8076,22 @@
       },
       "defaults": {
         "w": 2,
-        "h": 1.5
+        "h": 1.5,
+        "variant": "counter_top"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "counter_top",
+            "under_counter",
+            "pedestal",
+            "wall_hung"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -7971,10 +8129,22 @@
       "defaults": {
         "w": 3,
         "h": 3,
-        "screen": 1
+        "screen": 1,
+        "variant": "square"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "square",
+            "quadrant",
+            "walk_in",
+            "wet_room"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -8019,10 +8189,23 @@
       },
       "defaults": {
         "w": 5.5,
-        "h": 2.6
+        "h": 2.6,
+        "variant": "alcove"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "alcove",
+            "corner",
+            "freestanding",
+            "jacuzzi",
+            "shower_bath"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -8109,7 +8292,9 @@
         "lightEvery": 1,
         "sequence": "together",
         "newel": 0.22,
-        "sweep": 330
+        "sweep": 330,
+        "continues": "cut",
+        "cutAt": 0.6
       },
       "aboveDaylight": false,
       "props": [
@@ -8175,6 +8360,36 @@
             "spiral"
           ],
           "variantFamily": "stairs"
+        },
+        {
+          "key": "continues",
+          "label": "At the floor line",
+          "type": "select",
+          "options": [
+            {
+              "value": "none",
+              "label": "One whole flight"
+            },
+            {
+              "value": "cut",
+              "label": "Cut — the rest goes to the next storey"
+            },
+            {
+              "value": "both",
+              "label": "An up run and a down run"
+            }
+          ],
+          "hint": "A stair on a plan is a stair cut about four feet above this floor: what is past that point belongs to the storey above and is drawn faint beyond a break line. Which way this flight travels is set by Direction, above."
+        },
+        {
+          "key": "cutAt",
+          "label": "Where the cut falls (0–1)",
+          "type": "number",
+          "min": 0.15,
+          "max": 0.9,
+          "step": 0.05,
+          "hint": "How far along the flight the floor plane crosses it — later for a shallow run of deep treads, earlier for a steep one.",
+          "advanced": true
         },
         {
           "key": "lighting",
@@ -8415,10 +8630,21 @@
         "w": 4.25,
         "h": 8.5,
         "wall": 0.33,
-        "litres": 5000
+        "litres": 5000,
+        "variant": "rect"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "rect",
+            "cylindrical",
+            "sump"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -8449,14 +8675,16 @@
           "type": "number",
           "min": 0.1,
           "max": 2,
-          "step": 0.02
+          "step": 0.02,
+          "advanced": true
         },
         {
           "key": "litres",
           "label": "Capacity (L)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         }
       ]
     },
@@ -8527,7 +8755,8 @@
           "type": "number",
           "min": 0,
           "max": 3,
-          "step": 0.05
+          "step": 0.05,
+          "advanced": true
         },
         {
           "key": "cells",
@@ -8535,7 +8764,8 @@
           "type": "number",
           "min": 2,
           "max": 8,
-          "step": 1
+          "step": 1,
+          "advanced": true
         },
         {
           "key": "wattPerPanel",
@@ -8551,7 +8781,9 @@
           "type": "number",
           "min": 0,
           "max": 90,
-          "step": 1
+          "step": 1,
+          "spec": "° tilt",
+          "advanced": true
         },
         {
           "key": "azimuth",
@@ -8559,7 +8791,9 @@
           "type": "number",
           "min": 0,
           "max": 359,
-          "step": 1
+          "step": 1,
+          "spec": "° az",
+          "advanced": true
         }
       ],
       "_comment": "One panel by default. cols/rows lay out an array of identical panels inside the footprint — set 2x1 for two side by side, 1x4 for a single file of four. The legacy [cols, rows] `grid` array is still read if present."
@@ -9480,14 +9714,18 @@
           "label": "Flow (litres/min)",
           "type": "number",
           "min": 1,
-          "max": 5000
+          "max": 5000,
+          "spec": "L/min",
+          "advanced": true
         },
         {
           "key": "head",
           "label": "Head (ft)",
           "type": "number",
           "min": 1,
-          "max": 500
+          "max": 500,
+          "spec": "ft head",
+          "advanced": true
         },
         {
           "key": "size",
@@ -9495,7 +9733,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -9581,7 +9820,9 @@
           "label": "Flow (litres/min)",
           "type": "number",
           "min": 1,
-          "max": 5000
+          "max": 5000,
+          "spec": "L/min",
+          "advanced": true
         },
         {
           "key": "size",
@@ -9589,7 +9830,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -9673,7 +9915,9 @@
           "label": "Flow (litres/min)",
           "type": "number",
           "min": 1,
-          "max": 5000
+          "max": 5000,
+          "spec": "L/min",
+          "advanced": true
         },
         {
           "key": "size",
@@ -9681,7 +9925,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -9765,7 +10010,9 @@
           "label": "Flow (litres/min)",
           "type": "number",
           "min": 1,
-          "max": 5000
+          "max": 5000,
+          "spec": "L/min",
+          "advanced": true
         },
         {
           "key": "size",
@@ -9773,7 +10020,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -9854,7 +10102,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -9934,7 +10183,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10014,7 +10264,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10094,7 +10345,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10173,7 +10425,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10249,7 +10502,8 @@
           "label": "Capacity (litres)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         },
         {
           "key": "size",
@@ -10257,7 +10511,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10334,7 +10589,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10409,7 +10665,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10510,7 +10767,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10596,7 +10854,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10681,7 +10940,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10756,7 +11016,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10832,7 +11093,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10914,7 +11176,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -10974,7 +11237,8 @@
             "round",
             "dock",
             "handheld",
-            "purifier"
+            "purifier",
+            "mower"
           ],
           "variantFamily": "robot"
         },
@@ -10992,7 +11256,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11056,7 +11321,8 @@
             "round",
             "dock",
             "handheld",
-            "purifier"
+            "purifier",
+            "mower"
           ],
           "variantFamily": "robot"
         },
@@ -11074,7 +11340,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11136,7 +11403,8 @@
             "round",
             "dock",
             "handheld",
-            "purifier"
+            "purifier",
+            "mower"
           ],
           "variantFamily": "robot"
         },
@@ -11154,7 +11422,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11269,7 +11538,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11375,7 +11645,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11463,7 +11734,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11550,7 +11822,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11625,7 +11898,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11710,7 +11984,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11795,7 +12070,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11880,7 +12156,8 @@
           "label": "Capacity (litres)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         },
         {
           "key": "size",
@@ -11888,7 +12165,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -11998,7 +12276,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12109,7 +12388,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12197,7 +12477,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12282,7 +12563,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12367,7 +12649,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12451,7 +12734,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12535,7 +12819,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12619,7 +12904,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12703,7 +12989,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12787,7 +13074,8 @@
           "label": "Capacity (litres)",
           "type": "number",
           "min": 1,
-          "max": 100000
+          "max": 100000,
+          "spec": "L"
         },
         {
           "key": "size",
@@ -12795,7 +13083,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12881,7 +13170,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -12965,7 +13255,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13050,7 +13341,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13127,7 +13419,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13205,7 +13498,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13284,7 +13578,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13363,7 +13658,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13442,7 +13738,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13519,7 +13816,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13594,7 +13892,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13672,7 +13971,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13747,7 +14047,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13821,7 +14122,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13910,7 +14212,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -13987,7 +14290,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14064,7 +14368,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14143,7 +14448,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14222,7 +14528,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14298,7 +14605,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14393,7 +14701,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14473,7 +14782,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14550,7 +14860,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14634,7 +14945,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -14712,7 +15024,8 @@
           "type": "number",
           "min": 5,
           "max": 26,
-          "step": 0.5
+          "step": 0.5,
+          "advanced": true
         }
       ],
       "defaults": {
@@ -17826,6 +18139,149 @@
           "step": 5
         }
       ]
+    },
+    "furniture.projector_screen": {
+      "label": "Projector screen",
+      "category": "furniture",
+      "kind": "furniture",
+      "group": "Living",
+      "render": {
+        "shape": "screen"
+      },
+      "defaults": {
+        "w": 8,
+        "h": 0.6,
+        "variant": "projector"
+      },
+      "aboveDaylight": false,
+      "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "flat",
+            "curved",
+            "crt",
+            "projector"
+          ]
+        },
+        {
+          "key": "w",
+          "label": "Width (ft)",
+          "type": "number",
+          "min": 0.25,
+          "max": 200,
+          "step": 0.25
+        },
+        {
+          "key": "h",
+          "label": "Depth (ft)",
+          "type": "number",
+          "min": 0.25,
+          "max": 200,
+          "step": 0.25
+        },
+        {
+          "key": "rot",
+          "label": "Rotation (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5
+        }
+      ]
+    },
+    "device.projector_screen": {
+      "label": "Projector screen (motorised)",
+      "category": "covers",
+      "kind": "device",
+      "render": {
+        "shape": "disc",
+        "size": 8.5,
+        "tap": 17,
+        "icon": "screen",
+        "iconScale": 0.8,
+        "rotateIcon": true,
+        "family": "cover",
+        "variant": "projection",
+        "resize": {
+          "prop": "w",
+          "unit": "ft",
+          "min": 1,
+          "max": 24
+        }
+      },
+      "states": {
+        "on": {
+          "fill": "@mediaTint",
+          "stroke": "@mediaRim",
+          "glyph": "@mediaRim"
+        },
+        "off": {
+          "fill": "@offFill",
+          "stroke": "@offRim",
+          "glyph": "@glyphOff"
+        },
+        "unavailable": {
+          "fill": "@deadFill",
+          "stroke": "@deadRim",
+          "glyph": "@deadRim"
+        }
+      },
+      "domains": [
+        "cover",
+        "switch"
+      ],
+      "onRule": "notOff",
+      "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "curtain",
+            "roller",
+            "venetian",
+            "shutter",
+            "awning",
+            "damper",
+            "projection"
+          ],
+          "variantFamily": "cover"
+        },
+        {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5
+        },
+        {
+          "key": "w",
+          "label": "Width (ft)",
+          "type": "number",
+          "min": 0.25,
+          "max": 200,
+          "step": 0.25
+        },
+        {
+          "key": "diagonal",
+          "label": "Screen diagonal (in)",
+          "type": "number",
+          "min": 40,
+          "max": 400,
+          "step": 1,
+          "spec": "in"
+        }
+      ],
+      "defaults": {
+        "rot": 0,
+        "w": 8,
+        "diagonal": 120,
+        "variant": "projection"
+      }
     }
   },
   "roomTypes": {

@@ -1,0 +1,749 @@
+#!/usr/bin/env node
+/**
+ * make-docs.js — render the help corpus to a static site for GitHub Pages.
+ *
+ *   node tools/make-docs.js           write docs/
+ *   node tools/make-docs.js --check   fail if docs/ is not what this produces
+ *
+ * ## Why generate rather than write
+ *
+ * The documentation site, the editor's "?" sheets and the MCP `get_help` answer
+ * are the SAME text. Not "kept in sync" — the same bytes, read from
+ * `app/help/*.md` by all three. A site written by hand is a fourth copy of the
+ * truth, and a fourth copy starts disagreeing the week after it ships,
+ * silently, because nobody reads all four in one sitting.
+ *
+ * So this file contains no prose about the app at all. If something on the site
+ * is wrong, the fix is in `app/help/`.
+ *
+ * ## The icons are the app's own drawings
+ *
+ * Every glyph on this site is produced by `shapes.js` — the same code that
+ * draws that thing on a plan — and serialised through `plan-scene.js`'s own
+ * node writer. Nothing is traced by hand and no icon font is loaded.
+ *
+ * That is not a flourish. An icon set maintained beside a library is an icon
+ * set that goes stale: a type gets added and has no icon, or a drawing changes
+ * and its icon does not. Here a new type arrives on the site already drawn, and
+ * a change to how a camera looks changes the camera on this page too. They
+ * cannot disagree because there is only one drawing.
+ *
+ * The glyphs are emitted with `currentColor`, so they take the page's ink in
+ * either theme rather than carrying baked-in greys that only work in one.
+ *
+ * ## What it emits
+ *
+ *   index.html        the hero: what this is, the plan itself, the contents
+ *   <category>.html   the written topics of one category, in full
+ *   library.html      every placeable type, from the registry's own record
+ *   help.css          one stylesheet
+ *   help.js           theme toggle and search
+ *   search.json       the search index
+ *
+ * `docs/hero-plan.svg` belongs to make-readme-image.js and is left alone. This
+ * file only references it.
+ */
+
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+const ROOT = path.resolve(__dirname, '..');
+const APP = path.join(ROOT, 'floorplan_studio', 'app');
+const OUT = path.join(ROOT, 'docs');
+const help = require(path.join(APP, 'lib', 'help.js'));
+const Shapes = require(path.join(APP, 'lib', 'shapes.js'));
+const scene = require(path.join(APP, 'lib', 'plan-scene.js'));
+const library = require(path.join(APP, 'defaults', 'library.json'));
+const pkg = require(path.join(ROOT, 'package.json'));
+const navigation = require(path.join(APP, 'lib', 'ui-navigation'));
+const boundaries = require(path.join(APP, 'defaults', 'boundaries.json'));
+const flooring = require(path.join(APP, 'defaults', 'flooring.json'));
+const categoryUrl = (id) => id === 'library' ? 'library-guide.html' : id + '.html';
+const topicUrl = (t) => (t.derived ? 'library.html' : categoryUrl(t.category)) + '#' + t.id;
+
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+/* ---------------------------------------------------------------- glyphs */
+
+/* A drawing context that resolves to `currentColor` everywhere a colour is
+ * asked for, so one serialisation works on both themes. `P.S` converts feet to
+ * pixels; at 22 px/ft a 2 ft object lands at 44 px, which is the size these
+ * glyphs are drawn at. */
+const GLYPH_CTX = {
+  fill: 'none', line: 'currentColor', glyph: 'currentColor', accent: 'currentColor',
+  t: { coolTint: 'none', coolRim: 'currentColor' },
+  P: { S: (ft) => ft * 22 },
+  on: false, pct: 60, spin: false, motion: false, period: '1.4s', facing: 0,
+};
+
+function svgWrap(nodes, w, h, extraClass) {
+  const body = nodes.map((n) => scene.nodeToSvg(n)).join('');
+  return `<svg class="glyph${extraClass ? ' ' + extraClass : ''}" viewBox="0 0 ${w} ${h}" `
+    + `width="${w}" height="${h}" aria-hidden="true" focusable="false">${body}</svg>`;
+}
+
+/* One glyph for one library type, drawn the way that type is actually drawn.
+ *
+ * Three routes, in the order the renderer itself resolves them: a marker family
+ * draws its marker, a furniture shape draws its outline, and anything with only
+ * a named icon draws that. A type with none of the three gets nothing rather
+ * than a placeholder — a wrong icon is worse than an absent one. */
+function typeGlyph(type, look) {
+  const r = (type && type.render) || {};
+  const d = Object.assign({}, (type && type.defaults) || {}, look ? { variant: look } : {});
+  const size = look && type.kind === 'furniture' && Shapes.furnitureVariantSize(r.shape, look);
+  if (size) { d.w = size[0]; d.h = size[1]; }
+  try {
+    if (r.family) {
+      const variant = d.variant || (Shapes.variantsOf(r.family) || [])[0] || 'default';
+      const nodes = Shapes.marker(r.family, variant, Object.assign({}, GLYPH_CTX, { cx: 22, cy: 22, R: 13, p: d }));
+      return nodes && nodes.length ? svgWrap(nodes, 44, 44) : '';
+    }
+    if (r.shape && Shapes.FURNITURE[r.shape]) {
+      /* Fitted into the box rather than drawn at its real size: a 10 ft stair
+       * and a 1 ft basin have to read at the same scale in a list. */
+      const w = Number(d.w) > 0 ? Number(d.w) : 3;
+      const h = Number(d.h) > 0 ? Number(d.h) : 2;
+      const s = Math.min(40 / w, 30 / h);
+      const nodes = Shapes.furniture(r.shape, Object.assign({}, GLYPH_CTX, {
+        X: (44 - w * s) / 2, Y: (34 - h * s) / 2, W: w * s, H: h * s, p: d, P: { S: (ft) => ft * s },
+      }));
+      return nodes && nodes.length ? svgWrap(nodes, 44, 34) : '';
+    }
+    if (r.icon) {
+      const nodes = Shapes.icon(r.icon, 22, 22, 'currentColor', 1.5);
+      return nodes && nodes.length ? svgWrap(nodes, 44, 44) : '';
+    }
+  } catch (e) { /* a shape that cannot draw at this size simply has no glyph */ }
+  return '';
+}
+
+/* Each category gets a face, chosen from the icon set by what the category is
+ * about. Named explicitly rather than guessed: there are ten of them, and a
+ * heuristic that picks the wrong one is harder to notice than a list. */
+const CATEGORY_ICON = {
+  start: 'sparkle', plan: 'press', rooms: 'toggle', walls: 'contact',
+  library: 'list', light: 'bulb', controls: 'slider', dashboard: 'screen',
+  data: 'energy', reference: 'timer',
+};
+/* The furniture shape a type draws as, or null — only those carry per-look
+ * footprints, and asking for one on a marker family returns nothing useful. */
+
+const categoryGlyph = (id) => {
+  const nodes = Shapes.icon(CATEGORY_ICON[id] || 'dot', 20, 20, 'currentColor', 1.45);
+  return svgWrap(nodes, 40, 40, 'cat-glyph');
+};
+
+/* ------------------------------------------------------------------- css */
+
+/* Frosted glass over a two-tone gradient, both themes from one token set.
+ *
+ * `light-dark()` is not used: it is young enough that a reader on an older
+ * browser would get an unreadable page, and the fallback costs one media query.
+ * The explicit `[data-theme]` blocks come last so the toggle beats the system
+ * preference in both directions. */
+/* Two token sets, and the split inside them is the important part.
+ *
+ * `--glass*` is translucent and is for LARGE surfaces, where the gradient
+ * showing through is the effect. `--solid` and `--chip` are opaque and are for
+ * anything you have to READ: a dropdown over arbitrary page content, a code
+ * span, a table header. Frosted glass under small text is a contrast bug
+ * wearing a style — the background moves as you scroll, so the text is legible
+ * in some scroll positions and not others.
+ *
+ * `--code-ink` is a deliberate second colour rather than `--ink`, because a
+ * code span that differs from prose only by its background stops reading as
+ * code the moment the background is subtle. */
+const CSS = `:root{
+  --ink:#0f141b; --soft:#4a5665; --faint:#6b7889;
+  --line:rgba(20,30,45,.14); --line2:rgba(20,30,45,.08);
+  --bg:#eef2f7; --bg2:#dde6f2;
+  --glass:rgba(255,255,255,.66); --glass2:rgba(255,255,255,.46);
+  --solid:#ffffff; --chip:#e7ecf4; --chip-line:rgba(20,30,45,.16);
+  --code-ink:#1d3f7c;
+  --accent:#1f5fd0; --accent2:#6c3fc6;
+  --shadow:0 1px 2px rgba(15,25,45,.06),0 8px 28px rgba(15,25,45,.07);
+  --shadow-pop:0 6px 14px rgba(15,25,45,.10),0 18px 46px rgba(15,25,45,.16);
+  color-scheme:light;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --ink:#eef2f8; --soft:#a7b4c4; --faint:#8492a3;
+  --line:rgba(150,180,220,.2); --line2:rgba(150,180,220,.1);
+  --bg:#0d1117; --bg2:#151d29;
+  --glass:rgba(30,39,52,.6); --glass2:rgba(30,39,52,.4);
+  --solid:#1a2129; --chip:#232d3a; --chip-line:rgba(150,180,220,.24);
+  --code-ink:#a9c9ff;
+  --accent:#7fadf9; --accent2:#b79bf7;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 32px rgba(0,0,0,.32);
+  --shadow-pop:0 8px 18px rgba(0,0,0,.42),0 22px 54px rgba(0,0,0,.5);
+  color-scheme:dark;
+}}
+:root[data-theme=dark]{
+  --ink:#eef2f8; --soft:#a7b4c4; --faint:#8492a3;
+  --line:rgba(150,180,220,.2); --line2:rgba(150,180,220,.1);
+  --bg:#0d1117; --bg2:#151d29;
+  --glass:rgba(30,39,52,.6); --glass2:rgba(30,39,52,.4);
+  --solid:#1a2129; --chip:#232d3a; --chip-line:rgba(150,180,220,.24);
+  --code-ink:#a9c9ff;
+  --accent:#7fadf9; --accent2:#b79bf7;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 32px rgba(0,0,0,.32);
+  --shadow-pop:0 8px 18px rgba(0,0,0,.42),0 22px 54px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;color:var(--ink);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);
+  background-image:
+    radial-gradient(1100px 620px at 12% -8%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 62%),
+    radial-gradient(940px 560px at 92% 4%, color-mix(in srgb, var(--accent2) 13%, transparent), transparent 60%),
+    linear-gradient(178deg, var(--bg) 0%, var(--bg2) 100%);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent)}
+.wrap{max-width:60rem;margin:0 auto;padding:0 1.15rem 5rem}
+.narrow{max-width:47rem}
+/* Inside the shell the grid already supplies the gutter and the measure, so the
+   inner wrapper stops adding its own — otherwise the content is indented twice
+   and the column is narrower than the sidebar left room for. */
+.shell .wrap{max-width:none;padding-left:0;padding-right:0}
+.shell .wrap.narrow{max-width:48rem}
+
+/* ---- the frosted surface, used for every raised thing on the page ---- */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(14px) saturate(150%); backdrop-filter:blur(14px) saturate(150%);
+  border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+}
+
+/* ---- top bar ---- */
+.top{position:sticky;top:0;z-index:20;padding:.5rem 0;
+  background:color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line2)}
+.top .row{max-width:76rem;margin:0 auto;padding:0 1.15rem;display:flex;align-items:center;gap:.9rem}
+.brand{display:flex;align-items:center;gap:.5rem;color:inherit;text-decoration:none;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
+.brand .glyph{color:var(--accent)}
+.icon-btn{width:40px;height:40px;flex:0 0 auto;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:9px;background:var(--glass2);color:var(--soft);cursor:pointer}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ---- navigation: a SIDEBAR, not a top strip ----
+
+   Eleven destinations do not fit on one row beside a search box at any width
+   worth designing for. Squeezed into the top bar they clipped a category name
+   mid-word — on phones and on plenty of desktops — and a scroller with no
+   visible scrollbar gives no hint that anything is missing.
+
+   So navigation runs down the side, one destination per line, fully readable,
+   which is what every documentation site of this size converges on. It sticks
+   beside the content on desktop.
+
+   It COLLAPSES. On desktop the toggle folds it away and the content takes the
+   width back; on a phone it starts folded and opens as a drawer over the page,
+   which is the one shape that costs the reader nothing until they ask for it.
+   The choice is remembered on desktop and never on a phone, because a drawer
+   left open over the page from a previous visit reads as a bug.
+
+   Mobile-first here: the drawer is the base case and the desktop column is the
+   media query, because the drawer is the state with the fiddly parts. */
+.shell{max-width:76rem;margin:0 auto;padding:0 1.15rem;display:grid;
+  grid-template-columns:minmax(0,1fr);gap:2.2rem;align-items:start}
+.side{
+  position:fixed;top:0;left:0;bottom:0;width:16.5rem;z-index:45;
+  padding:1.2rem .85rem 2rem;overflow-y:auto;max-width:calc(100vw - 3rem);
+  background:var(--solid);border-right:1px solid var(--line);
+  transform:translateX(-101%);transition:transform .18s ease;
+  display:flex;flex-direction:column;gap:.08rem}
+:root[data-side=open] .side{transform:none;box-shadow:var(--shadow-pop)}
+.side .lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+  margin:1.15rem .8rem .45rem;font-weight:700}
+.side a{display:flex;align-items:center;gap:.6rem;min-height:44px;font-size:.87rem;padding:.55rem .65rem;border-radius:8px;
+  color:var(--soft);text-decoration:none;border-left:2px solid transparent}
+.side a:hover{color:var(--ink);background:var(--chip)}
+.side a[aria-current]{color:var(--accent);background:var(--chip);font-weight:600;border-left-color:var(--accent)}
+.side hr{border:0;border-top:1px solid var(--line2);margin:.6rem .6rem;width:auto}
+.scrim{position:fixed;inset:0;z-index:44;background:rgba(6,11,20,.55);display:none}
+:root[data-side=open] .scrim{display:block}
+
+@media(min-width:861px){
+  /* A column beside the content, sticking as you scroll. */
+  .shell{grid-template-columns:16rem minmax(0,1fr);gap:1.8rem}
+  .side{position:sticky;inset:auto;top:4.5rem;width:auto;z-index:1;
+    transform:none;background:none;border-right:0;box-shadow:none;
+    padding:1.4rem .75rem 2rem;max-height:calc(100dvh - 5.5rem)}
+  .scrim{display:none!important}
+  :root[data-side=closed] .shell{grid-template-columns:minmax(0,1fr)}
+  :root[data-side=closed] .side{display:none}
+}
+
+/* ---- search ---- */
+.search{position:relative;flex:1 1 14rem;order:2;min-width:9rem}
+.search input{
+  width:100%;padding:.36rem .7rem .36rem 1.9rem;font:inherit;font-size:.86rem;
+  color:var(--ink);background:var(--solid);border:1px solid var(--line);border-radius:9px;outline-offset:3px}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.search .mag{position:absolute;left:.5rem;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
+/* OPAQUE, and deliberately not frosted. This floats over whatever the page
+   happens to be showing — a plan, a table, another paragraph — so anything
+   translucent makes its text legible at some scroll positions and not others.
+   Frosted glass belongs on big surfaces, not under 12px type. */
+.results{position:absolute;top:calc(100% + .4rem);left:0;right:0;max-height:60vh;overflow-y:auto;
+  padding:.3rem;z-index:30;display:none;
+  background:var(--solid);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-pop)}
+.results:not([hidden]){display:block}
+.results a{display:block;padding:.36rem .5rem;border-radius:8px;color:var(--ink);text-decoration:none}
+.results a:hover,.results a.sel{background:var(--chip);color:var(--accent)}
+.results strong{display:block;font-size:.85rem;font-weight:600}
+.results span{display:block;font-size:.76rem;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.results .none{padding:.5rem;color:var(--soft);font-size:.84rem}
+
+/* ---- hero ---- */
+.hero{padding:3.4rem 0 1.6rem;text-align:center}
+.hero h1{margin:0 0 .5rem;font-size:clamp(2rem,5.2vw,3.1rem);line-height:1.08;letter-spacing:-.03em;
+  background:linear-gradient(96deg,var(--ink),color-mix(in srgb,var(--accent) 62%,var(--ink)));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lede{margin:0 auto;max-width:34rem;font-size:1.06rem;color:var(--soft)}
+.hero .pills{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center;margin:1.3rem 0 0}
+.pill{display:inline-flex;align-items:center;gap:.35rem;padding:.26rem .7rem;border-radius:999px;
+  font-size:.79rem;color:var(--soft);background:var(--glass2);border:1px solid var(--line)}
+.pill .glyph{color:var(--accent)}
+.shot{margin:2rem 0 .5rem;padding:.55rem;overflow:hidden}
+.shot img{display:block;width:100%;height:auto;border-radius:11px}
+
+h2.sec{font-size:.78rem;text-transform:uppercase;letter-spacing:.11em;color:var(--soft);
+  margin:3rem 0 .9rem;font-weight:700}
+
+/* ---- category cards ---- */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(15.5rem,1fr));gap:.8rem}
+.card{display:block;padding:1rem 1.05rem;text-decoration:none;color:inherit;transition:transform .13s,border-color .13s}
+.card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.card .cat-glyph{color:var(--accent);margin-bottom:.35rem}
+.card h3{margin:0 0 .18rem;font-size:1rem;letter-spacing:-.01em}
+.card p{margin:0;font-size:.85rem;color:var(--soft)}
+.card .n{margin-top:.5rem;font-size:.74rem;color:var(--faint)}
+
+/* ---- topic pages ---- */
+.page{padding:2.2rem 0 0}
+.page h1{font-size:1.9rem;letter-spacing:-.02em;margin:0 0 .4rem}
+.page .lede{color:var(--soft);margin:0 0 2rem}
+article.topic{padding:1.5rem 1.7rem;margin:0 0 1.1rem;scroll-margin-top:4.5rem}
+article.topic h2{margin:0 0 .1rem;font-size:1.22rem;letter-spacing:-.015em}
+.summary{color:var(--soft);font-style:italic;margin:0 0 1rem}
+/* Headings inside a topic carry a left rule rather than being set in a paler
+   grey. A sub-heading distinguished only by being fainter is the one that
+   disappears first — on a phone, in sunlight, and for anyone whose eyes are
+   older than the designer's. */
+.body h2{font-size:1.05rem;margin:1.7rem 0 .4rem;letter-spacing:-.01em;color:var(--ink)}
+.body h3{font-size:.88rem;margin:1.4rem 0 .35rem;color:var(--ink);text-transform:uppercase;
+  letter-spacing:.07em;padding-left:.5rem;border-left:3px solid var(--accent)}
+.body p{margin:0 0 .85rem}
+.body ul,.body ol{margin:0 0 .9rem;padding-left:1.15rem}
+.body li{margin:.2rem 0}
+/* Opaque chip, its own ink, a real border. Code that differs from prose only
+   by a barely-there tint stops reading as code at all. */
+.body code,.meta code{background:var(--chip);border:1px solid var(--chip-line);border-radius:5px;
+  padding:.06em .34em;font-size:.86em;color:var(--code-ink);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.body pre{background:var(--chip);border:1px solid var(--chip-line);border-radius:11px;
+  padding:.8rem 1rem;overflow-x:auto;margin:0 0 .9rem}
+.body pre code{border:0;background:none;padding:0;color:var(--ink);font-size:.84rem;line-height:1.55}
+.body table{border-collapse:collapse;width:100%;margin:.2rem 0 1rem;font-size:.9rem;display:block;overflow-x:auto}
+.body th,.body td{border:1px solid var(--chip-line);padding:.38rem .7rem;text-align:left;vertical-align:top}
+.body th{background:var(--chip);font-weight:650;color:var(--ink);white-space:nowrap}
+.body blockquote{margin:0 0 .9rem;padding:.6rem .9rem;border-left:4px solid var(--accent);
+  border-radius:0 10px 10px 0;background:var(--chip);color:var(--ink)}
+.body hr{border:0;border-top:1px solid var(--line);margin:1.6rem 0}
+.meta{margin:1rem 0 0;padding-top:.7rem;border-top:1px solid var(--line2);font-size:.76rem;color:var(--soft)}
+.meta code{font-size:.95em}
+
+/* ---- type reference ---- */
+.filter{display:flex;gap:.5rem;align-items:center;margin:0 0 1.2rem}
+.filter input{flex:1 1 auto;padding:.42rem .8rem;font:inherit;font-size:.88rem;color:var(--ink);
+  background:var(--glass);border:1px solid var(--line);border-radius:10px;outline-offset:3px}
+.filter input:focus{border-color:var(--accent)}
+.filter .count{font-size:.78rem;color:var(--faint);white-space:nowrap}
+.types{display:grid;grid-template-columns:repeat(auto-fill,minmax(16rem,1fr));gap:.7rem}
+.type{padding:.75rem .85rem;display:flex;gap:.7rem;align-items:flex-start}
+.type .glyph{flex:0 0 auto;color:var(--accent);opacity:.9;margin-top:.1rem}
+.type-main{min-width:0;flex:1 1 auto}
+.type h4{margin:0 0 .12rem;font-size:.92rem;color:var(--ink)}
+.type .key{font-size:.74rem;color:var(--soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  word-break:break-all}
+.type .looks{margin:.5rem 0 0}
+.type .looks>span{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--faint);margin-bottom:.2rem}
+.type .looks ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.16rem}
+.type .looks li{display:flex;align-items:baseline;gap:.4rem;font-size:.76rem}
+.type .looks code{background:var(--chip);border:1px solid var(--chip-line);border-radius:4px;
+  padding:.02em .3em;color:var(--code-ink);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.type .looks em{font-style:normal;color:var(--faint);font-size:.72rem;margin-left:auto;white-space:nowrap}
+.group-head{display:flex;align-items:baseline;gap:.5rem;margin:2rem 0 .7rem}
+.group-head h3{margin:0;font-size:1rem;color:var(--ink)}
+.group-head span{font-size:.76rem;color:var(--soft);background:var(--chip);
+  border:1px solid var(--chip-line);border-radius:999px;padding:.05rem .45rem}
+
+footer{margin-top:4rem;padding:1.2rem 0 0;border-top:1px solid var(--line2);color:var(--faint);font-size:.8rem}
+
+/* ---- narrow screens ----
+
+   The top bar is the only thing here that does not survive being squeezed: on
+   one row it starves the search box down to its magnifying glass and clips the
+   nav mid-word, which is worse than either being absent.
+
+   So below 860px it becomes two rows — brand, search and the theme toggle on
+   the first, the category nav scrolling on its own beneath. Two rows of sticky
+   chrome is about 70px, which is affordable; three would not be. */
+@media (max-width:860px){
+  /* The compact header keeps search and the drawer reachable in long pages. */
+  .top{position:sticky}
+  .top .row{padding-left:1rem;padding-right:1rem}
+  .top nav a{font-size:.8rem;padding:.24rem .45rem}
+  .wrap{padding-left:1rem;padding-right:1rem}
+  .hero{padding:2.2rem 0 1rem}
+  article.topic{padding:1.15rem 1.15rem;scroll-margin-top:4.5rem}
+}
+/* Under 440px the wordmark is what gives: the logo still goes home, and the
+   search box is what somebody on a phone actually came for. */
+@media (max-width:440px){
+  .brand span{display:none}
+  .hero .pills{gap:.3rem}
+  .pill{font-size:.74rem;padding:.22rem .55rem}
+  .shot{padding:.35rem}
+  .types,.cards{grid-template-columns:1fr}
+  .filter{flex-wrap:wrap}
+  .filter .count{flex:1 1 100%}
+  .body table{font-size:.85rem}
+  .body th,.body td{padding:.3rem .5rem}
+}
+.side nav{display:flex;flex-direction:column;gap:.2rem}
+.side a .glyph{width:22px;height:22px;flex:none}
+.side a span{min-width:0;line-height:1.4}
+.side-head{display:flex;align-items:center;justify-content:space-between;padding:0 .7rem;color:var(--ink);font-weight:650;font-size:.88rem}
+.side-head .icon-btn{margin-left:.5rem}
+.side-head .side-brand{display:flex;align-items:center;gap:.6rem;padding:0;min-height:44px;color:var(--ink);text-decoration:none;font-size:.88rem}
+.side-brand .app-icon{flex:0 0 auto}
+.side-brand small{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
+@media(min-width:861px){#sideClose{display:none}.side-head{padding-top:.2rem}.side{border-right:1px solid var(--line2)}:root[data-side=open] .side{box-shadow:none}}
+.drawer-open{overflow:hidden}
+[hidden]{display:none!important}
+.skip{position:fixed;top:.5rem;left:1rem;z-index:80;padding:.5rem 1rem;background:var(--solid);transform:translateY(-200%)}
+.skip:focus{transform:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.app-icon{display:block;border-radius:7px;flex:none}
+.shell main{min-width:0}
+.page-toc{display:flex;flex-wrap:wrap;gap:.45rem 1rem;padding:1rem 1.2rem;margin-bottom:1.4rem;font-size:.88rem}
+.page-toc strong{flex-basis:100%}
+.heading-link{color:inherit;text-decoration:none}
+.heading-link:hover{text-decoration:underline;text-underline-offset:4px}
+.related{border-top:1px solid var(--line);padding-top:.85rem;margin-top:1rem;font-size:.85rem}
+.body{overflow-wrap:anywhere}
+.types{grid-template-columns:1fr;align-items:start}
+@media(min-width:1100px){.types{grid-template-columns:repeat(2,minmax(0,1fr))}.type:has(details[open]){grid-column:1 / -1}}
+.type{display:block;padding:1.1rem 1.25rem;scroll-margin-top:5rem}
+.type:target{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}
+.type-heading{display:flex;gap:.8rem;align-items:center}
+.type h3{margin:0;font-size:1.05rem}
+.type-path{font-size:.8rem;color:var(--soft);margin:.65rem 0}
+.type summary{cursor:pointer;color:var(--accent);padding:.5rem 0;min-height:44px;font-size:.88rem;font-weight:600}
+.type details[open] summary{border-bottom:1px solid var(--line);margin-bottom:1rem}
+.type .body{font-size:.9rem}
+.look-gallery{display:flex;flex-wrap:wrap;gap:.7rem;margin:1rem 0}
+.look-swatch{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;min-width:90px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--chip);font-size:.78rem;color:var(--ink)}
+.group-head h2{margin:0;font-size:1.1rem}
+.clear-filter{font:inherit;font-size:.85rem;padding:.5rem .75rem;border:1px solid var(--line);border-radius:9px;background:var(--solid);color:var(--ink);cursor:pointer}
+.empty-state{padding:1.2rem}
+.filter input{min-width:0;background:var(--solid);min-height:42px}
+@media(max-width:860px){.shell{padding:0 1rem;gap:1rem}.type{scroll-margin-top:4.5rem}.top .row{gap:.55rem}.side a{min-height:46px}}
+@media print{.top,.side,.scrim,.filter,footer,.skip{display:none!important}.shell{display:block}.glass{box-shadow:none;background:white;color:black}body{background:white}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+`;
+
+/* -------------------------------------------------------------------- js */
+
+/* Theme toggle and search. No framework, no build, one file.
+ *
+ * The theme is read before paint by a tiny inline script in the head — doing it
+ * here instead would flash the wrong theme on every navigation. */
+const JS = fs.readFileSync(path.join(__dirname, 'docs-client.js'), 'utf8');
+
+/* Runs before first paint. Both the theme and the sidebar state are restored
+ * here rather than in help.js: doing it after load flashes the wrong theme and
+ * visibly snaps the sidebar shut on every navigation.
+ *
+ * No stored preference means no attribute, so the CSS defaults apply — open
+ * beside the content on a desktop, closed on a phone. */
+const THEME_BOOT = `<script>try{var d=document.documentElement,`
+  + `t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');`
+  + `if(t)d.setAttribute('data-theme',t);`
+  + `if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>`;
+
+/* ----------------------------------------------------------------- pages */
+
+const MOON = svgWrap(Shapes.icon('sparkle', 8, 8, 'currentColor', 0.85), 16, 16);
+const MAG = svgWrap(Shapes.icon('dot', 7, 7, 'currentColor', 0.9), 14, 14);
+const LOGO = '<img class="app-icon" src="favicon.svg" width="30" height="30" alt="">';
+/* The one glyph the library has no equivalent for — three bars mean "contents"
+ * to everybody, and drawing it here keeps the page free of an icon font. */
+const BURGER = svgWrap([1, 2, 3].map((i) => ({
+  tag: 'line',
+  attrs: { x1: 4, y1: i * 4, x2: 14, y2: i * 4, stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round' },
+})), 18, 16);
+
+function page(title, bodyHtml, current, opts) {
+  const o = opts || {};
+  const nav = help.categories().filter((c) => counts[c.id])
+    .map((c) => `<a href="${categoryUrl(c.id)}"${current === c.id ? ' aria-current="page"' : ''}>${categoryGlyph(c.id)}<span>${esc(c.label)}</span></a>`)
+    .join('');
+  return `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)} — Floorplan Studio</title>
+<meta name="description" content="${esc(o.description || 'Help for Floorplan Studio — draw your home once and get a Home Assistant dashboard that looks like it.')}">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="help.css">
+${THEME_BOOT}
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="top"><div class="row">
+  <button class="icon-btn" id="sideBtn" title="Contents" aria-label="Show or hide contents" aria-controls="side" aria-expanded="false">${BURGER}</button>
+  <a class="brand" href="index.html">${LOGO}<span>Floorplan Studio</span></a>
+  <div class="search">
+    <span class="mag">${MAG}</span>
+    <input id="q" type="search" placeholder="Search  /" autocomplete="off" aria-label="Search help" role="combobox" aria-autocomplete="list" aria-controls="results" aria-expanded="false">
+    <div class="results" id="results" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Toggle theme">${MOON}</button>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Help navigation">
+    <div class="side-head"><a class="side-brand" href="index.html">${LOGO}<span>Floorplan Studio<small>Help guide</small></span></a><button class="icon-btn" id="sideClose" aria-label="Close contents">×</button></div>
+    <nav aria-label="Help contents">
+    <div class="lbl">Help</div>
+    <a href="index.html"${current === null || current === undefined ? ' aria-current="page"' : ''}>Contents</a>
+    ${nav}
+    <hr>
+    <div class="lbl">Browse</div>
+    <a href="navigation.html"${current === 'navigation' ? ' aria-current="page"' : ''}>${categoryGlyph('plan')}<span>Find a control</span></a>
+    <a href="library.html"${current === 'library-ref' ? ' aria-current="page"' : ''}>${categoryGlyph("library")}<span>Every type you can place</span></a>
+    </nav>
+  </aside>
+  <main id="main" tabindex="-1">
+${bodyHtml}
+  </main>
+</div>
+<div class="wrap"><footer>
+Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
+shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
+Every glyph is drawn by the app's own <code>shapes.js</code>. Version ${esc(pkg.version || 'dev')}.
+</footer></div>
+<script src="help.js"></script>
+</body></html>
+`;
+}
+
+function topicHtml(t) {
+  const related = (t.see || []).map((id) => all.find((other) => other.id === id)).filter(Boolean);
+  return `<article class="topic glass" id="${esc(t.id)}">
+<h2><a class="heading-link" href="#${esc(t.id)}">${esc(t.title)}</a></h2>
+<p class="summary">${esc(t.summary)}</p>
+<div class="body">${help.toHtml(help.topicBody(t))}</div>
+${related.length ? '<div class="related">Read next: ' + related.map((r) => '<a href="' + topicUrl(r) + '">' + esc(r.title) + '</a>').join(' · ') + '</div>' : ''}
+</article>`;
+}
+
+/* ------------------------------------------------------------------ build */
+
+const { all, errors } = help.corpus(library, { reload: true });
+if (errors.length) {
+  console.error('The help corpus does not validate, so no site was written:');
+  for (const e of errors) console.error('  ' + e);
+  process.exit(1);
+}
+
+const authoredTopics = all.filter((t) => !t.derived);
+const derivedTopics = all.filter((t) => t.derived);
+const files = {};
+const counts = {};
+for (const c of help.categories()) {
+  counts[c.id] = authoredTopics.filter((t) => t.category === c.id).length;
+}
+
+/* ---- home ---- */
+{
+  const first = (id) => (authoredTopics.filter((t) => t.category === id)
+    .sort((a, b) => a.order - b.order)[0] || {}).summary || '';
+  const cards = help.categories().filter((c) => counts[c.id]).map((c) => `
+    <a class="card glass" href="${categoryUrl(c.id)}">
+      ${categoryGlyph(c.id)}
+      <h3>${esc(c.label)}</h3>
+      <p>${esc(first(c.id))}</p>
+      <div class="n">${counts[c.id]} topic${counts[c.id] === 1 ? '' : 's'}</div>
+    </a>`).join('');
+
+  const stat = (icon, text) => `<span class="pill">${svgWrap(Shapes.icon(icon, 7, 7, 'currentColor', 0.8), 14, 14)}${esc(text)}</span>`;
+
+  files['index.html'] = page('Help', `
+<div class="wrap">
+  <section class="hero">
+    <h1>Draw your home once.</h1>
+    <p class="lede">Floorplan Studio turns a plan of your house into a live Home Assistant
+    dashboard — lamps that glow where they really are, fans that turn while they run,
+    daylight worked out from your own windows.</p>
+    <div class="pills">
+      ${stat('list', Object.keys(library.types).length + ' placeable types')}
+      ${stat('bulb', 'daylight and lamp modelling')}
+      ${stat('contact', Object.keys(boundaries.types).length + ' wall treatments, ' + Object.keys(flooring.types).length + ' floor finishes')}
+      ${stat('sparkle', 'no build step, no dependencies')}
+    </div>
+    <figure class="shot glass">
+      <img src="hero-plan.svg" alt="A floor plan drawn in Floorplan Studio: rooms with different floor finishes, furniture, lamps and sensors in place, and a staircase.">
+    </figure>
+  </section>
+
+  <h2 class="sec">Start reading</h2>
+  <div class="cards">${cards}
+    <a class="card glass" href="library.html">
+      ${categoryGlyph('library')}
+      <h3>Every type you can place</h3>
+      <p>All ${derivedTopics.length} of them, from the library's own record — looks, footprints and settings.</p>
+      <div class="n">generated, always current</div>
+    </a>
+  </div>
+</div>`, null, { description: 'Floorplan Studio — draw your home once and get a Home Assistant dashboard that looks like it.' });
+}
+
+/* ---- one page per category ---- */
+for (const c of help.categories()) {
+  const mine = authoredTopics.filter((t) => t.category === c.id).sort((a, b) => a.order - b.order);
+  if (!mine.length) continue;
+  files[categoryUrl(c.id)] = page(c.label, `
+<div class="wrap narrow page">
+  <h1>${esc(c.label)}</h1>
+  <p class="lede">${mine.length} topic${mine.length === 1 ? '' : 's'}.</p>
+  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong>${mine.map((t) => `<a href="#${esc(t.id)}">${esc(t.title)}</a>`).join('')}</nav>
+  ${mine.map(topicHtml).join('\n')}
+</div>`, c.id, { description: mine[0].summary });
+}
+
+/* ---- every type ---- */
+{
+  const routes = Object.keys(navigation.locations).filter((id) => navigation.locations[id].parent || id.startsWith('panel:'));
+  const rows = routes.map((id) => {
+    const route = navigation.route(id);
+    const related = authoredTopics.filter((t) => t.applies.some((s) => (navigation.aliases[s] || s) === id));
+    return `<article class="topic glass" id="nav-${esc(id.replace(/[:.]/g, '-'))}"><h2>${esc(navigation.label(id))}</h2>
+      <div class="body">${help.toHtml(help.navigationMarkdown({ navigation: [route] }))}</div>
+      ${related.length ? `<div class="related">${related.map((t) => `<a href="${topicUrl(t)}">${esc(t.title)}</a>`).join(' · ')}</div>` : ''}</article>`;
+  }).join('');
+  files['navigation.html'] = page('Find a control', `<div class="wrap narrow page"><h1>Find a control</h1>
+    <p class="lede">Follow the editor’s own locations. For a specific object, its looks or its settings, <a href="library.html">browse the type reference</a>.</p>
+    <nav class="page-toc glass" aria-label="On this page"><strong>Jump to a control</strong>${routes.map((id) => `<a href="#nav-${id.replace(/[:.]/g, '-')}">${esc(navigation.label(id))}</a>`).join('')}</nav>${rows}</div>`, 'navigation');
+}
+
+/* ---- every type ---- */
+{
+  const byGroup = new Map();
+  for (const t of derivedTopics) {
+    const type = library.types[t.typeKey] || {};
+    const g = (library.categories.find((c) => c.id === type.category) || {}).label || 'Other';
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push([t, type]);
+  }
+  const groups = [...byGroup.keys()].sort().map((g) => {
+    const rows = byGroup.get(g).sort((a, b) => a[0].title.localeCompare(b[0].title)).map(([t, type]) => {
+      const looks = navigation.looks(type);
+      const search = [t.typeKey, t.title, g, 'variant look settings', ...(type.props || []).map((p) => p.key + ' ' + p.label)].concat(looks.map((o) => (o && o.value !== undefined ? o.value : o)))
+        .join(' ').toLowerCase();
+      return `<article class="type glass" id="${esc(t.id)}" data-search="${esc(search)}">
+        <div class="type-heading">${typeGlyph(type)}<div><h3><a class="heading-link" href="#${esc(t.id)}">${esc(t.title)}</a></h3><div class="key">${esc(t.typeKey)}</div></div></div>
+        <p class="type-path">${esc(t.navigation[0].placement.join(' → '))}</p>
+        <details><summary>How to use${looks.length ? ' · ' + looks.length + ' looks' : ''} · Settings</summary>
+          ${looks.length ? `<div class="look-gallery" aria-label="Look previews">${looks.map((look) => `<div class="look-swatch">${typeGlyph(type, look)}<span>${esc(look)}</span></div>`).join('')}</div>` : ''}
+          <div class="body">${help.toHtml(help.topicBody(t))}</div>
+          ${t.see.length ? '<div class="related">Read next: ' + t.see.map((id) => all.find((x) => x.id === id)).filter(Boolean).map((x) => '<a href="' + topicUrl(x) + '">' + esc(x.title) + '</a>').join(' · ') + '</div>' : ''}
+        </details>
+      </article>`;
+    }).join('');
+    return `<section data-group="${esc(g)}">
+      <div class="group-head"><h2>${esc(g)}</h2><span>${byGroup.get(g).length}</span></div>
+      <div class="types">${rows}</div>
+    </section>`;
+  }).join('');
+
+  files['library.html'] = page('Every type', `
+<div class="wrap page">
+  <h1>Every type you can place</h1>
+  <p class="lede">${derivedTopics.length} types, grouped as the palette groups them. Every glyph below is
+  drawn by the same code that draws it on a plan, so this page cannot fall behind the library.</p>
+  <div class="filter">
+    <input id="typeFilter" type="search" placeholder="Filter — camera, bath, railing, cove…" autocomplete="off" aria-label="Filter types">
+    <button class="clear-filter" id="clearFilter" type="button">Clear</button>
+    <span class="count" id="typeCount" role="status" aria-live="polite">${derivedTopics.length} of ${derivedTopics.length}</span>
+  </div>
+  <p id="typeEmpty" class="empty-state glass" hidden>No types match. Try a different name or clear the filter.</p>
+  ${groups}
+</div>`, 'library-ref', { description: `All ${derivedTopics.length} placeable types in Floorplan Studio.` });
+}
+
+/* ---- the search index ----
+ *
+ * Short keys because this file is fetched on the first keystroke: t title,
+ * s summary, u url, k key, g tags. Bodies are deliberately NOT indexed — it
+ * would multiply the file by twenty to make "the" match everything. */
+{
+  const rows = [];
+  for (const t of all) {
+    rows.push({ t: t.title, s: t.summary, u: topicUrl(t), k: t.id, g: t.tags.join(' '),
+      n: (t.derived && navigation.looks(library.types[t.typeKey]).length ? 'variant look settings ' : '') + t.body.replace(/[*#|`]/g, '') + ' ' + help.navigationMarkdown(t) });
+  }
+  for (const id of Object.keys(navigation.locations).filter((id) => navigation.locations[id].parent || id.startsWith('panel:'))) {
+    rows.push({ t: navigation.label(id), s: navigation.route(id).steps.map((s) => s.label).join(' → '),
+      u: 'navigation.html#nav-' + id.replace(/[:.]/g, '-'), k: id, g: 'navigation control access', n: '' });
+  }
+  files['search.json'] = JSON.stringify(rows);
+}
+
+files['favicon.svg'] = fs.readFileSync(path.join(ROOT, 'branding', 'icon.svg'), 'utf8');
+files['help.css'] = CSS;
+files['help.js'] = JS;
+
+/* ------------------------------------------------------------------ emit */
+
+const check = process.argv.includes('--check');
+let differs = 0;
+fs.mkdirSync(OUT, { recursive: true });
+for (const [name, source] of Object.entries(files)) {
+  const text = name.endsWith('.html') ? source.replace(/[\t ]+$/gm, '') : source;
+  const target = path.join(OUT, name);
+  if (check) {
+    const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
+    if (current !== text) { differs++; console.error('  differs: docs/' + name); }
+  } else {
+    fs.writeFileSync(target, text, 'utf8');
+  }
+}
+
+if (check) {
+  if (differs) {
+    console.error(`\n${differs} file(s) in docs/ do not match the generator.`);
+    console.error('Run `node tools/make-docs.js` and commit the result.');
+    process.exit(1);
+  }
+  console.log('docs/ matches the help corpus.');
+} else {
+  const glyphs = derivedTopics.filter((t) => typeGlyph(library.types[t.typeKey])).length;
+  console.log(`Docs site: ${Object.keys(files).length} files, `
+    + `${authoredTopics.length} written topics + ${derivedTopics.length} generated, `
+    + `${glyphs} type glyphs drawn from shapes.js`);
+  console.log('  ' + OUT);
+}

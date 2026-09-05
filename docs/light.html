@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Light and daylight — Floorplan Studio</title>
+<meta name="description" content="Where the sun is, how much of it reaches each room, and what the plan needs from you to know.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="help.css">
+<script>try{var d=document.documentElement,t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');if(t)d.setAttribute('data-theme',t);if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="top"><div class="row">
+  <button class="icon-btn" id="sideBtn" title="Contents" aria-label="Show or hide contents" aria-controls="side" aria-expanded="false"><svg class="glyph" viewBox="0 0 18 16" width="18" height="16" aria-hidden="true" focusable="false"><line x1="4" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <a class="brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio</span></a>
+  <div class="search">
+    <span class="mag"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="2.4" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.9)"/></svg></span>
+    <input id="q" type="search" placeholder="Search  /" autocomplete="off" aria-label="Search help" role="combobox" aria-autocomplete="list" aria-controls="results" aria-expanded="false">
+    <div class="results" id="results" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Toggle theme"><svg class="glyph" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(8 8) scale(0.85)"/></svg></button>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Help navigation">
+    <div class="side-head"><a class="side-brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio<small>Help guide</small></span></a><button class="icon-btn" id="sideClose" aria-label="Close contents">×</button></div>
+    <nav aria-label="Help contents">
+    <div class="lbl">Help</div>
+    <a href="index.html">Contents</a>
+    <a href="start.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Getting started</span></a><a href="plan.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Drawing the plan</span></a><a href="rooms.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Rooms</span></a><a href="walls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Walls and openings</span></a><a href="library-guide.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The library</span></a><a href="light.html" aria-current="page"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Light and daylight</span></a><a href="controls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><line x1="-5.4" y1="-3.4" x2="5.4" y2="-3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-1.6" cy="-3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="0" x2="5.4" y2="0" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.2" cy="0" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="3.4" x2="5.4" y2="3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-2.8" cy="3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Controls and popups</span></a><a href="dashboard.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-6" y="-4.6" width="12" height="8.4" rx="1.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-3" y1="6.2" x2="3" y2="6.2" stroke-width="1.4" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The dashboard</span></a><a href="data.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 1.4 -6 L -3.6 0.6 L 0 0.6 L -1.4 6 L 3.6 -0.6 L 0 -0.6 Z" fill="none" stroke-width="1.3" stroke-linejoin="round" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Projects, import and export</span></a><a href="reference.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0.8" r="5" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="0" y2="-2.4" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="2.6" y2="0.8" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="-5.6" x2="2" y2="-5.6" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Reference</span></a>
+    <hr>
+    <div class="lbl">Browse</div>
+    <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
+    <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
+    </nav>
+  </aside>
+  <main id="main" tabindex="-1">
+
+<div class="wrap narrow page">
+  <h1>Light and daylight</h1>
+  <p class="lede">3 topics.</p>
+  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong><a href="#concept-daylight">Daylight</a><a href="#concept-artificial-light">Lamps, lumens and how bright a room reads</a><a href="#room-lighting">A room's master light, ganging and count chip</a></nav>
+  <article class="topic glass" id="concept-daylight">
+<h2><a class="heading-link" href="#concept-daylight">Daylight</a></h2>
+<p class="summary">Where the sun is, how much of it reaches each room, and what the plan needs from you to know.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Top bar → Sun.</li></ul>
+<p>The plan computes the sun's real position for your <strong>location and the current time</strong>, then works out how much of it reaches each room.</p>
+<h2>What it needs</h2>
+<p><strong>A latitude and longitude.</strong> Without them there is no sun at all — the model refuses to guess rather than lighting your house as though it were somewhere else. This is the single most common reason daylight appears to do nothing.</p>
+<p><strong>A compass.</strong> The sun arrives on a real bearing; the plan is drawn on a screen. The compass is what connects them, and getting it wrong lights the wrong side of the house at the wrong time of day.</p>
+<h2>How a room gets lit</h2>
+<p>Roughly: how much glass the room has, relative to its floor area, weighted by how much light each piece of glass passes. That is why boundaries and opening types matter — a wall of <code>glass_full</code> and a wall of masonry are different rooms to this model.</p>
+<p>An <strong>outdoor</strong> room is exempt. It is lit from above, and the glass-to-area question is meaningless for a terrace.</p>
+<h2>Weather and solar</h2>
+<p>You can bind a <strong>weather entity</strong>, and an overcast sky will dim the whole model. You can also bind a <strong>solar production sensor</strong> — but note it can only ever pull the estimate <em>down</em>. A quiet inverter is evidence of cloud; a busy one is not evidence of extra sun, and letting it brighten things would make the plan lie on a cold clear morning.</p></div>
+<div class="related">Read next: <a href="reference.html#concept-units">Feet, and which way is north</a> · <a href="walls.html#walls-boundaries">What a wall is made of</a> · <a href="light.html#concept-artificial-light">Lamps, lumens and how bright a room reads</a></div>
+</article>
+<article class="topic glass" id="concept-artificial-light">
+<h2><a class="heading-link" href="#concept-artificial-light">Lamps, lumens and how bright a room reads</a></h2>
+<p class="summary">Watts become lumens become a foot-candle level — which is why a lamp's wattage is worth filling in.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Top bar → Light.</li><li><strong>Find it:</strong> Item inspector → Light output. Choose Select, then click an item on the plan to open its inspector on the right.</li></ul>
+<p>At night the plan darkens under a <strong>scrim</strong>, and each lit room is cut back out of it. How far back depends on a real calculation rather than a fixed opacity.</p>
+<h2>The chain</h2>
+<pre><code>watts  -&gt;  lumens  -&gt;  spread over the room's area
+       -&gt;  multiplied by the floor's reflectance
+       -&gt;  a foot-candle level  -&gt;  how much scrim lifts</code></pre>
+<p>Two consequences worth holding on to:</p>
+<p><strong>A lamp with no wattage contributes a default, not nothing.</strong> If a house's lamps all lack wattage, the model still runs — it is just fiction. Filling in even approximate figures makes the difference between rooms meaningful.</p>
+<p><strong>The floor matters.</strong> The same lamps over dark carpet and over polished marble give genuinely different levels, because reflectance is in the chain.</p>
+<h2>Colour</h2>
+<p><code>kelvin</code> sets the lamp's colour temperature, warm to cool. When an entity reports its own colour, that wins — the number here is what to assume when it does not.</p>
+<h2>Brightness follows the entity</h2>
+<p>A dimmable light's brightness attribute scales its contribution live. You do not need to model dim levels; bind the entity and the plan follows it.</p>
+<h2>Cove and strip lighting</h2>
+<p>A cove is a <strong>line</strong>, not a point, and it washes the surface it is set into. Its length is part of its output, and its <code>rot</code> is the <strong>axis it runs along</strong> — not a direction it points. A strip drawn across its wall instead of along it is a common and completely silent mistake.</p></div>
+<div class="related">Read next: <a href="rooms.html#room-flooring">Floor finish</a> · <a href="light.html#concept-daylight">Daylight</a></div>
+</article>
+<article class="topic glass" id="room-lighting">
+<h2><a class="heading-link" href="#room-lighting">A room's master light, ganging and count chip</a></h2>
+<p class="summary">Which entity the room answers to, and why the little &quot;2 of 3&quot; chip sometimes does not appear.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Room → Behaviour. Choose Select, then click inside a room to open its inspector on the right.</li></ul>
+<h2>Master</h2>
+<p>The room's <strong>master</strong> is the entity a tap on the room toggles. Without one, a tap opens the popup instead of doing anything.</p>
+<h2>Ganged</h2>
+<p><code>ganged</code> says the room's lamps share one physical switch. They cannot be on independently, so the plan stops pretending they can.</p>
+<h2>The count chip</h2>
+<p>A room can show a small chip reading how many of its lights are on. It is suppressed in three cases, and they are three different reasons rather than one rule:</p>
+<ul><li><strong>One lamp.</strong> The chip could only ever read <code>0/1</code> or <code>1/1</code>, which is what the</li></ul>
+<p>  room's own colour already says.</p>
+<ul><li><strong>Ganged.</strong> &quot;1 of 2&quot; is not a state a ganged room can be in.</li><li><strong>Named off.</strong> Some rooms are ones where the number is only noise, and you say</li></ul>
+<p>  so per room.</p>
+<p>Do not expect these to behave as a single toggle — merging them would make one of the three wrong.</p></div>
+<div class="related">Read next: <a href="light.html#concept-artificial-light">Lamps, lumens and how bright a room reads</a> · <a href="controls.html#room-controls">What a room's popup offers</a></div>
+</article>
+</div>
+  </main>
+</div>
+<div class="wrap"><footer>
+Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
+shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
+Every glyph is drawn by the app's own <code>shapes.js</code>. Version 0.0.1.
+</footer></div>
+<script src="help.js"></script>
+</body></html>

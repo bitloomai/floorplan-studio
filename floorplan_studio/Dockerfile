@@ -1,6 +1,6 @@
 FROM gcr.io/distroless/nodejs24-debian13:latest
 
-ARG BUILD_VERSION=0.10.0
+ARG BUILD_VERSION=0.0.1
 ARG BUILD_ARCH=amd64
 
 LABEL \

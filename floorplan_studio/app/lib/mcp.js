@@ -289,6 +289,60 @@ tool({
 });
 
 tool({
+  name: 'get_help',
+  description: 'Explain a feature, a control or a library type in prose — what it is FOR, why it behaves the way it does, and what people get wrong about it. This is the same corpus the editor shows behind its "?" buttons and the same one the documentation site is generated from, so it cannot disagree with either. Use it when a key name is not self-explanatory (what does a boundary\'s transmission mean, why is a coverage cone off by default, what does continues:both do to a stair), BEFORE guessing from the schema. get_contract says what the data IS and get_guide says how to work with this server; this says what a thing MEANS. Ask by place ("for": a selector like panel:room, type:device.camera, concept:daylight, registry:boundaries), by topic id, or by search.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      for: {
+        type: 'string',
+        description: 'A selector, or several comma-separated. Prefixes: panel:, section:, field:, dialog:, type:, shape:, registry:, concept:, tool:, plus bare topbar and canvas. e.g. "type:furniture.stairs" or "panel:room". Asking for a panel returns its sections too.',
+      },
+      id: { type: 'string', description: 'One topic by id, e.g. "concept-daylight".' },
+      q: { type: 'string', description: 'Free-text search across titles, tags and bodies.' },
+      index: { type: 'boolean', description: 'Return every topic as id/title/summary/applies, with no bodies. The cheapest way to see what exists.' },
+    },
+    additionalProperties: false,
+  },
+  async run(args) {
+    const help = require('./help');
+    const a = args || {};
+    const library = await store.readLibrary();
+    const brief = (t) => ({ id: t.id, title: t.title, summary: t.summary, category: t.category, applies: t.applies });
+
+    if (a.index) {
+      const { all } = help.corpus(library);
+      return { categories: help.categories(), topics: all.map(brief) };
+    }
+    if (a.q) return { query: a.q, topics: help.search(a.q, library).slice(0, 25).map(brief) };
+    if (a.id) {
+      const { all } = help.corpus(library);
+      const hit = all.find((t) => t.id === a.id);
+      if (!hit) {
+        throw new ToolError(`no help topic "${a.id}" — call get_help({ index: true }) for the list`);
+      }
+      return { id: hit.id, title: hit.title, summary: hit.summary, category: hit.category, tags: hit.tags, see: hit.see, navigation: hit.navigation, text: help.topicBody(hit) };
+    }
+    if (a.for) {
+      const selectors = String(a.for).split(',').map((s) => s.trim()).filter(Boolean);
+      const s = help.sheet(selectors, library);
+      if (!s.topics.length) {
+        /* An empty answer to a plausible-looking selector is nearly always a
+         * prefix typo, and the fix is one call away — so say which. */
+        throw new ToolError(`nothing applies to ${selectors.join(', ')}. Valid prefixes: `
+          + help.SELECTOR_PREFIXES.join(', ') + ', or bare ' + help.SELECTOR_BARE.join('/')
+          + '. Call get_help({ index: true }) to see every topic and what it applies to.');
+      }
+      return {
+        selectors: s.selectors,
+        topics: s.topics.map((t) => ({ id: t.id, title: t.title, summary: t.summary, derived: t.derived, navigation: t.navigation, text: help.topicBody(t) })),
+      };
+    }
+    throw new ToolError('pass one of: for, id, q, or index:true');
+  },
+});
+
+tool({
   name: 'get_registry',
   description: 'Read one of the shared registries a project draws from: themes, flooring, boundaries (wall treatments and opening types), or controls (room control-surface designs and shortcut vocabulary). Use list_library for placeable device/fixture/furniture/logic types instead.',
   inputSchema: {

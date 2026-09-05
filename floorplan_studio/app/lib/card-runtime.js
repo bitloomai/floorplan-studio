@@ -157,13 +157,18 @@ class FpsFloorplanCard extends HTMLElement {
     const type = PlanScene.resolveType(FPS_DATA.library, it) || {};
     const st = it.entity ? this._hass.states[it.entity] : null;
     const name = it.name || (st && st.attributes && st.attributes.friendly_name) || it.entity || type.label;
-    if (!st) return `${name}${it.entity ? ' · unavailable' : ''}`;
+    /* What the thing IS — 5000 L, 5 kW, a 120-inch screen. It comes from the
+     * marker's own properties rather than from Home Assistant, so it is worth
+     * saying even when the entity is dead or there is no entity at all. */
+    const spec = PlanScene.specLine(type, it);
+    if (!st) return [name + (it.entity ? ' · unavailable' : ''), spec].filter(Boolean).join(' · ');
     const a = st.attributes || {};
     const bits = [String(st.state).replace(/_/g, ' ')];
     if (a.unit_of_measurement) bits[0] += a.unit_of_measurement;
     if (typeof a.brightness === 'number') bits.push(`${Math.round((a.brightness / 255) * 100)}%`);
     if (typeof a.percentage === 'number') bits.push(`${Math.round(a.percentage)}%`);
     if (typeof a.current_temperature === 'number') bits.push(`${a.current_temperature}°`);
+    if (spec) bits.push(spec);
     return `${name} · ${bits.join(' · ')}`;
   }
 

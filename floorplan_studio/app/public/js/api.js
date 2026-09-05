@@ -61,6 +61,12 @@ window.API = (function () {
     saveBoundaries: (doc) => req('api/boundaries', { method: 'PUT', body: JSON.stringify(doc) }),
     saveControls: (doc) => req('api/controls', { method: 'PUT', body: JSON.stringify(doc) }),
     sun: (lat, lon, at) => req(`api/sun?lat=${lat}&lon=${lon}${at ? '&at=' + encodeURIComponent(at) : ''}`),
+    /* Help. The server renders the markdown, so this page carries no parser
+     * and cannot disagree with the generated site about what a topic says. */
+    help: (selectors) => req('api/help?for=' + encodeURIComponent([].concat(selectors).join(','))),
+    helpTopic: (id) => req('api/help?id=' + encodeURIComponent(id)),
+    helpSearch: (q) => req('api/help?q=' + encodeURIComponent(q)),
+    helpIndex: () => req('api/help'),
     entities: (refresh) => req('api/entities' + (refresh ? '?refresh=1' : '')),
     states: () => req('api/states'),
     fixtures: () => req('api/fixtures'),

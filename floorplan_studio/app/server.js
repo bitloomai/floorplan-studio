@@ -280,6 +280,47 @@ async function handleApi(req, res, pathname, query) {
     }
   }
 
+  /* Help, for the editor's "?" buttons.
+   *
+   *   /api/help?for=panel:room            one consolidated sheet for a place
+   *   /api/help?for=panel:room,topbar     several selectors, merged
+   *   /api/help?q=daylight                search
+   *   /api/help                           the index: categories and every topic
+   *
+   * Rendered to HTML here rather than in the browser so the editor carries no
+   * markdown parser and the generated site, the MCP answer and the panel cannot
+   * disagree about what a topic says. The library is passed in so every type
+   * gets a derived topic — see lib/help.js.
+   *
+   * GET only. The corpus ships with the app; it is not user content. */
+  if (pathname === '/api/help' && method === 'GET') {
+    const help = require('./lib/help');
+    const library = await store.readLibrary();
+    const topicId = query.get('id');
+    if (topicId) {
+      const result = help.sheetHtml([], library, { id: topicId });
+      return sendJson(res, result.topics.length ? 200 : 404, result);
+    }
+    const q = query.get('q');
+    if (q) {
+      return sendJson(res, 200, {
+        query: q,
+        topics: help.search(q, library).slice(0, 40)
+          .map((t) => ({ id: t.id, title: t.title, summary: t.summary, category: t.category, applies: t.applies })),
+      });
+    }
+    const target = query.get('for');
+    if (target) return sendJson(res, 200, help.sheetHtml(target.split(',').map((s) => s.trim()).filter(Boolean), library));
+    const { all } = help.corpus(library);
+    return sendJson(res, 200, {
+      categories: help.categories(),
+      topics: all.map((t) => ({
+        id: t.id, title: t.title, summary: t.summary, category: t.category,
+        tags: t.tags, applies: t.applies, derived: t.derived,
+      })),
+    });
+  }
+
   /* Solar position, so the editor's time scrubber does not need an astronomy
    * library of its own and cannot disagree with the renderer. */
   if (pathname === '/api/sun' && method === 'GET') {
@@ -672,7 +713,7 @@ const server = http.createServer(async (req, res) => {
     /* The scene builder is shared with the server, so the browser is served the
      * very same file rather than a copy under public/. One implementation, no
      * chance of the editor and the exporter drifting apart. */
-    const SHARED = ['plan-scene.js', 'flooring.js', 'shapes.js', 'sun.js', 'controls.js', 'lighting.js'];
+    const SHARED = ['ui-navigation.js', 'plan-scene.js', 'flooring.js', 'shapes.js', 'sun.js', 'controls.js', 'lighting.js'];
     const sharedName = pathname.startsWith('/js/') ? pathname.slice(4) : null;
     if (sharedName && SHARED.includes(sharedName)) {
       return fs.createReadStream(path.join(__dirname, 'lib', sharedName))

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Help — Floorplan Studio</title>
+<meta name="description" content="Floorplan Studio — draw your home once and get a Home Assistant dashboard that looks like it.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="help.css">
+<script>try{var d=document.documentElement,t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');if(t)d.setAttribute('data-theme',t);if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="top"><div class="row">
+  <button class="icon-btn" id="sideBtn" title="Contents" aria-label="Show or hide contents" aria-controls="side" aria-expanded="false"><svg class="glyph" viewBox="0 0 18 16" width="18" height="16" aria-hidden="true" focusable="false"><line x1="4" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <a class="brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio</span></a>
+  <div class="search">
+    <span class="mag"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="2.4" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.9)"/></svg></span>
+    <input id="q" type="search" placeholder="Search  /" autocomplete="off" aria-label="Search help" role="combobox" aria-autocomplete="list" aria-controls="results" aria-expanded="false">
+    <div class="results" id="results" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Toggle theme"><svg class="glyph" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(8 8) scale(0.85)"/></svg></button>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Help navigation">
+    <div class="side-head"><a class="side-brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio<small>Help guide</small></span></a><button class="icon-btn" id="sideClose" aria-label="Close contents">×</button></div>
+    <nav aria-label="Help contents">
+    <div class="lbl">Help</div>
+    <a href="index.html" aria-current="page">Contents</a>
+    <a href="start.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Getting started</span></a><a href="plan.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Drawing the plan</span></a><a href="rooms.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Rooms</span></a><a href="walls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Walls and openings</span></a><a href="library-guide.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The library</span></a><a href="light.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Light and daylight</span></a><a href="controls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><line x1="-5.4" y1="-3.4" x2="5.4" y2="-3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-1.6" cy="-3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="0" x2="5.4" y2="0" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.2" cy="0" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="3.4" x2="5.4" y2="3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-2.8" cy="3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Controls and popups</span></a><a href="dashboard.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-6" y="-4.6" width="12" height="8.4" rx="1.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-3" y1="6.2" x2="3" y2="6.2" stroke-width="1.4" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The dashboard</span></a><a href="data.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 1.4 -6 L -3.6 0.6 L 0 0.6 L -1.4 6 L 3.6 -0.6 L 0 -0.6 Z" fill="none" stroke-width="1.3" stroke-linejoin="round" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Projects, import and export</span></a><a href="reference.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0.8" r="5" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="0" y2="-2.4" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="2.6" y2="0.8" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="-5.6" x2="2" y2="-5.6" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Reference</span></a>
+    <hr>
+    <div class="lbl">Browse</div>
+    <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
+    <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
+    </nav>
+  </aside>
+  <main id="main" tabindex="-1">
+
+<div class="wrap">
+  <section class="hero">
+    <h1>Draw your home once.</h1>
+    <p class="lede">Floorplan Studio turns a plan of your house into a live Home Assistant
+    dashboard — lamps that glow where they really are, fans that turn while they run,
+    daylight worked out from your own windows.</p>
+    <div class="pills">
+      <span class="pill"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/></svg>260 placeable types</span>
+      <span class="pill"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/></svg>daylight and lamp modelling</span>
+      <span class="pill"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(7 7) scale(0.8)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(7 7) scale(0.8)"/></svg>31 wall treatments, 65 floor finishes</span>
+      <span class="pill"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.8)"/></svg>no build step, no dependencies</span>
+    </div>
+    <figure class="shot glass">
+      <img src="hero-plan.svg" alt="A floor plan drawn in Floorplan Studio: rooms with different floor finishes, furniture, lamps and sensors in place, and a staircase.">
+    </figure>
+  </section>
+
+  <h2 class="sec">Start reading</h2>
+  <div class="cards">
+    <a class="card glass" href="start.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Getting started</h3>
+      <p>Draw your home once, and get a Home Assistant dashboard that looks like your home.</p>
+      <div class="n">2 topics</div>
+    </a>
+    <a class="card glass" href="plan.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Drawing the plan</h3>
+      <p>The five tools, what each is for, and the keys worth learning first.</p>
+      <div class="n">2 topics</div>
+    </a>
+    <a class="card glass" href="rooms.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Rooms</h3>
+      <p>Everything a room is — its shape, its floor, its walls, and what its popup offers.</p>
+      <div class="n">2 topics</div>
+    </a>
+    <a class="card glass" href="walls.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Walls and openings</h3>
+      <p>Every run of wall can be glass, a railing, a louvre or a jali — and each passes a different amount of light.</p>
+      <div class="n">4 topics</div>
+    </a>
+    <a class="card glass" href="library-guide.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>The library</h3>
+      <p>Everything you can place, why it is grouped the way it is, and how to add your own.</p>
+      <div class="n">4 topics</div>
+    </a>
+    <a class="card glass" href="light.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Light and daylight</h3>
+      <p>Where the sun is, how much of it reaches each room, and what the plan needs from you to know.</p>
+      <div class="n">3 topics</div>
+    </a>
+    <a class="card glass" href="controls.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><line x1="-5.4" y1="-3.4" x2="5.4" y2="-3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-1.6" cy="-3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="0" x2="5.4" y2="0" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.2" cy="0" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="3.4" x2="5.4" y2="3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-2.8" cy="3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Controls and popups</h3>
+      <p>Tap a room on the dashboard and this is what you get — sections, filters and shortcuts.</p>
+      <div class="n">1 topic</div>
+    </a>
+    <a class="card glass" href="dashboard.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-6" y="-4.6" width="12" height="8.4" rx="1.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-3" y1="6.2" x2="3" y2="6.2" stroke-width="1.4" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>The dashboard</h3>
+      <p>What gets written to Home Assistant, what never does, and how to preview before you commit.</p>
+      <div class="n">1 topic</div>
+    </a>
+    <a class="card glass" href="data.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 1.4 -6 L -3.6 0.6 L 0 0.6 L -1.4 6 L 3.6 -0.6 L 0 -0.6 Z" fill="none" stroke-width="1.3" stroke-linejoin="round" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Projects, import and export</h3>
+      <p>Where your project lives, how it is kept safe, and how to get a plan in or out.</p>
+      <div class="n">1 topic</div>
+    </a>
+    <a class="card glass" href="reference.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0.8" r="5" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="0" y2="-2.4" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="2.6" y2="0.8" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="-5.6" x2="2" y2="-5.6" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Reference</h3>
+      <p>Everything is in feet, and n/e/s/w mean up/right/down/left on screen — not on your compass.</p>
+      <div class="n">2 topics</div>
+    </a>
+    <a class="card glass" href="library.html">
+      <svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg>
+      <h3>Every type you can place</h3>
+      <p>All 260 of them, from the library's own record — looks, footprints and settings.</p>
+      <div class="n">generated, always current</div>
+    </a>
+  </div>
+</div>
+  </main>
+</div>
+<div class="wrap"><footer>
+Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
+shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
+Every glyph is drawn by the app's own <code>shapes.js</code>. Version 0.0.1.
+</footer></div>
+<script src="help.js"></script>
+</body></html>

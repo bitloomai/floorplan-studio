@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Walls and openings — Floorplan Studio</title>
+<meta name="description" content="Every run of wall can be glass, a railing, a louvre or a jali — and each passes a different amount of light.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="help.css">
+<script>try{var d=document.documentElement,t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');if(t)d.setAttribute('data-theme',t);if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="top"><div class="row">
+  <button class="icon-btn" id="sideBtn" title="Contents" aria-label="Show or hide contents" aria-controls="side" aria-expanded="false"><svg class="glyph" viewBox="0 0 18 16" width="18" height="16" aria-hidden="true" focusable="false"><line x1="4" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <a class="brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio</span></a>
+  <div class="search">
+    <span class="mag"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="2.4" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.9)"/></svg></span>
+    <input id="q" type="search" placeholder="Search  /" autocomplete="off" aria-label="Search help" role="combobox" aria-autocomplete="list" aria-controls="results" aria-expanded="false">
+    <div class="results" id="results" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Toggle theme"><svg class="glyph" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(8 8) scale(0.85)"/></svg></button>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Help navigation">
+    <div class="side-head"><a class="side-brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio<small>Help guide</small></span></a><button class="icon-btn" id="sideClose" aria-label="Close contents">×</button></div>
+    <nav aria-label="Help contents">
+    <div class="lbl">Help</div>
+    <a href="index.html">Contents</a>
+    <a href="start.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Getting started</span></a><a href="plan.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Drawing the plan</span></a><a href="rooms.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Rooms</span></a><a href="walls.html" aria-current="page"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Walls and openings</span></a><a href="library-guide.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The library</span></a><a href="light.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Light and daylight</span></a><a href="controls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><line x1="-5.4" y1="-3.4" x2="5.4" y2="-3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-1.6" cy="-3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="0" x2="5.4" y2="0" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.2" cy="0" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="3.4" x2="5.4" y2="3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-2.8" cy="3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Controls and popups</span></a><a href="dashboard.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-6" y="-4.6" width="12" height="8.4" rx="1.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-3" y1="6.2" x2="3" y2="6.2" stroke-width="1.4" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The dashboard</span></a><a href="data.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 1.4 -6 L -3.6 0.6 L 0 0.6 L -1.4 6 L 3.6 -0.6 L 0 -0.6 Z" fill="none" stroke-width="1.3" stroke-linejoin="round" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Projects, import and export</span></a><a href="reference.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0.8" r="5" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="0" y2="-2.4" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="2.6" y2="0.8" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="-5.6" x2="2" y2="-5.6" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Reference</span></a>
+    <hr>
+    <div class="lbl">Browse</div>
+    <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
+    <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
+    </nav>
+  </aside>
+  <main id="main" tabindex="-1">
+
+<div class="wrap narrow page">
+  <h1>Walls and openings</h1>
+  <p class="lede">4 topics.</p>
+  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong><a href="#walls-boundaries">What a wall is made of</a><a href="#walls-openings">Doors, windows and openings</a><a href="#opening-coverings">Curtains, blinds and shutters</a><a href="#walls-curved">Curved walls</a></nav>
+  <article class="topic glass" id="walls-boundaries">
+<h2><a class="heading-link" href="#walls-boundaries">What a wall is made of</a></h2>
+<p class="summary">Every run of wall can be glass, a railing, a louvre or a jali — and each passes a different amount of light.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Room → Walls &amp; railings. Choose Select, then click inside a room to open its inspector on the right.</li></ul>
+<p>By default every edge of a room is a wall. A <strong>boundary</strong> overrides a run of one edge with something else: <code>glass_full</code>, <code>louvre</code>, <code>metal_railing</code>, <code>jali</code>, <code>parapet_glass</code>, <code>open_edge</code> and about thirty others.</p>
+<p>This is not styling. Each treatment carries a <strong>transmission</strong> — the fraction of daylight it passes — so replacing a solid wall with glass genuinely lights the room behind it, and a jali passes about half.</p>
+<h2>Per edge, not per letter</h2>
+<p>A boundary applies to an <strong>edge</strong>, not to every wall sharing a compass letter. An L-shaped room can easily have two edges the compass calls &quot;east&quot;; the picker offers one row per real edge so you can say which.</p>
+<p>You can also cover <strong>part</strong> of an edge by giving a range along it. The rest stays an ordinary wall. That is how you get a glazed section in the middle of a masonry wall without splitting the room.</p>
+<h2>Things that catch people</h2>
+<p><strong>A fully-open edge has no wall run left to restyle.</strong> If a treatment seems to do nothing, check whether an opening already spans the whole edge — there is no wall there to change.</p>
+<p><strong>A curved wall counts as one row</strong>, labelled <code>· curved</code>, even though it is drawn as a dozen short segments. You cannot apply a treatment to part of a curve, because there is no straight axis to measure the range along.</p>
+<p><strong><code>open_edge</code> is not a door.</strong> It says there is no wall at all — the boundary between a car port and its drive, or between two halves of one space. Openings are for holes cut in a wall that exists.</p></div>
+<div class="related">Read next: <a href="light.html#concept-daylight">Daylight</a> · <a href="walls.html#walls-curved">Curved walls</a> · <a href="walls.html#walls-openings">Doors, windows and openings</a></div>
+</article>
+<article class="topic glass" id="walls-openings">
+<h2><a class="heading-link" href="#walls-openings">Doors, windows and openings</a></h2>
+<p class="summary">Holes cut in a wall — where they sit, how wide they are, and what light they let through.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Opening. Choose Select, then click a door or window on the plan to open its inspector.</li></ul>
+<p>An opening is a hole in one room's wall. Doors, windows, arches, skylights, grill vents and plain gaps are all the same object with different types.</p>
+<h2>Position is measured along the wall, in floor coordinates</h2>
+<p><code>at</code> is <strong>absolute</strong> — measured in the floor's own coordinates, not from the corner of the room. On a room whose wall starts at 0 the two are the same, which is exactly why this is worth saying: get it wrong on one room and it looks correct, get it wrong on the next and the window floats outside the house.</p>
+<p><code>w</code> is the width along the wall. <code>h</code> and <code>sill</code> are heights, and they feed the daylight model rather than the drawing.</p>
+<h2>Which edge</h2>
+<p>On a rectangle the wall letter is enough. On a polygon it may not be — a cut corner can produce two edges the compass calls &quot;east&quot;. Name the exact <strong>edge</strong> when the picker offers it.</p>
+<h2>Shared openings</h2>
+<p>An opening between two rooms is cut from both sides, and light crosses it in both directions. You do not draw it twice.</p>
+<h2>Swing</h2>
+<p><code>swing</code> is geometry, not vocabulary. <code>in</code> bulges toward the room's own <code>+x</code>/<code>+y</code> side, and which side of the doorway that lands on depends on whether the door sits on a low or high edge of the room. If the arc comes out on the wrong side, flip it and look — that is faster than reasoning about it.</p>
+<h2>Transmission</h2>
+<p>Every opening type passes a share of the daylight that reaches it. Clear glass passes most; a grill vent passes some; a solid door passes almost none, and a door that is <strong>open</strong> passes all of it. Bind a contact sensor and the plan will know which it is.</p></div>
+<div class="related">Read next: <a href="walls.html#walls-boundaries">What a wall is made of</a> · <a href="walls.html#opening-coverings">Curtains, blinds and shutters</a> · <a href="light.html#concept-daylight">Daylight</a></div>
+</article>
+<article class="topic glass" id="opening-coverings">
+<h2><a class="heading-link" href="#opening-coverings">Curtains, blinds and shutters</a></h2>
+<p class="summary">What hangs in an opening, and how much light it takes away when it is closed.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Opening → Covering. Choose Select, then click a door or window on the plan to open its inspector.</li></ul>
+<p>An opening can carry a <strong>covering</strong> — a curtain, a roller blind, a venetian, a shutter. Each takes away a share of the light that would otherwise come through.</p>
+<h2>Bound or assumed</h2>
+<p>Bind a cover entity and the plan follows it: a blind that is open passes its glass's full transmission, and one that is closed passes only what the covering allows. Its position scales between the two, so a half-drawn blind is genuinely half.</p>
+<p>With no entity bound, the plan uses the fixed factor you set — which is the right answer for a curtain nobody automates, and better than pretending the window is bare.</p>
+<h2>Choosing a factor by eye</h2>
+<p>Think about what the room looks like at midday with the covering shut. A sheer that diffuses light rather than blocking it is high; a blackout roller is close to nothing. A privacy sticker on fixed glass is high — it scatters light, it does not stop it.</p></div>
+<div class="related">Read next: <a href="walls.html#walls-openings">Doors, windows and openings</a> · <a href="light.html#concept-daylight">Daylight</a></div>
+</article>
+<article class="topic glass" id="walls-curved">
+<h2><a class="heading-link" href="#walls-curved">Curved walls</a></h2>
+<p class="summary">How to bow a wall, why the number to give is the bulge rather than a radius, and what still does not work on one.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Room → Curved walls. Enable Advanced in the top bar. Choose Select, then click inside a room to open its inspector on the right.</li></ul>
+<p>A polygon room can have one or more of its edges <strong>bowed</strong> outward or inward.</p>
+<h2>Give the bulge, not the radius</h2>
+<p>The stored number is a radius, and a radius is a terrible thing to ask a person for: the useful question is &quot;how far does the middle of this wall bow out from straight&quot; — the sagitta — and that is what the control asks for. It converts.</p>
+<p>This matters because a radius <strong>below half the edge length does nothing at all</strong>, silently. A plausible-looking small number leaves the wall dead straight and reports no error, which is a frustrating half hour if you do not know.</p>
+<h2>What a curve costs</h2>
+<p>Bowing a wall flattens it into a dozen short diagonal segments. Almost everything copes:</p>
+<ul><li>It keeps its compass name, so a bowed east wall still answers to &quot;east&quot;.</li><li>It can carry a <strong>boundary treatment</strong>, and the picker offers it once, labelled</li></ul>
+<p>  <code>· curved</code>, rather than a dozen times.</p>
+<ul><li>Openings and edges resolve normally.</li></ul>
+<p>Two things do not, and are worth knowing before you rely on them:</p>
+<ul><li><strong>A curved glass wall passes no daylight yet.</strong> The daylight model skips</li></ul>
+<p>  diagonals.</p>
+<ul><li><strong>An opening on a curved wall resolves to the first segment</strong> rather than to a</li></ul>
+<p>  position along the curve.</p>
+<p>If either matters for a particular wall, leave it straight.</p></div>
+<div class="related">Read next: <a href="walls.html#walls-boundaries">What a wall is made of</a> · <a href="rooms.html#panel-room">The room panel</a></div>
+</article>
+</div>
+  </main>
+</div>
+<div class="wrap"><footer>
+Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
+shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
+Every glyph is drawn by the app's own <code>shapes.js</code>. Version 0.0.1.
+</footer></div>
+<script src="help.js"></script>
+</body></html>

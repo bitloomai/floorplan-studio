@@ -35,9 +35,29 @@ window.Store = (function () {
     dirty: false,
     undoStack: [],
     redoStack: [],
+
+    /* Whether the panels show everything they can edit, or only what a plan
+     * actually needs. This is a preference belonging to the PERSON, not to the
+     * house — two people editing the same project should not have to agree
+     * about how much form they want to look at — so it lives in this browser
+     * and never in project.json. */
+    advanced: false,
   };
 
   const MAX_UNDO = 60;
+
+  const ADV_KEY = 'fps.advanced';
+  /* Storage can throw outright, not merely come back empty: an add-on page is
+   * an iframe under Ingress, and a browser set to block third-party site data
+   * makes the getter itself raise. Reading it must never be what stops the
+   * editor loading. */
+  try { S.advanced = window.localStorage.getItem(ADV_KEY) === '1'; } catch (e) { /* defaults to off */ }
+
+  function setAdvanced(on) {
+    S.advanced = !!on;
+    try { window.localStorage.setItem(ADV_KEY, S.advanced ? '1' : '0'); } catch (e) { /* this session only */ }
+    emit('selection');
+  }
 
   function emit(reason) { for (const fn of listeners) fn(reason); }
   function on(fn) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -215,7 +235,7 @@ window.Store = (function () {
 
   return {
     S, on, emit, clone, sunConfig,
-    floor, theme, uiTheme,
+    floor, theme, uiTheme, setAdvanced,
     mutate, undo, redo, replaceProject,
     uniqueId, newRoomId, newItemId,
     select, selected, toggleMulti, setMulti, isMulti, setTool, arm, snap,

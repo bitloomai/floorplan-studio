@@ -60,10 +60,58 @@ const overlapArea = (a, b) => {
   return ox > TOLERANCE_FT && oy > TOLERANCE_FT ? ox * oy : 0;
 };
 
+/* ---- facing ----
+ *
+ * Screen degrees: 0 points up, positive turns clockwise — the frame
+ * `plan-scene.js` uses for `rot`, `WALL_NORMAL` and the sun's bearing alike.
+ * Never a compass bearing; that lives in `project.compass` and nowhere else. */
+const RAD = Math.PI / 180;
+const facingVec = (rot) => [Math.sin(rot * RAD), -Math.cos(rot * RAD)];
+
+/* How close to a wall counts as MOUNTED on it. A device standing free in the
+ * middle of a room — a floor purifier, a tripod camera — may point anywhere and
+ * is not this check's business. */
+const MOUNT_FT = 2.5;
+/* How far a cone must get into the room before it is doing anything. Below
+ * this it is buried in the wall the device hangs on. */
+const USEFUL_FT = 2;
+
+const distToSegment = (p, a, b) => {
+  const vx = b[0] - a[0], vy = b[1] - a[1];
+  const len2 = vx * vx + vy * vy;
+  let t = len2 ? ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (a[0] + t * vx), p[1] - (a[1] + t * vy));
+};
+
 /* Furniture that is MEANT to sit under other furniture. A rug with a bed on it
  * is a furnished room, not a collision, and reporting it buries the real ones. */
 const UNDERLAY = new Set(['rug', 'mat', 'yoga_mat', 'play_mat', 'garden_bed', 'planter', 'deck', 'pool']);
 const isUnderlay = (item) => UNDERLAY.has(item.type);
+
+/* Two rectangles can be compared by their bounding boxes. A POLYGON cannot.
+ *
+ * An L-shaped room's bounding box covers its own notch, so a stairwell tucked
+ * into that notch — which is the entire reason the room is L-shaped — reads as
+ * a 56 sq ft overlap between two rooms that do not touch. That is not an edge
+ * case, it is the most ordinary thing an irregular room is for, and it made the
+ * synthetic house report six overlaps the moment it grew a staircase.
+ *
+ * The box stays as a cheap reject. When either room is a polygon the shared
+ * area is then MEASURED, by sampling the overlapping box on a quarter-foot grid
+ * and asking `pointInRoom` — the renderer's own containment test, so the audit
+ * and the drawing cannot disagree about where a room is. */
+const SAMPLE_FT = 0.25;
+function sharedArea(a, b, box) {
+  if (a.shape !== 'poly' && b.shape !== 'poly') return box.area;
+  let cells = 0;
+  for (let x = box.x + SAMPLE_FT / 2; x < box.x + box.w; x += SAMPLE_FT) {
+    for (let y = box.y + SAMPLE_FT / 2; y < box.y + box.h; y += SAMPLE_FT) {
+      if (scene.pointInRoom(a, x, y) && scene.pointInRoom(b, x, y)) cells++;
+    }
+  }
+  return cells * SAMPLE_FT * SAMPLE_FT;
+}
 
 function auditFloor(floor, out) {
   const where = floor.name || floor.id;
@@ -81,7 +129,16 @@ function auditFloor(floor, out) {
       if (a.part_of === b.id || b.part_of === a.id || (a.part_of && a.part_of === b.part_of)) continue;
       const [ax, ay, aw, ah] = roomBox.get(a.id);
       const [bx, by, bw, bh] = roomBox.get(b.id);
-      const area = overlapArea({ x: ax, y: ay, w: aw, h: ah }, { x: bx, y: by, w: bw, h: bh });
+      const boxA = { x: ax, y: ay, w: aw, h: ah }, boxB = { x: bx, y: by, w: bw, h: bh };
+      const boxed = overlapArea(boxA, boxB);
+      if (boxed <= MIN_AREA) continue;          // boxes barely meet: nothing to measure
+      const ox = Math.max(ax, bx), oy = Math.max(ay, by);
+      const area = sharedArea(a, b, {
+        x: ox, y: oy,
+        w: Math.min(ax + aw, bx + bw) - ox,
+        h: Math.min(ay + ah, by + bh) - oy,
+        area: boxed,
+      });
       if (area > MIN_AREA) {
         out.push({ level: 'warn', floor: where, kind: 'rooms overlap',
           detail: `${a.id} and ${b.id} share about ${area.toFixed(1)} sq ft` });
@@ -194,6 +251,69 @@ function auditFloor(floor, out) {
         out.push({ level: 'error', floor: where, kind: 'furniture blocks an opening',
           detail: `${item.type} (${item.id}) covers ${area.toFixed(1)} sq ft of ${op.id} (${op.type}) in ${op.room}` });
       }
+    }
+  }
+
+  /* ---- devices aimed into the wall they hang on ----
+   *
+   * A marker's `rot` decides which way it faces, and a type that ships a
+   * default gives every marker that never set one the SAME facing — so an AC
+   * whose type says 270 blows west in every room in the house, and the three of
+   * them mounted on a west wall blow into it. This renders perfectly: the unit
+   * is drawn, the entity is bound, only the air goes into the plaster.
+   *
+   * Judged by where the cone's centreline actually GOES rather than by
+   * comparing two angles, because that one measurement covers both mistakes —
+   * facing straight into the wall, and running along it a hand's breadth
+   * outside the room — and it needs no separate rule for a corner.
+   *
+   * The tuning that keeps this honest is the exterior case: a camera on an
+   * outside wall aimed at the street or the drive is doing its job, and every
+   * house has some. So aiming OUT of the building is a warning for a vision
+   * device and an error for anything else, while aiming through a wall into
+   * the next room is always wrong. */
+  for (const item of items) {
+    const type = scene.resolveType(lib, item);
+    if (!type || !(type.render && type.render.cone)) continue;
+    const style = type.render.cone.style || 'vision';
+    const p = item.props || {}, d = type.defaults || {};
+    const rot = num(p.rot, num(d.rot, 0));
+    const range = num(p.range, num(d.range, 10));
+    const at = item.at || [0, 0];
+    const room = (item.room && rooms.find((r) => r.id === item.room))
+      || rooms.find((r) => scene.pointInRoom(r, at[0], at[1]));
+    if (!room) continue;               // already reported as in no room at all
+    const edges = scene.roomEdges(room);
+    let wall = null;
+    for (const e of edges) {
+      const dist = distToSegment(at, e.a, e.b);
+      if (!wall || dist < wall.dist) wall = { e, dist };
+    }
+    if (!wall || wall.dist > MOUNT_FT) continue;   // free-standing: not our business
+
+    const f = facingVec(rot);
+    let reach = 0;
+    for (let t = 0.25; t <= range; t += 0.25) {
+      if (!scene.pointInRoom(room, at[0] + f[0] * t, at[1] + f[1] * t)) break;
+      reach = t;
+    }
+    if (reach >= Math.min(range, USEFUL_FT)) continue;
+
+    /* What is on the other side decides how bad it is. */
+    const beyond = [at[0] + f[0] * (wall.dist + 1.5), at[1] + f[1] * (wall.dist + 1.5)];
+    const next = rooms.find((r) => r.id !== room.id && r.part_of !== room.id
+      && room.part_of !== r.id && scene.pointInRoom(r, beyond[0], beyond[1]));
+    const what = `${item.id} (${item.kind}.${item.type}${item.entity ? ', ' + item.entity : ''})`
+      + ` faces ${rot}° on the ${wall.e.wall} wall of ${room.id}`;
+    if (next) {
+      out.push({ level: 'error', floor: where, kind: 'device aimed through a wall',
+        detail: `${what} — its ${style} cone lands in ${next.id}, ${reach.toFixed(1)} ft of ${range} ft used` });
+    } else if (style === 'vision') {
+      out.push({ level: 'warn', floor: where, kind: 'device aimed out of the building',
+        detail: `${what} — deliberate for a street camera, a mistake for anything indoors` });
+    } else {
+      out.push({ level: 'error', floor: where, kind: 'device aimed into its own wall',
+        detail: `${what} — its ${style} cone reaches ${reach.toFixed(1)} ft of ${range} ft into the room` });
     }
   }
 

@@ -83,9 +83,18 @@
       const gap = Math.min(c.W * 0.08, c.P.S(0.25));
       const mw = (c.W - gap) * 0.58;
       const n = [];
+      /* `faces` is the wall the pillows are against — the same word, and the
+       * same meaning, as on a single bed. The bunk drawer declared it and put
+       * the pillows at the top whatever you said, so a bunk turned to face the
+       * other way was drawn head-to-foot. Only the head end moves: which side
+       * the ladder is on is a separate thing, and the two mattresses stay
+       * side by side because that is the footprint. */
+      const faces = c.p.faces || 'n';
+      const headAtEnd = faces === 's';
       for (const x of [c.X, c.X + c.W - mw]) {
         n.push({ tag: 'rect', attrs: { x, y: c.Y, width: mw, height: c.H, rx: 3, fill: c.fill, stroke: c.line, 'stroke-width': 1.1 } });
-        n.push({ tag: 'rect', attrs: { x: x + mw * 0.12, y: c.Y + c.H * 0.06, width: mw * 0.76, height: c.H * 0.2, rx: 2, fill: c.line, opacity: 0.34 } });
+        const py = headAtEnd ? c.Y + c.H * 0.74 : c.Y + c.H * 0.06;
+        n.push({ tag: 'rect', attrs: { x: x + mw * 0.12, y: py, width: mw * 0.76, height: c.H * 0.2, rx: 2, fill: c.line, opacity: 0.34 } });
       }
       const lx = c.X + c.W / 2;
       n.push({ tag: 'line', attrs: { x1: lx - gap, y1: c.Y + c.H * 0.2, x2: lx - gap, y2: c.Y + c.H * 0.82, stroke: c.line, 'stroke-width': 1.4 } });
@@ -126,13 +135,24 @@
       const back = Math.min(c.H * 0.22, c.P.S(0.7));
       const returnW = Math.max(c.W * 0.3, c.P.S(2));
       const d = `M ${c.X} ${c.Y} H ${c.X + c.W} V ${c.Y + c.H * 0.48} H ${c.X + returnW} V ${c.Y + c.H} H ${c.X} Z`;
-      return [
+      const n = [
         { tag: 'path', attrs: { d, fill: c.fill, stroke: c.line, 'stroke-width': 1.2, 'stroke-linejoin': 'round' } },
         { tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: back, rx: 3, fill: c.line, opacity: 0.3 } },
         { tag: 'rect', attrs: { x: c.X, y: c.Y, width: Math.min(returnW * 0.28, back), height: c.H, rx: 3, fill: c.line, opacity: 0.26 } },
         { tag: 'line', attrs: { x1: c.X + returnW, y1: c.Y + back, x2: c.X + returnW, y2: c.Y + c.H * 0.48, stroke: c.line, 'stroke-width': 1 } },
-        { tag: 'line', attrs: { x1: c.X + c.W * 0.62, y1: c.Y + back, x2: c.X + c.W * 0.62, y2: c.Y + c.H * 0.48, stroke: c.line, 'stroke-width': 1 } },
       ];
+      /* Seat divisions along the long run. `seats` counts the WHOLE piece,
+       * including the one on the return, which is how a sectional is sold —
+       * so the long arm carries the rest. It was declared and drawn as two
+       * fixed lines regardless, which made a four-seater and an eight-seater
+       * the same picture. */
+      const seats = Math.max(2, Math.round(num(c.p.seats, 4)));
+      const onArm = Math.max(1, seats - 1);
+      for (let i = 1; i < onArm; i++) {
+        const x = c.X + returnW + ((c.W - returnW) * i) / onArm;
+        n.push({ tag: 'line', attrs: { x1: x, y1: c.Y + back, x2: x, y2: c.Y + c.H * 0.48, stroke: c.line, 'stroke-width': 1 } });
+      }
+      return n;
     },
 
     recliner(c) {
@@ -233,11 +253,21 @@
     },
 
     desk(c) {
-      return [
+      /* The pedestal on the right, divided into the drawers it actually has —
+       * the property existed from the start and drew nothing, so every desk
+       * had one anonymous box under it whatever you set. */
+      const drawers = Math.max(0, Math.min(6, Math.round(num(c.p.drawers, 3))));
+      const px = c.X + c.W * 0.62, pw = c.W * 0.33, py = c.Y + c.H * 0.12, ph = c.H * 0.76;
+      const n = [
         { tag: 'rect', attrs: frame(c, { rx: 2 }) },
-        { tag: 'rect', attrs: { x: c.X + c.W * 0.62, y: c.Y + c.H * 0.12, width: c.W * 0.33, height: c.H * 0.76, rx: 2, fill: 'none', stroke: c.line, 'stroke-width': 1 } },
+        { tag: 'rect', attrs: { x: px, y: py, width: pw, height: ph, rx: 2, fill: 'none', stroke: c.line, 'stroke-width': 1 } },
         { tag: 'circle', attrs: { cx: c.X + c.W / 2, cy: c.Y + c.H + c.P.S(0.7), r: c.P.S(0.55), fill: 'none', stroke: c.line, 'stroke-width': 1 } },
       ];
+      for (let i = 1; i < drawers; i++) {
+        const x = px + (pw * i) / drawers;
+        n.push({ tag: 'line', attrs: { x1: x, y1: py, x2: x, y2: py + ph, stroke: c.line, 'stroke-width': 0.8, opacity: 0.75 } });
+      }
+      return n;
     },
 
     ironing_board(c) {
@@ -349,13 +379,52 @@
       ];
     },
 
+    /* ---- sanitaryware ----
+     *
+     * These four had one drawing each, and a plan identifies a bathroom fitting
+     * almost entirely by its OUTLINE: an alcove tub and a corner tub are not
+     * the same object seen from different angles, and a squat pan and a
+     * close-coupled WC are not either. One rounded rectangle for every tub in
+     * every house threw away the only information the symbol carries.
+     *
+     * Each variant below is a distinct plan SYMBOL, not a restyling — the way a
+     * drawing-office legend distinguishes them — and each keeps its waste or
+     * outlet drawn, because that is what tells a reader which way the fitting
+     * is used and which wall the plumbing is in.
+     */
+
     /* Bowl + cistern, oriented by `faces` (the wall the cistern is against). */
     wc(c) {
+      const variant = c.p.variant || 'close_coupled';
       const cx = c.X + c.W / 2;
       const n = [];
-      n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: c.H * 0.26, rx: 2, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
-      n.push({ tag: 'ellipse', attrs: { cx, cy: c.Y + c.H * 0.62, rx: c.W * 0.38, ry: c.H * 0.32, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
-      n.push({ tag: 'ellipse', attrs: { cx, cy: c.Y + c.H * 0.62, rx: c.W * 0.24, ry: c.H * 0.2, fill: 'none', stroke: c.line, 'stroke-width': 0.9 } });
+
+      /* A squat pan is flush with the floor: an oval trap between two foot
+       * pads, and no cistern mass at all. Drawn as a plan symbol rather than a
+       * shrunken pedestal WC because that is what it is. */
+      if (variant === 'squat') {
+        n.push({ tag: 'rect', attrs: frame(c, { rx: 3 }) });
+        n.push({ tag: 'ellipse', attrs: { cx, cy: c.Y + c.H * 0.5, rx: c.W * 0.2, ry: c.H * 0.34, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+        n.push({ tag: 'circle', attrs: { cx, cy: c.Y + c.H * 0.5, r: Math.max(1.4, Math.min(c.W, c.H) * 0.07), fill: c.line, opacity: 0.55 } });
+        for (const side of [0.16, 0.84]) {
+          n.push({ tag: 'rect', attrs: { x: c.X + c.W * side - c.W * 0.09, y: c.Y + c.H * 0.28, width: c.W * 0.18, height: c.H * 0.44, rx: 2, fill: 'none', stroke: c.line, 'stroke-width': 0.9, opacity: 0.7 } });
+        }
+        return n;
+      }
+
+      /* close_coupled draws the cistern as a solid block; back_to_wall hides it
+       * in a duct, drawn as a thinner panel; wall_hung has none at all and
+       * shows the bracket line instead. */
+      if (variant === 'close_coupled') {
+        n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: c.H * 0.26, rx: 2, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+      } else if (variant === 'back_to_wall') {
+        n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: c.H * 0.16, rx: 1, fill: c.fill, stroke: c.line, 'stroke-width': 1, opacity: 0.75 } });
+      } else {
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W * 0.16, y1: c.Y + c.H * 0.08, x2: c.X + c.W * 0.84, y2: c.Y + c.H * 0.08, stroke: c.line, 'stroke-width': 1.6, 'stroke-linecap': 'round' } });
+      }
+      const bowlY = variant === 'close_coupled' ? 0.62 : 0.56;
+      n.push({ tag: 'ellipse', attrs: { cx, cy: c.Y + c.H * bowlY, rx: c.W * 0.38, ry: c.H * 0.32, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+      n.push({ tag: 'ellipse', attrs: { cx, cy: c.Y + c.H * bowlY, rx: c.W * 0.24, ry: c.H * 0.2, fill: 'none', stroke: c.line, 'stroke-width': 0.9 } });
       return n;
     },
 
@@ -369,30 +438,131 @@
     },
 
     basin(c) {
+      const variant = c.p.variant || 'counter_top';
       const cx = c.X + c.W / 2, cy = c.Y + c.H / 2;
-      return [
-        { tag: 'rect', attrs: frame(c, { rx: 4 }) },
-        { tag: 'ellipse', attrs: { cx, cy: cy + c.H * 0.06, rx: c.W * 0.36, ry: c.H * 0.32, fill: 'none', stroke: c.line, 'stroke-width': 1.1 } },
-        { tag: 'circle', attrs: { cx, cy: c.Y + c.H * 0.18, r: 1.6, fill: c.line, opacity: 0.6 } },
-      ];
+      const n = [];
+      const tap = { tag: 'circle', attrs: { cx, cy: c.Y + c.H * 0.18, r: 1.6, fill: c.line, opacity: 0.6 } };
+
+      /* A pedestal basin has no counter round it, so drawing one is a lie about
+       * how much of the wall it takes: the bowl is the outline, and the
+       * pedestal is the narrow rectangle showing through beneath it. */
+      if (variant === 'pedestal') {
+        n.push({ tag: 'rect', attrs: { x: cx - c.W * 0.14, y: cy, width: c.W * 0.28, height: c.H * 0.5, rx: 2, fill: c.fill, stroke: c.line, 'stroke-width': 0.9, opacity: 0.75 } });
+        n.push({ tag: 'ellipse', attrs: { cx, cy: cy - c.H * 0.04, rx: c.W * 0.46, ry: c.H * 0.4, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+        n.push(tap);
+        return n;
+      }
+      /* Wall-hung: the bowl and the bracket line it hangs off, nothing else. */
+      if (variant === 'wall_hung') {
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W * 0.1, y1: c.Y + c.H * 0.1, x2: c.X + c.W * 0.9, y2: c.Y + c.H * 0.1, stroke: c.line, 'stroke-width': 1.6, 'stroke-linecap': 'round' } });
+        n.push({ tag: 'ellipse', attrs: { cx, cy: cy + c.H * 0.06, rx: c.W * 0.44, ry: c.H * 0.38, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+        n.push(tap);
+        return n;
+      }
+      /* Counter-top and under-counter share a counter and differ only in
+       * whether the bowl sits ON it or hangs BELOW — which a plan shows by
+       * drawing the hidden one dashed, the ordinary convention for anything
+       * under the cut plane. */
+      n.push({ tag: 'rect', attrs: frame(c, { rx: 4 }) });
+      const under = variant === 'under_counter';
+      n.push({
+        tag: 'ellipse',
+        attrs: {
+          cx, cy: cy + c.H * 0.06, rx: c.W * 0.36, ry: c.H * 0.32, fill: 'none',
+          stroke: c.line, 'stroke-width': 1.1,
+          'stroke-dasharray': under ? '3 2' : null,
+          opacity: under ? 0.75 : 1,
+        },
+      });
+      n.push(tap);
+      return n;
     },
 
     /* Tray, screen line, and a drain. */
     shower(c) {
-      const n = [{ tag: 'rect', attrs: frame(c, { rx: 2 }) }];
+      const variant = c.p.variant || 'square';
+      const n = [];
+      const drainR = Math.min(c.W, c.H) * 0.11;
+      const drain = (dx, dy) => ({ tag: 'circle', attrs: { cx: dx, cy: dy, r: drainR, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+
+      /* A quadrant tray's whole point is the curved front that keeps it out of
+       * the walking line; squaring it off loses the reason it was chosen. */
+      if (variant === 'quadrant') {
+        n.push({ tag: 'path', attrs: { d: `M ${c.X} ${c.Y} L ${c.X + c.W} ${c.Y} L ${c.X + c.W} ${c.Y + c.H * 0.25} A ${c.W * 0.75} ${c.H * 0.75} 0 0 1 ${c.X + c.W * 0.25} ${c.Y + c.H} L ${c.X} ${c.Y + c.H} Z`, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+        n.push(drain(c.X + c.W * 0.3, c.Y + c.H * 0.3));
+        return n;
+      }
+      /* A wet room has no tray at all — the floor IS the tray. Only the drain
+       * and the fall towards it are drawable, so that is all it draws. */
+      if (variant === 'wet_room') {
+        n.push({ tag: 'rect', attrs: frame(c, { rx: 2, fill: 'none', 'stroke-dasharray': '4 3', opacity: 0.6 }) });
+        n.push(drain(c.X + c.W / 2, c.Y + c.H / 2));
+        for (const a of [0, 90, 180, 270]) {
+          const r = a * Math.PI / 180;
+          const ox = Math.cos(r), oy = Math.sin(r);
+          n.push({ tag: 'line', attrs: { x1: c.X + c.W / 2 + ox * c.W * 0.4, y1: c.Y + c.H / 2 + oy * c.H * 0.4, x2: c.X + c.W / 2 + ox * drainR * 1.7, y2: c.Y + c.H / 2 + oy * drainR * 1.7, stroke: c.line, 'stroke-width': 0.8, opacity: 0.45 } });
+        }
+        return n;
+      }
+      /* Walk-in: open on one side, so three sides are drawn solid, the fourth
+       * carries the screen, and the drain is a linear channel rather than a
+       * point. */
+      if (variant === 'walk_in') {
+        n.push({ tag: 'path', attrs: { d: `M ${c.X + c.W} ${c.Y} L ${c.X} ${c.Y} L ${c.X} ${c.Y + c.H} L ${c.X + c.W} ${c.Y + c.H}`, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W, y1: c.Y, x2: c.X + c.W, y2: c.Y + c.H * 0.55, stroke: c.line, 'stroke-width': 2.2, 'stroke-linecap': 'round', opacity: 0.8 } });
+        n.push({ tag: 'rect', attrs: { x: c.X + c.W * 0.1, y: c.Y + c.H * 0.44, width: c.W * 0.8, height: c.H * 0.12, rx: 1.5, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+        return n;
+      }
+      n.push({ tag: 'rect', attrs: frame(c, { rx: 2 }) });
       n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y, x2: c.X + c.W, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 0.8, opacity: 0.5 } });
       n.push({ tag: 'line', attrs: { x1: c.X + c.W, y1: c.Y, x2: c.X, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 0.8, opacity: 0.5 } });
-      n.push({ tag: 'circle', attrs: { cx: c.X + c.W / 2, cy: c.Y + c.H / 2, r: Math.min(c.W, c.H) * 0.11, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+      n.push(drain(c.X + c.W / 2, c.Y + c.H / 2));
       return n;
     },
 
     bathtub(c) {
+      const variant = c.p.variant || 'alcove';
       const inset = Math.min(c.W, c.H) * 0.12;
-      return [
-        { tag: 'rect', attrs: frame(c, { rx: 5 }) },
-        { tag: 'rect', attrs: { x: c.X + inset, y: c.Y + inset, width: c.W - inset * 2, height: c.H - inset * 2, rx: 6, fill: 'none', stroke: c.line, 'stroke-width': 1.1 } },
-        { tag: 'circle', attrs: { cx: c.X + c.W * 0.5, cy: c.Y + c.H * 0.82, r: 1.8, fill: c.line, opacity: 0.55 } },
-      ];
+      const n = [];
+      /* The waste always sits at the tap end, which is what says which way the
+       * tub is used and which wall carries the plumbing. */
+      const waste = (wx, wy) => ({ tag: 'circle', attrs: { cx: wx, cy: wy, r: 1.8, fill: c.line, opacity: 0.55 } });
+
+      /* A corner tub is a quarter-round, not a rectangle. Drawn against the
+       * top-left of its box, which is the corner it is pushed into. */
+      if (variant === 'corner') {
+        n.push({ tag: 'path', attrs: { d: `M ${c.X} ${c.Y + c.H} L ${c.X} ${c.Y} L ${c.X + c.W} ${c.Y} A ${c.W} ${c.H} 0 0 1 ${c.X} ${c.Y + c.H} Z`, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+        n.push({ tag: 'path', attrs: { d: `M ${c.X + inset} ${c.Y + c.H - inset} L ${c.X + inset} ${c.Y + inset} L ${c.X + c.W - inset} ${c.Y + inset} A ${c.W - inset * 2} ${c.H - inset * 2} 0 0 1 ${c.X + inset} ${c.Y + c.H - inset} Z`, fill: 'none', stroke: c.line, 'stroke-width': 1.1 } });
+        n.push(waste(c.X + c.W * 0.24, c.Y + c.H * 0.24));
+        return n;
+      }
+      /* Freestanding: an oval standing clear of every wall, and the gap all
+       * round is the point — it is why the room had to be big enough. */
+      if (variant === 'freestanding') {
+        n.push({ tag: 'ellipse', attrs: { cx: c.X + c.W / 2, cy: c.Y + c.H / 2, rx: c.W * 0.46, ry: c.H * 0.46, fill: c.fill, stroke: c.line, 'stroke-width': 1.3 } });
+        n.push({ tag: 'ellipse', attrs: { cx: c.X + c.W / 2, cy: c.Y + c.H / 2, rx: c.W * 0.37, ry: c.H * 0.36, fill: 'none', stroke: c.line, 'stroke-width': 1 } });
+        n.push(waste(c.X + c.W * 0.5, c.Y + c.H * 0.74));
+        return n;
+      }
+
+      n.push({ tag: 'rect', attrs: frame(c, { rx: 5 }) });
+      n.push({ tag: 'rect', attrs: { x: c.X + inset, y: c.Y + inset, width: c.W - inset * 2, height: c.H - inset * 2, rx: 6, fill: 'none', stroke: c.line, 'stroke-width': 1.1 } });
+      n.push(waste(c.X + c.W * 0.5, c.Y + c.H * 0.82));
+
+      /* A jacuzzi is an alcove tub with jets; a shower-bath is one with a
+       * screen across the tap end and a head above it. Both are the same
+       * outline plus the thing that makes them different. */
+      if (variant === 'jacuzzi') {
+        for (const t of [0.24, 0.5, 0.76]) {
+          for (const side of [inset * 1.7, c.H - inset * 1.7]) {
+            n.push({ tag: 'circle', attrs: { cx: c.X + c.W * t, cy: c.Y + side, r: 1.5, fill: 'none', stroke: c.line, 'stroke-width': 0.9, opacity: 0.7 } });
+          }
+        }
+      } else if (variant === 'shower_bath') {
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W * 0.28, y1: c.Y + inset, x2: c.X + c.W * 0.28, y2: c.Y + c.H - inset, stroke: c.line, 'stroke-width': 2.2, 'stroke-linecap': 'round', opacity: 0.8 } });
+        n.push({ tag: 'circle', attrs: { cx: c.X + c.W * 0.14, cy: c.Y + c.H * 0.5, r: Math.min(c.W, c.H) * 0.1, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+      }
+      return n;
     },
 
     /* ---- stairs ----
@@ -425,6 +595,33 @@
       const progressive = c.p.sequence === 'progressive';
       const lit = !!c.on;
       const glow = lit ? (c.accent || '#ffc88c') : c.line;
+      /* Where the floor plane cuts the flight.
+       *
+       * A stair on a floor plan is a stair CUT: you are looking at a horizontal
+       * slice taken about four feet above this floor, so the treads past that
+       * height belong to the storey above and are conventionally shown beyond a
+       * break line — faint, or not at all. Drawing every tread solid, which is
+       * what this did, says the flight begins and ends on this floor, which is
+       * true of almost no stair in a house.
+       *
+       *   none  one flight, drawn whole — a short stoop, a stage step
+       *   cut   what is past the break belongs to the next storey and is
+       *         drawn faint. Which way it goes is `dir`, as it always was;
+       *         two direction controls that could disagree would be worse
+       *         than one
+       *   both  an up run and a down run either side of the break, which is
+       *         what a plan of any middle floor of a house actually shows
+       *
+       * `cutAt` is how far along the flight the slice falls. It is a real
+       * number rather than a fixed half because where the plane lands depends
+       * on the riser height, and a flight of six deep treads is cut much later
+       * than a flight of eighteen. */
+      const continues = c.p.continues || 'none';
+      const cutFrac = Math.max(0.15, Math.min(0.9, num(c.p.cutAt, 0.6)));
+      const cutIdx = continues === 'none' ? steps + 1 : Math.max(1, Math.min(steps - 1, Math.round(steps * cutFrac)));
+      /* `both` keeps everything solid — both runs are on this floor's plan —
+       * where a single cut flight fades what is no longer on it. */
+      const fadePast = continues === 'cut';
       const n = [];
 
       /* One lit step. `i` is its index up the flight, so the chase delay can be
@@ -449,28 +646,111 @@
         }
       };
 
-      const arrow = (x0, y0, x1, y1) => {
+      /* UP / DN the way a drawing says it, laid over the treads with a halo in
+       * the floor colour so it stays readable on top of them. Only drawn when
+       * the flight is cut: on a single uncut flight the arrow alone is
+       * unambiguous, and two letters on a stoop is noise. */
+      const label = (x, y, text) => {
+        if (!text) return;
+        /* Sized in FEET, not in a share of the box: two letters that are a
+         * quarter of the shape are fine on a plan and swamp the 36-pixel
+         * swatch in the Look picker, which draws the same flight at a third of
+         * the scale. Nine inches of lettering is right at both. */
+        const size = Math.max(3.2, Math.min(11, c.P.S(0.85)));
+        n.push({
+          tag: 'text', text,
+          attrs: {
+            x, y, 'font-size': size, 'font-weight': 600, 'text-anchor': 'middle',
+            'dominant-baseline': 'middle', fill: c.line, opacity: 0.85,
+            'paint-order': 'stroke', stroke: c.fill, 'stroke-width': 2.6, 'stroke-linejoin': 'round',
+          },
+        });
+      };
+
+      const arrow = (x0, y0, x1, y1, text) => {
         const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1;
         const ux = dx / len, uy = dy / len, px = -uy, py = ux;
         n.push({ tag: 'line', attrs: { x1: x0, y1: y0, x2: x1, y2: y1, stroke: c.line, 'stroke-width': 1.6 } });
         n.push({ tag: 'path', attrs: { d: `M ${x1 - ux * 6 - px * 4} ${y1 - uy * 6 - py * 4} L ${x1} ${y1} L ${x1 - ux * 6 + px * 4} ${y1 - uy * 6 + py * 4}`, fill: 'none', stroke: c.line, 'stroke-width': 1.6 } });
+        label(x0 + ux * 7, y0 + uy * 7, text);
+      };
+
+      /* The travel arrow along one straight run — or two of them, a down run
+       * and an up run either side of the break, which is what a middle floor
+       * of a house actually shows. */
+      const travelArrow = (x0, y0, x1, y1) => {
+        if (continues !== 'both') return arrow(x0, y0, x1, y1, travelLabel);
+        const t = cutIdx / steps;
+        const mx = x0 + (x1 - x0) * t, my = y0 + (y1 - y0) * t;
+        arrow(mx - (x1 - x0) * 0.05, my - (y1 - y0) * 0.05, x0, y0, downWord);
+        arrow(mx + (x1 - x0) * 0.05, my + (y1 - y0) * 0.05, x1, y1, upWord);
+      };
+
+      /* The floor plane, drawn where a drawing draws it: a pair of parallel
+       * lines leaning across the run. Two rather than one, because a single
+       * diagonal across a flight of treads reads as another tread. */
+      const breakMark = (x, y, w, h, axis, t) => {
+        if (continues === 'none') return;
+        /* Both numbers come from the flight's WIDTH, not its length: the mark
+         * leans across the treads at a fixed angle, so it reads the same on a
+         * six-step stoop and an eighteen-step run. Taken off the length
+         * instead, a long flight got a near-horizontal slash indistinguishable
+         * from one more tread. */
+        const across = axis === 'ns' ? w : h;
+        const gap = Math.max(1.5, Math.min(3.5, across * 0.07));
+        const lean = across * 0.55;
+        for (const o of [-gap, gap]) {
+          if (axis === 'ns') {
+            const yy = y + h * t + o;
+            n.push({ tag: 'line', attrs: { x1: x, y1: yy + lean / 2, x2: x + w, y2: yy - lean / 2, stroke: c.line, 'stroke-width': 1.4 } });
+          } else {
+            const xx = x + w * t + o;
+            n.push({ tag: 'line', attrs: { x1: xx + lean / 2, y1: y, x2: xx - lean / 2, y2: y + h, stroke: c.line, 'stroke-width': 1.4 } });
+          }
+        }
       };
 
       /* A straight run of `count` treads filling the given box, treads
        * perpendicular to `axis`. Shared by every variant that is made of
-       * straight flights, which is all of them but the spiral. */
-      const flight = (x, y, w, h, count, axis, from) => {
+       * straight flights, which is all of them but the spiral.
+       *
+       * `from` is the index of this run's first tread up the whole flight, so
+       * a two-leg stair numbers straight through the turn — which is what lets
+       * the cut and the lighting cadence land in the right place on the second
+       * leg rather than restarting at it.
+       *
+       * `reverse` says the climb runs against the box: the treads are drawn
+       * top-to-bottom while you walk them bottom-to-top. It has to be told
+       * rather than inferred, because a U-switchback climbs its two legs in
+       * opposite directions across the page. Getting it wrong put the floor
+       * cut — and the progressive lighting chase — at the wrong end of the
+       * flight, which is the sort of error that looks like a shading choice. */
+      const flight = (x, y, w, h, count, axis, from, reverse) => {
+        const stepAt = (slot) => from + (reverse ? count - 1 - slot : slot);
         for (let i = 1; i < count; i++) {
           const t = i / count;
-          if (axis === 'ns') n.push({ tag: 'line', attrs: { x1: x, y1: y + h * t, x2: x + w, y2: y + h * t, stroke: c.line, 'stroke-width': 1 } });
-          else n.push({ tag: 'line', attrs: { x1: x + w * t, y1: y, x2: x + w * t, y2: y + h, stroke: c.line, 'stroke-width': 1 } });
+          const far = fadePast && Math.min(stepAt(i - 1), stepAt(i)) >= cutIdx;
+          const a = { stroke: c.line, 'stroke-width': 1, opacity: far ? 0.38 : 1, 'stroke-dasharray': far ? '3 2.5' : null };
+          if (axis === 'ns') n.push({ tag: 'line', attrs: Object.assign({ x1: x, y1: y + h * t, x2: x + w, y2: y + h * t }, a) });
+          else n.push({ tag: 'line', attrs: Object.assign({ x1: x + w * t, y1: y, x2: x + w * t, y2: y + h }, a) });
         }
         for (let i = 0; i < count; i++) {
           const t = (i + 0.5) / count;
-          if (axis === 'ns') stepLight(x, y + h * t, x + w, y + h * t, from + i);
-          else stepLight(x + w * t, y, x + w * t, y + h, from + i);
+          if (fadePast && stepAt(i) >= cutIdx) continue;   // past the cut is another storey's lighting
+          if (axis === 'ns') stepLight(x, y + h * t, x + w, y + h * t, stepAt(i));
+          else stepLight(x + w * t, y, x + w * t, y + h, stepAt(i));
+        }
+        if (cutIdx > from && cutIdx <= from + count) {
+          const along = (cutIdx - from) / count;
+          breakMark(x, y, w, h, axis, reverse ? 1 - along : along);
         }
       };
+
+      /* What the arrow says. A cut flight names the direction it goes on past
+       * the break; an uncut one says nothing, because there is nothing to
+       * disambiguate. */
+      const upWord = up ? 'UP' : 'DN', downWord = up ? 'DN' : 'UP';
+      const travelLabel = continues === 'none' ? null : upWord;
 
       n.push({ tag: 'rect', attrs: frame(c) });
 
@@ -482,63 +762,133 @@
           const a = ((i / steps) * sweep - 90) * Math.PI / 180;
           const x1 = cx + Math.cos(a) * rIn, y1 = cy + Math.sin(a) * rIn;
           const x2 = cx + Math.cos(a) * rOut, y2 = cy + Math.sin(a) * rOut;
-          if (i < steps) n.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: c.line, 'stroke-width': 1 } });
-          if (i < steps) stepLight(x1, y1, x2, y2, i);
+          if (i >= steps) break;
+          const far = fadePast && i >= cutIdx;
+          n.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: c.line, 'stroke-width': 1, opacity: far ? 0.38 : 1, 'stroke-dasharray': far ? '3 2.5' : null } });
+          if (!far) stepLight(x1, y1, x2, y2, i);
+          /* The break on a spiral runs along a radius, because that is where
+           * the floor plane crosses it — the same cut, in polar. */
+          if (continues !== 'none' && i === cutIdx) {
+            for (const o of [-0.055, 0.055]) {
+              const b = a + o;
+              n.push({ tag: 'line', attrs: { x1: cx + Math.cos(b) * rIn * 0.9, y1: cy + Math.sin(b) * rIn * 0.9, x2: cx + Math.cos(b) * rOut * 1.04, y2: cy + Math.sin(b) * rOut * 1.04, stroke: c.line, 'stroke-width': 1.3 } });
+            }
+          }
         }
         n.push({ tag: 'circle', attrs: { cx, cy, r: rIn, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
         const aEnd = ((0.5 * sweep) - 90) * Math.PI / 180;
         arrow(cx + Math.cos(-Math.PI / 2) * rOut * 0.66, cy + Math.sin(-Math.PI / 2) * rOut * 0.66,
-          cx + Math.cos(aEnd) * rOut * 0.66, cy + Math.sin(aEnd) * rOut * 0.66);
+          cx + Math.cos(aEnd) * rOut * 0.66, cy + Math.sin(aEnd) * rOut * 0.66, travelLabel);
         return n;
       }
 
       if (variant === 'l_shaped' || variant === 'winder') {
-        /* Two runs meeting at a corner landing. `winder` differs only in that
-         * the corner is turned on tapered treads rather than a flat landing,
-         * which at plan scale is the fan of lines in the corner square. */
-        const armW = Math.min(c.W, c.H) * 0.42;
-        const first = Math.ceil(steps / 2), second = steps - first;
-        flight(c.X, c.Y, c.W - armW, armW, first, 'ew', 0);
-        flight(c.X + c.W - armW, c.Y + armW, armW, c.H - armW, second, 'ns', first);
-        if (variant === 'winder') {
-          const kx = c.X + c.W - armW, ky = c.Y;
-          for (let i = 1; i < 4; i++) {
-            const a = (i / 4) * (Math.PI / 2);
-            n.push({ tag: 'line', attrs: { x1: kx, y1: ky + armW, x2: kx + Math.sin(a) * armW, y2: ky + armW - Math.cos(a) * armW, stroke: c.line, 'stroke-width': 1 } });
+        /* Two runs meeting at a corner. `winder` differs only in that the
+         * corner is turned on tapered treads rather than a flat landing,
+         * which at plan scale is the fan of lines in the corner square.
+         *
+         * The arm width is the flight's own walking width, so it is capped
+         * against BOTH sides of the box rather than taken off the shorter one:
+         * a stairwell drawn 3.5 ft by 10 ft used to get arms 1.5 ft wide with
+         * a two-foot leg, and five treads were then packed into that leg. */
+        const armW = Math.min(Math.min(c.W, c.H) * 0.45, c.W / 2.2, c.H / 2.2);
+        const legA = Math.max(1, c.W - armW), legB = Math.max(1, c.H - armW);
+        /* Winders ARE steps — three tapered treads is how the turn is built —
+         * so they come out of the flight's own count rather than being drawn
+         * on top of it, which used to make a nine-step stair draw twelve. */
+        const winders = variant === 'winder' ? Math.min(3, Math.max(0, steps - 2)) : 0;
+        const straight = steps - winders;
+        /* Treads split by how long each leg really is. Half and half is only
+         * right when the legs are equal, and they almost never are. */
+        const first = Math.max(1, Math.min(straight - 1, Math.round((straight * legA) / (legA + legB))));
+        const second = straight - first;
+        flight(c.X, c.Y, legA, armW, first, 'ew', 0, !up);
+        flight(c.X + c.W - armW, c.Y + armW, armW, legB, second, 'ns', first + winders, !up);
+        const kx = c.X + c.W - armW, ky = c.Y;
+        if (winders) {
+          for (let i = 1; i < winders; i++) {
+            const a = (i / winders) * (Math.PI / 2);
+            const x2 = kx + Math.sin(a) * armW, y2 = ky + armW - Math.cos(a) * armW;
+            const far = fadePast && first + i >= cutIdx;
+            n.push({ tag: 'line', attrs: { x1: kx, y1: ky + armW, x2, y2, stroke: c.line, 'stroke-width': 1, opacity: far ? 0.38 : 1, 'stroke-dasharray': far ? '3 2.5' : null } });
+            if (!far) stepLight(kx, ky + armW, x2, y2, first + i);
           }
         } else {
-          n.push({ tag: 'rect', attrs: { x: c.X + c.W - armW, y: c.Y, width: armW, height: armW, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+          n.push({ tag: 'rect', attrs: { x: kx, y: ky, width: armW, height: armW, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
         }
-        const a0 = up ? [c.X + 6, c.Y + armW / 2] : [c.X + c.W - armW / 2, c.Y + c.H - 6];
-        const a1 = up ? [c.X + c.W - armW / 2, c.Y + c.H - 6] : [c.X + 6, c.Y + armW / 2];
-        arrow(a0[0], a0[1], a1[0], a1[1]);
+        /* The travel arrow follows the L rather than cutting the corner off,
+         * which is the difference between "these two runs are one stair" and
+         * "something is drawn diagonally across a stairwell". */
+        const midA = c.Y + armW / 2, midB = c.X + c.W - armW / 2;
+        const tail = up ? [c.X + 6, midA] : [midB, c.Y + c.H - 6];
+        const head = up ? [midB, c.Y + c.H - 6] : [c.X + 6, midA];
+        n.push({ tag: 'line', attrs: { x1: tail[0], y1: tail[1], x2: midB, y2: midA, stroke: c.line, 'stroke-width': 1.6 } });
+        arrow(midB, midA, head[0], head[1], null);
+        label(tail[0] + (up ? 7 : 0), tail[1] + (up ? 0 : -7), travelLabel);
         return n;
       }
 
       if (variant === 'u_switchback') {
         /* Two parallel flights with a landing across the far end — the shape
-         * almost every Indian stairwell actually is. */
-        const half = (c.W - 4) / 2;
-        const landing = Math.min(c.H * 0.22, half);
+         * almost every Indian stairwell actually is. You climb the first, turn
+         * through 180° on the landing, and keep climbing back the other way.
+         *
+         * `axis` is which way the flights RUN, and this variant now reads it
+         * instead of assuming north-south. A switchback in a well that is wider
+         * than it is deep runs east-west, and drawing it the other way turns a
+         * real staircase through ninety degrees — which is what the private
+         * house's main shaft (10.5 ft across, 7.875 ft deep, entered from the
+         * west) showed. Every other variant already honoured the prop; this one
+         * declared it and ignored it.
+         *
+         * Rotating the ITEM is not the alternative: furniture `at` is its
+         * top-left corner, so a rotated flight's real footprint is a box
+         * neither the document nor `audit-plan.js` can describe, and the audit
+         * reports it as being outside the room it names. */
+        const ew = (c.p.axis || 'ns') === 'ew';
         const first = Math.ceil(steps / 2), second = steps - first;
-        flight(c.X, c.Y + landing, half, c.H - landing, first, 'ns', 0);
-        flight(c.X + half + 4, c.Y + landing, half, c.H - landing, second, 'ns', first);
-        n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: landing, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
-        n.push({ tag: 'line', attrs: { x1: c.X + half + 2, y1: c.Y + landing, x2: c.X + half + 2, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
-        arrow(c.X + half / 2, c.Y + c.H - 6, c.X + half / 2, c.Y + landing + 6);
-        arrow(c.X + half + 4 + half / 2, c.Y + landing + 6, c.X + half + 4 + half / 2, c.Y + c.H - 6);
+        /* Where the plan shows an up run AND a down run, both of them leave
+         * from THIS floor and both arrows point away from it — which is what a
+         * stair drawing shows and what the house's own section confirms. The
+         * second arrow doubles back only when the two runs are halves of one
+         * climb, which is what `none` and `cut` mean. */
+        const bothWays = continues === 'both';
+        if (ew) {
+          const half = (c.H - 4) / 2;
+          const landing = Math.min(c.W * 0.22, half);
+          const run = c.W - landing;
+          flight(c.X, c.Y, run, half, first, 'ew', 0, up);
+          flight(c.X, c.Y + half + 4, run, half, second, 'ew', first, !up);
+          n.push({ tag: 'rect', attrs: { x: c.X + run, y: c.Y, width: landing, height: c.H, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+          n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half + 2, x2: c.X + run, y2: c.Y + half + 2, stroke: c.line, 'stroke-width': 1.4 } });
+          arrow(c.X + 6, c.Y + half / 2, c.X + run - 6, c.Y + half / 2, travelLabel);
+          const backY = c.Y + half + 4 + half / 2;
+          arrow(bothWays ? c.X + 6 : c.X + run - 6, backY, bothWays ? c.X + run - 6 : c.X + 6, backY,
+            bothWays ? downWord : null);
+        } else {
+          const half = (c.W - 4) / 2;
+          const landing = Math.min(c.H * 0.22, half);
+          flight(c.X, c.Y + landing, half, c.H - landing, first, 'ns', 0, up);
+          flight(c.X + half + 4, c.Y + landing, half, c.H - landing, second, 'ns', first, !up);
+          n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: landing, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+          n.push({ tag: 'line', attrs: { x1: c.X + half + 2, y1: c.Y + landing, x2: c.X + half + 2, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+          arrow(c.X + half / 2, c.Y + c.H - 6, c.X + half / 2, c.Y + landing + 6, travelLabel);
+          const backX = c.X + half + 4 + half / 2;
+          arrow(backX, bothWays ? c.Y + c.H - 6 : c.Y + landing + 6, backX, bothWays ? c.Y + landing + 6 : c.Y + c.H - 6,
+            bothWays ? downWord : null);
+        }
         return n;
       }
 
       /* straight — treads across the run, one travel arrow. */
       const axis = c.p.axis || (c.H >= c.W ? 'ns' : 'ew');
-      flight(c.X, c.Y, c.W, c.H, steps, axis, 0);
+      flight(c.X, c.Y, c.W, c.H, steps, axis, 0, up);
       if (axis === 'ns') {
         const x = c.X + c.W / 2;
-        arrow(x, up ? c.Y + c.H * 0.85 : c.Y + c.H * 0.15, x, up ? c.Y + c.H * 0.15 : c.Y + c.H * 0.85);
+        travelArrow(x, up ? c.Y + c.H * 0.85 : c.Y + c.H * 0.15, x, up ? c.Y + c.H * 0.15 : c.Y + c.H * 0.85);
       } else {
         const y = c.Y + c.H / 2;
-        arrow(up ? c.X + c.W * 0.85 : c.X + c.W * 0.15, y, up ? c.X + c.W * 0.15 : c.X + c.W * 0.85, y);
+        travelArrow(up ? c.X + c.W * 0.85 : c.X + c.W * 0.15, y, up ? c.X + c.W * 0.15 : c.X + c.W * 0.85, y);
       }
       return n;
     },
@@ -827,11 +1177,42 @@
     },
 
     /* Water body inset by the wall thickness — walls-with-water, not a block. */
+    /* ---- water ----
+     *
+     * Most domestic overhead tanks are cylinders, not boxes, and drawing a
+     * Sintex as a rectangle is the same class of error as drawing a vacuum
+     * lift as one. `rect` stays the default so nothing already on a plan
+     * moves; `cylindrical` is what most houses should pick.
+     *
+     * The `cls` key this used to carry did nothing at all — the serialiser
+     * reads `attrs` only, so a top-level `cls` never reaches the DOM, and
+     * nothing in the app or the card ever defined `fps-water` to begin with. */
     water(c) {
       const wall = c.P.S(num(c.p.wall, 0.33));
+      const variant = c.p.variant || 'rect';
+      if (variant === 'cylindrical') {
+        const cx = c.X + c.W / 2, cy = c.Y + c.H / 2, r = Math.min(c.W, c.H) / 2;
+        return [
+          { tag: 'circle', attrs: { cx, cy, r, fill: c.fill, stroke: c.line, 'stroke-width': 1.4 } },
+          { tag: 'circle', attrs: { cx, cy, r: Math.max(1, r - wall), fill: '#1d4e78', opacity: 0.75, stroke: c.t.levelOk, 'stroke-width': 2 } },
+          /* The inspection lid, which is what tells a cylindrical tank apart
+           * from a round planter at a glance. Struck in the furniture fill
+           * rather than the level colour: it has to read against the dark
+           * water below it, and the level colour is close enough to disappear. */
+          { tag: 'circle', attrs: { cx, cy, r: r * 0.3, fill: 'none', stroke: c.fill, 'stroke-width': 1.6, opacity: 0.9 } },
+        ];
+      }
+      if (variant === 'sump') {
+        /* Below ground: a dashed outline, because you are looking at it
+         * through the slab. */
+        return [
+          { tag: 'rect', attrs: Object.assign(frame(c), { 'stroke-dasharray': '5 3' }) },
+          { tag: 'rect', attrs: { x: c.X + wall, y: c.Y + wall, width: c.W - wall * 2, height: c.H - wall * 2, fill: '#1d4e78', opacity: 0.55, stroke: c.t.levelOk, 'stroke-width': 1.6, 'stroke-dasharray': '5 3' } },
+        ];
+      }
       return [
         { tag: 'rect', attrs: frame(c) },
-        { tag: 'rect', cls: 'fps-water', attrs: { x: c.X + wall, y: c.Y + wall, width: c.W - wall * 2, height: c.H - wall * 2, fill: '#1d4e78', opacity: 0.75, stroke: c.t.levelOk, 'stroke-width': 2 } },
+        { tag: 'rect', attrs: { x: c.X + wall, y: c.Y + wall, width: c.W - wall * 2, height: c.H - wall * 2, fill: '#1d4e78', opacity: 0.75, stroke: c.t.levelOk, 'stroke-width': 2 } },
       ];
     },
 
@@ -941,7 +1322,9 @@
 
     bar_counter(c) {
       const n=[{tag:'rect',attrs:frame(c,{rx:2})}];
-      const seats=Math.max(2,Math.round(c.W/Math.max(12,c.H)));
+      /* Stools you SET, falling back to what the counter has room for. It was
+       * derived only, so the declared property changed nothing. */
+      const seats=Math.max(0,Math.round(num(c.p.seats,Math.max(2,Math.round(c.W/Math.max(12,c.H))))));
       for(let i=0;i<seats;i++)n.push({tag:'circle',attrs:{cx:c.X+c.W*(i+.5)/seats,cy:c.Y+c.H+c.P.S(.55),r:c.P.S(.42),fill:'none',stroke:c.line,'stroke-width':1}});
       n.push({tag:'line',attrs:{x1:c.X+c.W*.08,y1:c.Y+c.H*.25,x2:c.X+c.W*.92,y2:c.Y+c.H*.25,stroke:c.line,'stroke-width':.9,opacity:.55}});
       return n;
@@ -964,14 +1347,22 @@
 
     wine_rack(c) {
       const n=[{tag:'rect',attrs:frame(c,{rx:1})}];
-      for(let i=0;i<3;i++)for(let j=0;j<4;j++)n.push({tag:'circle',attrs:{cx:c.X+c.W*(j+.5)/4,cy:c.Y+c.H*(i+.5)/3,r:Math.min(c.W/4,c.H/3)*.28,fill:'none',stroke:c.line,'stroke-width':.9}});
+      /* Rows of bottle ends. `shelves` is the number of rows; the columns
+       * follow from how wide the rack is, so a 6 ft rack is not drawn with
+       * the same four bottles as a 2 ft one. */
+      const rows=Math.max(1,Math.min(8,Math.round(num(c.p.shelves,3))));
+      const cols=Math.max(2,Math.min(14,Math.round((c.W/Math.max(1,c.H))*rows)));
+      for(let i=0;i<rows;i++)for(let j=0;j<cols;j++)n.push({tag:'circle',attrs:{cx:c.X+c.W*(j+.5)/cols,cy:c.Y+c.H*(i+.5)/rows,r:Math.min(c.W/cols,c.H/rows)*.32,fill:'none',stroke:c.line,'stroke-width':.9}});
       return n;
     },
 
     filing_cabinet(c) {
       const n=[{tag:'rect',attrs:frame(c,{rx:1})}];
-      for(let i=1;i<4;i++)n.push({tag:'line',attrs:{x1:c.X,y1:c.Y+c.H*i/4,x2:c.X+c.W,y2:c.Y+c.H*i/4,stroke:c.line,'stroke-width':1}});
-      for(let i=0;i<4;i++)n.push({tag:'line',attrs:{x1:c.X+c.W*.42,y1:c.Y+c.H*(i+.5)/4,x2:c.X+c.W*.58,y2:c.Y+c.H*(i+.5)/4,stroke:c.line,'stroke-width':1.3}});
+      /* Drawers, from the declared count rather than a hard-coded four — a
+       * two-drawer and a five-drawer cabinet are different objects. */
+      const d=Math.max(1,Math.min(8,Math.round(num(c.p.shelves,4))));
+      for(let i=1;i<d;i++)n.push({tag:'line',attrs:{x1:c.X,y1:c.Y+c.H*i/d,x2:c.X+c.W,y2:c.Y+c.H*i/d,stroke:c.line,'stroke-width':1}});
+      for(let i=0;i<d;i++)n.push({tag:'line',attrs:{x1:c.X+c.W*.42,y1:c.Y+c.H*(i+.5)/d,x2:c.X+c.W*.58,y2:c.Y+c.H*(i+.5)/d,stroke:c.line,'stroke-width':1.3}});
       return n;
     },
 
@@ -986,7 +1377,10 @@
 
     ups_rack(c) {
       const n=[{tag:'rect',attrs:frame(c,{rx:2})}];
-      for(let i=0;i<3;i++){const y=c.Y+c.H*(.12+i*.29);n.push({tag:'rect',attrs:{x:c.X+c.W*.12,y,width:c.W*.76,height:c.H*.2,rx:1,fill:'none',stroke:c.line,'stroke-width':.9}});n.push({tag:'circle',attrs:{cx:c.X+c.W*.78,cy:y+c.H*.1,r:Math.min(c.W,c.H)*.035,fill:c.line}})}
+      /* One box per battery/UPS unit on the rack, from the declared count. */
+      const u=Math.max(1,Math.min(8,Math.round(num(c.p.shelves,3))));
+      const pitch=.88/u;
+      for(let i=0;i<u;i++){const y=c.Y+c.H*(.06+i*pitch);const bh=c.H*pitch*.72;n.push({tag:'rect',attrs:{x:c.X+c.W*.12,y,width:c.W*.76,height:bh,rx:1,fill:'none',stroke:c.line,'stroke-width':.9}});n.push({tag:'circle',attrs:{cx:c.X+c.W*.78,cy:y+bh/2,r:Math.min(c.W,c.H)*.035,fill:c.line}})}
       return n;
     },
 
@@ -1027,18 +1421,127 @@
     appliance: (c) => [{ tag: 'rect', attrs: frame(c, { rx: 2 }) },
       { tag: 'circle', attrs: { cx: c.X + c.W * 0.5, cy: c.Y + c.H * 0.5, r: Math.min(c.W, c.H) * 0.2, fill: 'none', stroke: c.line, 'stroke-width': 1 } }],
 
+    /* ---- tv_unit ----
+     *
+     * A media console seen from above is a low cabinet with the television
+     * standing on the back of it, and the television is what makes the object
+     * recognisable — a bare box with a line down the middle could equally be a
+     * sideboard, a chest or a radiator. `shelves` is the number of bays across
+     * the front, which is what the property has always meant and what nothing
+     * used to draw.
+     *
+     * The back edge is the wall side. Rotation is applied by the caller, so
+     * "back" here simply means the top of the unrotated footprint. */
     tv_unit(c) {
-      return [
-        { tag: 'rect', attrs: frame(c, { rx: 2 }) },
-        { tag: 'line', attrs: { x1: c.X + c.W * 0.5, y1: c.Y, x2: c.X + c.W * 0.5, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1 } },
-      ];
+      const variant = c.p.variant || 'console';
+      const bays = Math.max(0, Math.min(8, Math.round(num(c.p.shelves, 2))));
+      const n = [];
+      const bodyY = variant === 'floating' ? c.Y + c.H * 0.22 : c.Y;
+      const bodyH = variant === 'floating' ? c.H * 0.78 : c.H;
+
+      if (variant === 'floating') {
+        /* Wall-hung: the gap under it is the whole point of the look. */
+        n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + 1, x2: c.X + c.W, y2: c.Y + 1, stroke: c.line, 'stroke-width': 1, opacity: 0.5, 'stroke-dasharray': '4 3' } });
+      }
+      n.push({
+        tag: 'rect',
+        attrs: {
+          x: c.X, y: bodyY, width: c.W, height: bodyH, rx: 2,
+          fill: variant === 'open_shelf' ? 'none' : c.fill, stroke: c.line, 'stroke-width': 1.2,
+        },
+      });
+      for (let i = 1; i < bays; i++) {
+        const x = c.X + (c.W * i) / bays;
+        n.push({ tag: 'line', attrs: { x1: x, y1: bodyY, x2: x, y2: bodyY + bodyH, stroke: c.line, 'stroke-width': 1 } });
+      }
+      /* Door pulls, on the variants that have doors. Two short marks either
+       * side of a division is how a cabinet elevation reads at this scale. */
+      if (variant === 'cabinet' || variant === 'console' || variant === 'floating') {
+        for (let i = 0; i < bays; i++) {
+          const x = c.X + (c.W * (i + 0.5)) / bays;
+          n.push({ tag: 'line', attrs: { x1: x - c.W * 0.03, y1: bodyY + bodyH - 2.5, x2: x + c.W * 0.03, y2: bodyY + bodyH - 2.5, stroke: c.line, 'stroke-width': 1.4, opacity: 0.7 } });
+        }
+      }
+      if (variant === 'open_shelf') {
+        n.push({ tag: 'line', attrs: { x1: c.X, y1: bodyY + bodyH * 0.5, x2: c.X + c.W, y2: bodyY + bodyH * 0.5, stroke: c.line, 'stroke-width': 0.9, opacity: 0.6 } });
+      }
+      /* The set itself, standing on the back edge and slightly wider than the
+       * cabinet is deep — which is exactly how a television reads from above. */
+      if (variant !== 'cabinet') {
+        const panel = Math.max(2, Math.min(bodyH * 0.34, c.P.S(0.32)));
+        const tvW = c.W * 0.72;
+        n.push({ tag: 'rect', attrs: { x: c.X + (c.W - tvW) / 2, y: bodyY - panel * 0.5, width: tvW, height: panel, rx: panel * 0.3, fill: c.line, opacity: 0.62, stroke: c.line, 'stroke-width': 0.8 } });
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W / 2 - tvW * 0.09, y1: bodyY + panel * 0.9, x2: c.X + c.W / 2 + tvW * 0.09, y2: bodyY + panel * 0.9, stroke: c.line, 'stroke-width': 1.3, opacity: 0.7 } });
+      }
+      return n;
     },
 
+    /* ---- screen ----
+     *
+     * The set on its own, with no cabinet under it. Four of them, because from
+     * above they are genuinely different objects rather than the same slab with
+     * different labels: a flat panel is a line, a curved panel is an arc, a CRT
+     * is mostly tube and is the one thing here with real depth, and a
+     * projection screen is a roller cassette with a sheet hanging off it.
+     *
+     * A CRT drawn at a flat panel's 5-inch depth is a lie; the Look picker
+     * offers this shape's own footprint per variant so choosing one on an
+     * untouched item gives it the depth it really has. */
     screen(c) {
-      return [
-        { tag: 'rect', attrs: frame(c, { rx: 1.5 }) },
-        { tag: 'rect', attrs: { x: c.X + 2, y: c.Y + 1.5, width: Math.max(1, c.W - 4), height: Math.max(1, c.H - 3), fill: c.line, opacity: 0.35 } },
-      ];
+      const variant = c.p.variant || 'flat';
+      const cx = c.X + c.W / 2;
+      const n = [];
+
+      if (variant === 'crt') {
+        /* Tube at the back, glass at the front. Front is the BOTTOM of the
+         * unrotated footprint — the same way round as the panel on a TV unit,
+         * which stands against the wall at the top and faces the room. The
+         * cabinet tapers toward the neck, which is the silhouette that says
+         * "this is two feet of television" rather than "this is a slab". */
+        const faceH = Math.max(2, c.H * 0.22);
+        const back = c.Y, front = c.Y + c.H - faceH;
+        n.push({
+          tag: 'path',
+          attrs: {
+            d: `M ${c.X + c.W * 0.14} ${back} L ${c.X + c.W * 0.86} ${back} L ${c.X + c.W} ${front} L ${c.X} ${front} Z`,
+            fill: c.fill, stroke: c.line, 'stroke-width': 1.2, 'stroke-linejoin': 'round',
+          },
+        });
+        n.push({ tag: 'rect', attrs: { x: c.X, y: front, width: c.W, height: faceH, rx: faceH * 0.35, fill: c.line, opacity: 0.45, stroke: c.line, 'stroke-width': 1 } });
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W * 0.36, y1: back + 2, x2: c.X + c.W * 0.64, y2: back + 2, stroke: c.line, 'stroke-width': 1, opacity: 0.6 } });
+        return n;
+      }
+
+      if (variant === 'curved') {
+        const bow = Math.max(2, c.H * 0.9);
+        n.push({
+          tag: 'path',
+          attrs: {
+            d: `M ${c.X} ${c.Y + c.H} Q ${cx} ${c.Y + c.H - bow * 2} ${c.X + c.W} ${c.Y + c.H}`,
+            fill: 'none', stroke: c.line, 'stroke-width': Math.max(2.4, c.H * 0.7), 'stroke-linecap': 'round', opacity: 0.55,
+          },
+        });
+        n.push({ tag: 'line', attrs: { x1: cx - c.W * 0.07, y1: c.Y + c.H - bow * 0.6, x2: cx + c.W * 0.07, y2: c.Y + c.H - bow * 0.6, stroke: c.line, 'stroke-width': 1.4 } });
+        return n;
+      }
+
+      if (variant === 'projector') {
+        /* Roller cassette across the back, sheet hanging in front of it. The
+         * sheet is the wide thin line — that is all a dropped screen is on a
+         * plan, and drawing it as a solid slab makes it read as a wall. */
+        const cass = Math.max(2, Math.min(c.H, c.P.S(0.32)));
+        n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: cass, rx: cass * 0.45, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 } });
+        n.push({ tag: 'circle', attrs: { cx: c.X + cass * 0.5, cy: c.Y + cass * 0.5, r: Math.max(0.8, cass * 0.2), fill: c.line, opacity: 0.55 } });
+        n.push({ tag: 'circle', attrs: { cx: c.X + c.W - cass * 0.5, cy: c.Y + cass * 0.5, r: Math.max(0.8, cass * 0.2), fill: c.line, opacity: 0.55 } });
+        n.push({ tag: 'line', attrs: { x1: c.X + c.W * 0.02, y1: c.Y + cass + 1.6, x2: c.X + c.W * 0.98, y2: c.Y + cass + 1.6, stroke: c.line, 'stroke-width': 2, opacity: 0.5, 'stroke-linecap': 'round' } });
+        return n;
+      }
+
+      /* flat — a panel and its pedestal. */
+      n.push({ tag: 'rect', attrs: frame(c, { rx: 1.5 }) });
+      n.push({ tag: 'rect', attrs: { x: c.X + 2, y: c.Y + 1.5, width: Math.max(1, c.W - 4), height: Math.max(1, c.H - 3), fill: c.line, opacity: 0.35 } });
+      n.push({ tag: 'rect', attrs: { x: cx - c.W * 0.09, y: c.Y + c.H, width: c.W * 0.18, height: Math.max(1.4, c.H * 0.55), rx: 1, fill: c.line, opacity: 0.45 } });
+      return n;
     },
 
     bench(c) {
@@ -1746,6 +2249,30 @@
       const u = c.R / 10;
       return [boxBody(c, c.R * 2, c.R * 0.9, 1 * u), dot(c, c.cx + c.R * 0.66, c.cy, 1.1 * u), ln(c, c.cx - c.R * 0.8, c.cy, c.cx - c.R * 0.1, c.cy, 1.2)];
     },
+    /* A CRT is mostly tube: deep, narrower at the back, with a fat bezel round
+     * a small glass. Drawn as the same slab as a flat panel it was
+     * indistinguishable from one, which is the whole reason to offer it. */
+    crt: (c) => {
+      const u = c.R / 10;
+      return face(c, [
+        mk('path', {
+          d: `M ${c.cx - 8.4 * u} ${c.cy - 6.4 * u} L ${c.cx + 8.4 * u} ${c.cy - 6.4 * u} L ${c.cx + 6 * u} ${c.cy + 6.4 * u} L ${c.cx - 6 * u} ${c.cy + 6.4 * u} Z`,
+          fill: c.fill, stroke: c.line, 'stroke-width': 1.3, 'stroke-linejoin': 'round',
+        }),
+        rect(c, c.cx - 6.2 * u, c.cy - 5.2 * u, 12.4 * u, 7.4 * u, { rx: 1.6 * u }),
+        ln(c, c.cx - 2.2 * u, c.cy + 4.6 * u, c.cx + 2.2 * u, c.cy + 4.6 * u, 1.2),
+      ]);
+    },
+    /* A projection screen, rolled down: cassette across the back, sheet under
+     * it. Distinct from `projector`, which is the machine throwing at it. */
+    drop_screen: (c) => {
+      const u = c.R / 10;
+      return face(c, [
+        mk('rect', { x: c.cx - 8 * u, y: c.cy - 5.4 * u, width: 16 * u, height: 2.4 * u, rx: 1 * u, fill: c.fill, stroke: c.line, 'stroke-width': 1.3 }),
+        mk('rect', { x: c.cx - 7.2 * u, y: c.cy - 3 * u, width: 14.4 * u, height: 7.4 * u, fill: c.glyph, opacity: 0.22 }),
+        ln(c, c.cx - 7.2 * u, c.cy + 4.4 * u, c.cx + 7.2 * u, c.cy + 4.4 * u, 1.5),
+      ]);
+    },
   };
 
   /* ---- speaker ---- */
@@ -2262,6 +2789,20 @@
     damper: (c) => {
       const u = c.R / 10;
       return face(c, [boxBody(c, c.R * 2, c.R * 1.25, 1 * u), ln(c, c.cx - c.R * 0.72, c.cy + c.R * 0.45, c.cx + c.R * 0.72, c.cy - c.R * 0.45, 1.8), dot(c, c.cx, c.cy, 1.1 * u)]);
+    },
+    /* A motorised projection screen is a cover like any other — a cassette
+     * with a sheet that runs down out of it — so it belongs in this family
+     * rather than beside the television. `pct` drives how far it has dropped,
+     * the same way the roller blind reads its own position. */
+    projection: (c) => {
+      const u = c.R / 10;
+      const pos = Math.max(0, Math.min(100, num(c.pct, 100))) / 100;
+      const drop = Math.max(1.2, 8 * u * pos);
+      return [
+        mk('rect', { x: c.cx - 6 * u, y: c.cy - 5.6 * u, width: 12 * u, height: 2.6 * u, rx: 1.1 * u, fill: c.fill, stroke: c.line, 'stroke-width': 1.3 }),
+        mk('rect', { x: c.cx - 5.2 * u, y: c.cy - 3 * u, width: 10.4 * u, height: drop, fill: c.glyph, opacity: 0.26 }),
+        ln(c, c.cx - 5.2 * u, c.cy - 3 * u + drop, c.cx + 5.2 * u, c.cy - 3 * u + drop, 1.5),
+      ];
     },
   };
 
@@ -2821,15 +3362,64 @@
     tree: ['deciduous', 'pine', 'palm', 'flowering'],
     stairs: ['straight', 'l_shaped', 'u_switchback', 'winder', 'spiral'],
     lift: ['traction', 'vacuum', 'platform', 'dumbwaiter'],
+    screen: ['flat', 'curved', 'crt', 'projector'],
+    tv_unit: ['console', 'cabinet', 'open_shelf', 'floating'],
+    water: ['rect', 'cylindrical', 'sump'],
+    bathtub: ['alcove', 'corner', 'freestanding', 'jacuzzi', 'shower_bath'],
+    wc: ['close_coupled', 'wall_hung', 'back_to_wall', 'squat'],
+    basin: ['counter_top', 'under_counter', 'pedestal', 'wall_hung'],
+    shower: ['square', 'quadrant', 'walk_in', 'wet_room'],
   };
   function furnitureVariantsOf(shape) {
     return FURNITURE_VARIANTS[shape] || [];
   }
 
+  /* The footprint a look actually has, in feet, where it differs enough from
+   * the type's own default that keeping the old one draws a lie: a CRT is not
+   * five inches deep, a projection screen is not four and a half feet wide, and
+   * an L-shaped flight does not fit a 3.5 x 10 stairwell — that box is the
+   * shape of a straight run and nothing else.
+   *
+   * The editor applies one only when the item is still at its type's default
+   * size, so choosing a look never silently undoes a size somebody set. */
+  const FURNITURE_VARIANT_SIZES = {
+    screen: { flat: [4.5, 0.4], curved: [5, 0.8], crt: [3.2, 2], projector: [8, 0.6] },
+    stairs: {
+      straight: [3.5, 10], l_shaped: [7.5, 7.5], u_switchback: [8, 10],
+      winder: [7, 7], spiral: [6, 6],
+    },
+    lift: { traction: [3.5, 4.5], vacuum: [4, 4], platform: [4, 5], dumbwaiter: [2, 2] },
+    water: { rect: [4.25, 8.5], cylindrical: [5, 5], sump: [8, 6] },
+    /* Sanitaryware is sold in a handful of stock sizes and a plan that draws
+     * them all at one size is wrong about the thing that matters most in a
+     * bathroom, which is whether it FITS. A corner tub is square, a
+     * freestanding one needs its clearance, and a squat pan is a fraction of a
+     * close-coupled WC's footprint. */
+    bathtub: {
+      alcove: [5.5, 2.6], corner: [4.5, 4.5], freestanding: [5.6, 2.9],
+      jacuzzi: [6, 3.3], shower_bath: [5.5, 2.8],
+    },
+    wc: {
+      close_coupled: [1.4, 2.5], wall_hung: [1.3, 1.9],
+      back_to_wall: [1.4, 2.2], squat: [1.9, 2.6],
+    },
+    basin: {
+      counter_top: [2.5, 1.7], under_counter: [2.5, 1.7],
+      pedestal: [1.9, 1.6], wall_hung: [1.8, 1.4],
+    },
+    shower: {
+      square: [3, 3], quadrant: [3, 3], walk_in: [4.5, 3], wet_room: [4, 4],
+    },
+  };
+  function furnitureVariantSize(shape, variant) {
+    const m = FURNITURE_VARIANT_SIZES[shape];
+    return (m && m[variant]) || null;
+  }
+
   return {
     FURNITURE, ICONS, MARKERS, MARKER_DEFAULT, FURNITURE_VARIANTS,
-    SWITCH_MAX_GANGS,
-    furniture, icon, marker, variantsOf, furnitureVariantsOf,
+    FURNITURE_VARIANT_SIZES, SWITCH_MAX_GANGS,
+    furniture, icon, marker, variantsOf, furnitureVariantsOf, furnitureVariantSize,
     names: {
       furniture: Object.keys(FURNITURE),
       icons: Object.keys(ICONS),

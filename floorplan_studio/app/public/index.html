@@ -7,12 +7,15 @@
 <!-- Ingress serves this under /api/hassio_ingress/<token>/, so every asset and
      API call must be RELATIVE. No leading slashes anywhere in this file. -->
 <link rel="stylesheet" href="css/app.css">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="alternate icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12h-7v-6h-4v6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <img class="app-icon" src="icon.svg" width="28" height="28" alt="Floorplan Studio" title="Floorplan Studio">
     <input id="projectName" class="project-name" aria-label="Project name" spellcheck="false">
   </div>
 
@@ -24,6 +27,11 @@
   <div class="topbar-actions">
     <span id="saveState" class="save-state" role="status">saved</span>
     <label class="inline" title="Draw markers as their real Home Assistant state instead of the offline default look"><input type="checkbox" id="livePreview"> Live states</label>
+    <!-- Everything a plan actually needs is on by default; the rest — tap
+         targets, hold behaviour, the daylight and lamp constants, per-room
+         overrides — is here rather than gone, because a panel of forty fields
+         teaches people to stop reading it. -->
+    <label class="inline" title="Show every setting, including the ones most plans never touch"><input type="checkbox" id="advancedMode"> Advanced</label>
     <select id="themePick" aria-label="Editor theme" title="Editor theme"></select>
     <button id="btnSun" class="btn" title="House location and daylight">☀ Sun</button>
     <button id="btnLighting" class="btn" title="How lamps light the plan">◐ Light</button>
@@ -31,7 +39,8 @@
     <button id="btnDashboard" class="btn" title="Generate the Home Assistant dashboard">▦ Dashboard…</button>
     <button id="btnImport" class="btn" title="Load a sample project or convert older floor-plan specs">Import…</button>
     <button id="btnExport" class="btn" title="Download this project's spec and SVG">Export…</button>
-    <button id="btnShortcuts" class="btn tiny" title="Keyboard shortcuts  (?)" aria-label="Keyboard shortcuts">?</button>
+    <button id="btnHelp" class="btn tiny" title="Help — search everything, or browse by topic" aria-label="Help">?</button>
+    <button id="btnShortcuts" class="btn tiny" title="Keyboard shortcuts  (⌨ or press ?)" aria-label="Keyboard shortcuts">⌨</button>
     <button id="btnSave" class="btn primary" title="Save  (Ctrl/Cmd+S)">Save</button>
   </div>
 </header>
@@ -137,6 +146,7 @@
 <script src="js/api.js"></script>
 <script src="js/store.js"></script>
 <script src="js/canvas.js"></script>
+<script src="js/ui-navigation.js"></script>
 <script src="js/panels.js"></script>
 <script src="js/panels-extra.js"></script>
 <script src="js/panels-dashboard.js"></script>

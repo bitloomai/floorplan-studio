@@ -11,7 +11,7 @@ same renderer — not a design tool that exports to something else.
 [![Add repository to your Home Assistant instance](https://my.home-assistant.io/badges/supervisor_store.svg)](https://my.home-assistant.io/redirect/supervisor_store/?repository_url=https%3A%2F%2Fgithub.com%2Fbitloomai%2Ffloorplan-studio)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![App version](https://img.shields.io/badge/app-0.10.0-informational.svg)](floorplan_studio/CHANGELOG.md)
+[![App version](https://img.shields.io/badge/app-0.0.1-informational.svg)](floorplan_studio/CHANGELOG.md)
 [![Stage](https://img.shields.io/badge/stage-experimental-orange.svg)](#status)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)](THIRD_PARTY_NOTICES.md)
 [![Runtime](https://img.shields.io/badge/runtime-Node%2024%20distroless-5FA04E.svg)](floorplan_studio/Dockerfile)
@@ -29,7 +29,7 @@ floor based on the house the test suite runs against.</sub>
 
 ## Status
 
-> **Development snapshot, app version 0.10.0.** This has **not yet been
+> **Development snapshot, app version 0.0.1.** This has **not yet been
 > installed against a real Home Assistant Supervisor**, and its stage is
 > `experimental` on purpose. The editor and dashboard-card engine are well
 > developed; Supervisor acceptance testing remains release-blocking. Do not

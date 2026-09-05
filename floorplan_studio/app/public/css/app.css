@@ -32,6 +32,10 @@ html, body {
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
 .spacer { flex: 1; }
 .hint { color: var(--inkSoft); font-size: 12px; margin: 8px 4px 0; }
+/* "N more settings here" — the panel saying what it is not showing you. It has
+ * to be quieter than a field and louder than nothing: a setting hidden with no
+ * trace is one you have to already know about to go looking for. */
+.adv-note { font-style: italic; opacity: .8; border-top: 1px dashed var(--panelBorder); padding-top: 8px; }
 /* A field holding something that does not parse. It keeps what was typed — the
  * mark says "not saved yet", not "thrown away". */
 input.bad, textarea.bad { border-color: var(--danger, #d9534f); outline-color: var(--danger, #d9534f); }
@@ -45,6 +49,7 @@ input.bad, textarea.bad { border-color: var(--danger, #d9534f); outline-color: v
   height: 52px;
 }
 .brand { display: flex; align-items: center; gap: 8px; color: var(--accent); flex: 0 0 auto; }
+.brand .app-icon { display: block; flex: 0 0 auto; object-fit: contain; }
 .project-name {
   font: 600 15px/1.2 inherit; color: var(--ink);
   background: transparent; border: 1px solid transparent; border-radius: 6px;
@@ -134,7 +139,14 @@ select, input[type=text], input[type=number], input[type=search] {
 /* A library button dragged over the plan — the same visual language as a
    focused input, so it reads as "drop is welcome here" without a new colour. */
 .canvas-scroll.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
-#canvas { display: block; box-shadow: 0 6px 26px rgba(20, 30, 50, 0.14); border-radius: 4px; touch-action: none; }
+/* Nothing on the plan is text you'd want to select — a room label, a
+ * dimension, a marker glyph — but SVG text is selectable by default, and
+ * dragging always starts with a mousedown that the browser is free to read as
+ * "start selecting" unless told otherwise. That reading always loses to the
+ * app's own drag once the pointer leaves the text, which is why a drag begun
+ * over blank canvas felt fine and one begun over a label or a room's own
+ * text chip fought the browser for the gesture the whole way. */
+#canvas { display: block; box-shadow: 0 6px 26px rgba(20, 30, 50, 0.14); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
 
 #canvas.tool-rect, #canvas.tool-poly, #canvas.tool-aperture, #canvas.tool-place { cursor: crosshair; }
 #canvas.tool-pan { cursor: grab; }
@@ -265,3 +277,88 @@ table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-t
 /* Resize handles are squares so they read as different from the round rotate
    knob without needing a legend. */
 .size-handle .handle { cursor: nwse-resize; }
+
+/* ---------- help ----------
+
+   A "?" sits at the end of a panel title rather than beside each field. A
+   tooltip per control answers "what is this", which the label already did; the
+   questions worth answering — why is this off by default, what does it interact
+   with — span several controls, so help is per PLACE and opens one sheet.
+
+   The button is deliberately quiet until hovered: on a panel with four
+   sections, four bright glyphs read as errors. */
+.panel-title { display: flex; align-items: baseline; gap: 6px; }
+.panel-title h2, .panel-title h3 { margin: 0; flex: 1 1 auto; }
+.panel-title.sub { margin: 16px 0 8px; padding-top: 10px; border-top: 1px solid var(--line); align-items: center; }
+.panel-title.sub h3 { font-size: 12px; color: var(--ink); }
+
+.help-btn {
+  flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: transparent; color: var(--inkSoft);
+  font-size: 12px; line-height: 1; cursor: pointer;
+  opacity: 0.85; transition: opacity .12s, color .12s, border-color .12s;
+}
+.help-btn:hover, .help-btn:focus-visible {
+  opacity: 1; color: var(--accent); border-color: var(--accent);
+}
+
+/* min()/max-width rather than a bare min-width: the sheet wants a prose
+   measure when there is room and has to give way when there is not. A bare
+   42ch on the browser overflowed the modal by a couple of pixels at 375px,
+   which is the width at which nobody is looking closely enough to report it. */
+.help-sheet { display: flex; flex-direction: column; gap: 18px; max-width: min(62ch, 100%); }
+.help-topic h3 { margin: 0 0 2px; font-size: 14px; }
+.help-summary { margin: 0 0 8px; color: var(--inkSoft); font-style: italic; }
+
+/* Long-form prose, so it gets prose measure and leading rather than the
+   panel's dense form spacing. */
+.help-body { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.help-body h2 { font-size: 13px; margin: 16px 0 4px; }
+.help-body h3 { font-size: 12px; margin: 14px 0 4px; color: var(--inkSoft); }
+.help-body p { margin: 0 0 8px; }
+.help-body ul, .help-body ol { margin: 0 0 8px; padding-left: 18px; }
+.help-body li { margin: 2px 0; }
+.help-body code {
+  background: var(--panelBg); border: 1px solid var(--line); border-radius: 3px;
+  padding: 0 3px; font-size: 11.5px;
+}
+.help-body pre {
+  background: var(--panelBg); border: 1px solid var(--line); border-radius: 6px;
+  padding: 8px 10px; overflow-x: auto; margin: 0 0 8px;
+}
+.help-body pre code { border: 0; background: none; padding: 0; }
+.help-body table { border-collapse: collapse; margin: 0 0 8px; width: 100%; }
+.help-body th, .help-body td {
+  border: 1px solid var(--line); padding: 3px 7px; text-align: left; vertical-align: top;
+}
+.help-body th { background: var(--panelBg); font-weight: 600; }
+/* A blockquote is where a topic says "this is the one that costs time", so it
+   gets the accent rail rather than the usual grey. */
+.help-body blockquote {
+  margin: 0 0 8px; padding: 4px 0 4px 10px;
+  border-left: 2px solid var(--accent); color: var(--inkSoft);
+}
+.help-body hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+
+.help-browser { display: flex; flex-direction: column; gap: 10px; min-width: min(42ch, 100%); }
+.help-browser input[type="search"] { width: 100%; }
+.help-results { display: flex; flex-direction: column; gap: 12px; max-height: 56vh; overflow-y: auto; }
+.help-results h4 {
+  margin: 4px 0 2px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--inkSoft);
+}
+.help-hit {
+  display: flex; flex-direction: column; gap: 1px; width: 100%;
+  padding: 5px 7px; border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--ink); text-align: left; cursor: pointer;
+}
+.help-hit:hover, .help-hit:focus-visible { border-color: var(--accent); background: var(--panelBg); }
+.help-hit strong { font-size: 12.5px; font-weight: 600; }
+.help-hit span { font-size: 11px; color: var(--inkSoft); }
+.help-back { align-self: flex-start; }
+.help-related { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.help-topic + .help-topic { padding-top: 16px; border-top: 1px solid var(--line); }
+.help-hit { min-height: 44px; padding: 8px 10px; }
+.help-body table { display: block; overflow-x: auto; }
+@media (pointer: coarse) { .help-btn { width: 40px; height: 40px; } }

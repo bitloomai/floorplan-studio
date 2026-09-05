@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### 0.0.1 development baseline
+
+- Reset the development version to `0.0.1` for user testing before the alpha
+  release. Keep it fixed until the maintainer explicitly requests a change.
+- Consolidated library/rendering improvements, generated help with shared UI
+  access instructions, and consistent editor and help-site branding.
+- Earlier version entries below are development history, not the current
+  release version.
+
 ### Room names stop landing on top of ceiling fans
 
 - **A room's name now finds a clear spot instead of always sitting at the

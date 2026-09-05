@@ -23,6 +23,11 @@ lists the valid ones.
    than the whole house.
 3. Then the registry for whatever you are about to touch (below).
 
+And whenever a key name is not self-explanatory, `get_help` — prose about what
+a thing is FOR and why it behaves as it does, written once and served to the
+editor, this server and the documentation site alike. Do not infer meaning from
+a schema when there is a paragraph about it.
+
 ## Which call answers which question
 
 | You want to know | Call |
@@ -38,6 +43,8 @@ lists the valid ones.
 | What can a room's control panel contain? | `get_registry({ name: "controls" })` |
 | What does tapping an entity of domain X do? | same document → `domainActions.byDomain` |
 | What colour tokens can I use? | `get_registry({ name: "themes" })` |
+| **What does this control MEAN? Why is it off by default?** | `get_help({ for: type:device.camera })` — also panel:, section:, field:, registry:, concept: |
+| What help exists at all? | `get_help({ index: true })`, or `get_help({ q: daylight })` |
 | Is the project currently valid? | `validate_project` |
 | What would the dashboard look like? | `preview_dashboard` (writes nothing) |
 
@@ -55,6 +62,14 @@ Set one with `edit_collection` → `items` → `props.variant`.
 The same pattern answers "what does a camera look like", "how many blades can a
 fan have", "what kinds of bed are there". **A `select` prop's `options` list is
 always the authoritative set of looks.** Do not invent variant names.
+
+Bathroom fittings carry looks too, and they are plan SYMBOLS rather than
+restylings: `furniture.bathtub` is `alcove`/`corner`/`freestanding`/`jacuzzi`/
+`shower_bath`, `furniture.wc` is `close_coupled`/`wall_hung`/`back_to_wall`/
+`squat`, `furniture.basin` is `counter_top`/`under_counter`/`pedestal`/
+`wall_hung`, and `furniture.shower` is `square`/`quadrant`/`walk_in`/`wet_room`.
+Most bring their own footprint, so choosing one on an item still at its default
+size resizes it to something true.
 
 ## Things to understand before you edit anything
 
@@ -124,11 +139,38 @@ Reach for it when someone says a room "looks too dark": check the floor before
 adding lamps, because a dark matt floor genuinely needs more light and the model
 now says so.
 
+**A coverage cone is opt-in, per item.** A camera, a PIR, an AC, a TV and a
+speaker can all draw a wedge showing what they reach, and none of them does
+until the item sets `props.cone: true`. That is deliberate — on a real plan
+with sixteen sensors the wedges bury the rooms they sit on — and it is also
+why `fov` and `range` appear to do nothing until you turn the cone on.
+
+Facing is `props.rot`, in screen degrees: 0 points up the page, increasing
+clockwise. **A type that ships a default rotation gives every item that never
+set one the same facing**, which is correct in some rooms and points into the
+wall in others, and nothing about it looks wrong — the device draws, the entity
+binds, the state reads. `node tools/audit-plan.js` measures how far each cone
+gets into its room before leaving it and reports the ones that go nowhere.
+
+**A line fixture is different.** For a tubelight or a cove strip `rot` is the
+AXIS it runs along, not a direction it points.
+
 **Stairs and lifts are furniture, but treat them as architecture.** A flight is
 not one picture squashed to fit: `furniture.stairs` takes a `variant`
 (`straight`, `l_shaped`, `u_switchback`, `winder`, `spiral`), a `steps` count,
 `dir` for which way you climb, and `axis` for which way the treads run. Size it
 to the flight, not to the stairwell, unless the flight really does fill it.
+
+`axis` is SCREEN-relative like everything else: `ns` runs the flight down the
+page, `ew` across it. A switchback in a shaft wider than it is deep runs
+across, and every variant reads the prop — do not rotate the item to achieve
+it. Furniture `at` is its TOP-LEFT corner, so a rotated flight has a footprint
+neither the document nor the plan audit can describe, and both will report it
+as sitting outside the room it names.
+
+On a middle floor set `continues: "both"` — a plan of any storey with a house
+above and below it shows an up run AND a down run, and both arrows point away
+from that floor. `cut` is for the top and bottom, where there is only one.
 
 Step lighting is a real property of the stair, so it lives on the stair:
 `lighting` is `none`/`edge`/`side`/`both` (edge lights the nosing, side puts a

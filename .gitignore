@@ -38,6 +38,7 @@ __pycache__/
 *.py[cod]
 
 # IDE metadata
+.claude/
 .idea/
 .vscode/
 *.code-workspace

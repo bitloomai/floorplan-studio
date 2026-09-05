@@ -81,9 +81,9 @@ window.PanelsDashboard = (function () {
       field('Card theme', themePick(),
         'The plan follows the dashboard’s own theme unless you pin it to one.'),
       h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin:6px 0' },
-        h('button', { class: 'btn tiny', onclick: () => houseCardDialog() }, 'Configure the house card…'),
-        h('button', { class: 'btn tiny', onclick: () => floorCardDialog() }, 'Configure the floor cards…'),
-        h('button', { class: 'btn tiny', onclick: () => appearanceDialog() }, 'Appearance & behaviour…')),
+        h('button', { class: 'btn tiny', 'data-ui-location': 'dialog:house-card', onclick: () => houseCardDialog() }, UINavigation.label('dialog:house-card')),
+        h('button', { class: 'btn tiny', 'data-ui-location': 'dialog:floor-cards', onclick: () => floorCardDialog() }, UINavigation.label('dialog:floor-cards')),
+        h('button', { class: 'btn tiny', 'data-ui-location': 'dialog:appearance', onclick: () => appearanceDialog() }, UINavigation.label('dialog:appearance'))),
       h('div', { class: 'subhead' }, 'What will be installed'),
       summary,
       h('div', { class: 'subhead' }, ' '),
@@ -664,6 +664,96 @@ window.PanelsDashboard = (function () {
       h('div', { class: 'subhead' }, ' '),
       preview,
     );
+
+    /* ---- advanced ----
+     *
+     * Everything below is a real setting the two light models read and that
+     * nothing in the editor could reach: floor bounce, light zones and their
+     * spill, how a lamp's pool grows, what an unspecified fitting counts as,
+     * and whether the room name carries a live count. They were reachable only
+     * by hand-editing project.json or going through MCP. They are here rather
+     * than in the main list because a house needs none of them to look right —
+     * which is exactly what the Advanced toggle is for. */
+    if (S.advanced) {
+      const setIn = (group, key, value) => Store.mutate(() => {
+        S.project.lighting = S.project.lighting || {};
+        S.project.lighting[group] = Object.assign({}, S.project.lighting[group] || cfg[group], { [key]: value });
+      }, 'lighting');
+      const numIn = (label, group, key, step, hint) => field(label, h('input', {
+        type: 'number', step, value: (cfg[group] || {})[key] ?? '',
+        onchange: (e) => setIn(group, key, e.target.value === '' ? null : Number(e.target.value)),
+      }), hint);
+
+      const zones = cfg.zones || {};
+      body.append(
+        h('div', { class: 'subhead' }, 'Advanced — light zones'),
+        h('label', { class: 'inline' }, h('input', {
+          type: 'checkbox', checked: zones.enabled !== false,
+          onchange: (e) => setIn('zones', 'enabled', e.target.checked),
+        }), ' Clip a lamp’s glow to its room, and let it out through openings'),
+        h('p', { class: 'hint' },
+          'Off, every lamp draws a plain circle that washes straight through walls. '
+          + 'On, the pool is cut to the room and reaches through each opening by that '
+          + 'opening’s own transmission — so a blackout blind stops the spill and a '
+          + 'sheer curtain does not.'),
+        numIn('How far light spills through an opening (ft)', 'zones', 'spillFt', 0.5,
+          'Multiplied by the opening’s transmission, so this is the reach of a completely clear one.'),
+
+        h('div', { class: 'subhead' }, 'Advanced — the model'),
+        field('Credit for a reflective floor', h('input', {
+          type: 'number', step: 0.05, min: 0, max: 2, value: cfg.bounce,
+          onchange: (e) => set('bounce', Number(e.target.value)),
+        }), 'Every flooring carries a reflectance, and this decides how much of it counts: '
+          + 'a polished Makrana throws light back at the ceiling and round the room again, a '
+          + 'dark matt granite swallows it. 0 switches floor bounce off entirely, which is '
+          + 'arithmetically the model as it was before floors had a say.'),
+        field('When a room has both sun and lamps', h('select', {
+          onchange: (e) => set('combine', e.target.value),
+        },
+        h('option', { value: 'max', selected: cfg.combine !== 'add' }, 'Whichever is brighter'),
+        h('option', { value: 'add', selected: cfg.combine === 'add' }, 'Add them together')),
+        'Brighter-wins keeps a sunlit room from blowing out to white when its lamps are on too.'),
+        numIn('Smallest glow pool (ft)', 'pool', 'min', 0.25),
+        numIn('Largest glow pool (ft)', 'pool', 'max', 0.25),
+        numIn('Lumens a pool is measured against', 'pool', 'refLumens', 25,
+          'A pool grows with the lamp’s output, but slowly — radius is the beam times '
+          + '(lumens ÷ this) raised to a fractional power, so a 20 W tube is not four times '
+          + 'the radius of a 5 W spot.'),
+        numIn('How fast it grows', 'pool', 'gamma', 0.02),
+
+        h('div', { class: 'subhead' }, 'Advanced — a fitting that says nothing'),
+        h('p', { class: 'hint' },
+          'What a lamp marker counts as when its own type carries no figure. Raising these '
+          + 'brightens every unspecified fitting in the house at once.'),
+        numIn('Watts', 'fallback', 'watt', 1),
+        numIn('Lumens per watt', 'fallback', 'efficacy', 5),
+        numIn('Colour temperature (K)', 'fallback', 'kelvin', 100),
+        numIn('Glow radius (ft)', 'fallback', 'beam', 0.2),
+        numIn('Lamps one marker stands for', 'fallback', 'count', 1,
+          'A spots group is eight downlights on one entity, and the room should be as bright as eight. Set it per marker where it differs.'),
+
+        h('div', { class: 'subhead' }, 'Advanced — room name chips'),
+      );
+      const chips = S.project.chips || {};
+      const setChip = (key, value) => Store.mutate(() => {
+        S.project.chips = Object.assign({}, S.project.chips, { [key]: value });
+      }, 'chips');
+      body.append(
+        h('label', { class: 'inline' }, h('input', {
+          type: 'checkbox', checked: chips.show !== false,
+          onchange: (e) => setChip('show', e.target.checked),
+        }), ' Draw the room name'),
+        h('label', { class: 'inline' }, h('input', {
+          type: 'checkbox', checked: chips.counts !== false,
+          onchange: (e) => setChip('counts', e.target.checked),
+        }), ' …with a live “2 of 5 on” beside it'),
+        field('Hide the count in rooms with at most', h('input', {
+          type: 'number', step: 1, min: 0, value: chips.hideWhenAtMost ?? 1,
+          onchange: (e) => setChip('hideWhenAtMost', Number(e.target.value)),
+        }), 'lamps. “1 of 1 on” tells you nothing the marker beside it does not. Any room can override this in its own panel.'),
+      );
+    }
+
     describe();
     Panels.modal('Lighting', body);
   }

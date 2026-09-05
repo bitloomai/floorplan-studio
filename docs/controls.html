@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controls and popups — Floorplan Studio</title>
+<meta name="description" content="Tap a room on the dashboard and this is what you get — sections, filters and shortcuts.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="help.css">
+<script>try{var d=document.documentElement,t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');if(t)d.setAttribute('data-theme',t);if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="top"><div class="row">
+  <button class="icon-btn" id="sideBtn" title="Contents" aria-label="Show or hide contents" aria-controls="side" aria-expanded="false"><svg class="glyph" viewBox="0 0 18 16" width="18" height="16" aria-hidden="true" focusable="false"><line x1="4" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <a class="brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio</span></a>
+  <div class="search">
+    <span class="mag"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="2.4" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.9)"/></svg></span>
+    <input id="q" type="search" placeholder="Search  /" autocomplete="off" aria-label="Search help" role="combobox" aria-autocomplete="list" aria-controls="results" aria-expanded="false">
+    <div class="results" id="results" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Toggle theme"><svg class="glyph" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(8 8) scale(0.85)"/></svg></button>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Help navigation">
+    <div class="side-head"><a class="side-brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio<small>Help guide</small></span></a><button class="icon-btn" id="sideClose" aria-label="Close contents">×</button></div>
+    <nav aria-label="Help contents">
+    <div class="lbl">Help</div>
+    <a href="index.html">Contents</a>
+    <a href="start.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Getting started</span></a><a href="plan.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Drawing the plan</span></a><a href="rooms.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Rooms</span></a><a href="walls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Walls and openings</span></a><a href="library-guide.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The library</span></a><a href="light.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Light and daylight</span></a><a href="controls.html" aria-current="page"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><line x1="-5.4" y1="-3.4" x2="5.4" y2="-3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-1.6" cy="-3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="0" x2="5.4" y2="0" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.2" cy="0" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="3.4" x2="5.4" y2="3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-2.8" cy="3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Controls and popups</span></a><a href="dashboard.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-6" y="-4.6" width="12" height="8.4" rx="1.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-3" y1="6.2" x2="3" y2="6.2" stroke-width="1.4" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The dashboard</span></a><a href="data.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 1.4 -6 L -3.6 0.6 L 0 0.6 L -1.4 6 L 3.6 -0.6 L 0 -0.6 Z" fill="none" stroke-width="1.3" stroke-linejoin="round" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Projects, import and export</span></a><a href="reference.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0.8" r="5" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="0" y2="-2.4" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="2.6" y2="0.8" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="-5.6" x2="2" y2="-5.6" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Reference</span></a>
+    <hr>
+    <div class="lbl">Browse</div>
+    <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
+    <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
+    </nav>
+  </aside>
+  <main id="main" tabindex="-1">
+
+<div class="wrap narrow page">
+  <h1>Controls and popups</h1>
+  <p class="lede">1 topic.</p>
+  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong><a href="#room-controls">What a room's popup offers</a></nav>
+  <article class="topic glass" id="room-controls">
+<h2><a class="heading-link" href="#room-controls">What a room's popup offers</a></h2>
+<p class="summary">Tap a room on the dashboard and this is what you get — sections, filters and shortcuts.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Room → Room controls → Entity buttons…. Choose Select, then click inside a room to open its inspector on the right. Enable room controls to show the entity buttons editor.</li></ul>
+<p>Tapping a room on the generated dashboard opens a popup. This is where you say what is in it.</p>
+<h2>Sections</h2>
+<p>A section gathers entities by a rule rather than by a list, so a lamp added next year appears without anybody editing the popup. Sections can draw from the room's own items, from its shortcuts, or from a filter over domains and kinds.</p>
+<p><strong>A section filtering on availability counts zero until live states arrive.</strong> That is correct, and it reads exactly like a broken filter for the first second after a dashboard loads. The editor says so where it happens.</p>
+<h2>Presets</h2>
+<p>A preset is a ready-made popup for a kind of room — the set of sections a bedroom usually wants differs from a car port's. Start from one and adjust.</p>
+<h2>Shortcuts</h2>
+<p>A shortcut pins a scene, a script or a helper to a place. The house can carry them and so can each room, and a room inherits the house's alongside its own.</p>
+<p>A shortcut can sit in the popup's <strong>header button row</strong> rather than in the body, which is the right place for a do-not-disturb toggle you want to reach without scrolling.</p>
+<h2>What a tap does</h2>
+<p>That depends on the entity's domain, and the mapping is a registry rather than a guess: a light toggles, a cover opens, a sensor opens more-info. You can see the whole table in the controls registry.</p></div>
+<div class="related">Read next: <a href="rooms.html#panel-room">The room panel</a> · <a href="dashboard.html#dashboard-install">Generating the dashboard</a></div>
+</article>
+</div>
+  </main>
+</div>
+<div class="wrap"><footer>
+Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
+shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
+Every glyph is drawn by the app's own <code>shapes.js</code>. Version 0.0.1.
+</footer></div>
+<script src="help.js"></script>
+</body></html>

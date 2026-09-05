@@ -15,6 +15,8 @@ window.PanelsExtra = (function () {
   const numInput = (...a) => P().numInput(...a);
   const modal = (...a) => P().modal(...a);
   const pickEntity = (...a) => P().pickEntity(...a);
+  const panelTitle = (...a) => P().panelTitle(...a);
+  const helpBtn = (...a) => P().helpBtn(...a);
   const toast = (...a) => P().toast(...a);
 
   /* Screen edge -> the compass word the project says it means. Screen-relative
@@ -43,12 +45,12 @@ window.PanelsExtra = (function () {
      * previously two different things with only the first reachable — you could
      * say "this room is oak" and had no way to say what oak looks like. */
     const row = h('div', { class: 'field' },
-      h('label', {}, 'Flooring',
+      h('label', { 'data-ui-location': 'section:room.flooring' }, UINavigation.label('section:room.flooring'),
         h('button', {
           class: 'link', style: 'float:right;font-weight:400',
           title: 'Change what this finish looks like, or add one',
           onclick: () => editFlooring(cur),
-        }, 'edit finishes')),
+        }, UINavigation.label('dialog:flooring'))),
       picker);
     box.appendChild(row);
 
@@ -63,8 +65,15 @@ window.PanelsExtra = (function () {
       h('div', {}, h('label', {}, 'Angle'), numInput(o.angle ?? (def.options || {}).angle ?? 0,
         (v) => Store.mutate(() => { room.flooringOptions = Object.assign({}, room.flooringOptions, { angle: v ?? 0 }); }, 'flooring angle'), 15)),
       h('div', {}, h('label', {}, 'Colour'), h('input', {
+        /* `onchange`, not `oninput`: a native colour input fires `input` on
+         * every drag tick while its picker is open, and `Store.mutate` repaints
+         * the ENTIRE room panel synchronously (see `renderInspector`'s
+         * `box.replaceChildren()`) — which recreates this very element mid-drag
+         * and closes the browser's own picker the instant it opens. `change`
+         * fires once, when the picker commits, by which point tearing the
+         * panel down is harmless. */
         type: 'color', value: normHex(o.color || (def.options || {}).color || '#e6eaf0'),
-        oninput: (e) => Store.mutate(() => { room.flooringOptions = Object.assign({}, room.flooringOptions, { color: e.target.value }); }, 'flooring colour'),
+        onchange: (e) => Store.mutate(() => { room.flooringOptions = Object.assign({}, room.flooringOptions, { color: e.target.value }); }, 'flooring colour'),
       })),
     ));
     /* How much light this floor throws back.
@@ -178,9 +187,15 @@ window.PanelsExtra = (function () {
           style: 'flex:1;min-width:0',
           onchange: (e) => set(e.target.value.trim()),
         });
+        /* `onchange`: `set()` calls `flooringChanged()`, which emits
+         * `Store.emit('selection')` — and that repaints the room panel the
+         * same destructive way `Store.mutate` does (see the note on the
+         * per-room swatch above). `input` fires on every drag tick, so the
+         * panel behind this modal was rebuilding, and the swatch with it,
+         * before a drag ever reached a second colour. */
         const swatch = h('input', {
           type: 'color', value: normHex(val), style: 'width:38px;flex:none',
-          oninput: (e) => { text.value = e.target.value; set(e.target.value); },
+          onchange: (e) => { text.value = e.target.value; set(e.target.value); },
         });
         return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
           h('div', { style: 'display:flex;gap:6px' }, text, swatch));
@@ -333,7 +348,7 @@ window.PanelsExtra = (function () {
      * Each row can also cover PART of its wall. The renderer has always read
      * `from`/`to` and cut the edge at those marks; nothing ever wrote them, so
      * "the middle third of this balcony is glass" was a JSON edit. */
-    box.appendChild(h('div', { class: 'subhead' }, 'Walls & railings'));
+    box.appendChild(P().locationTitle('section:room.walls'));
     box.appendChild(h('p', { class: 'hint' },
       'Each edge is a wall unless you say otherwise. Change one to glass railing, grill or open and the daylight model follows for free — it only ever reads transmission.'));
 
@@ -447,7 +462,7 @@ window.PanelsExtra = (function () {
 
 
     /* --- control surface --- */
-    box.appendChild(h('div', { class: 'subhead' }, 'Room controls'));
+    box.appendChild(P().locationTitle('section:room.controls'));
 
     const cfg = room.controls || room.popup || null;
     const presets = Object.entries((S.controls && S.controls.presets) || {});
@@ -560,7 +575,7 @@ window.PanelsExtra = (function () {
         box.appendChild(row);
       }
 
-      box.appendChild(h('button', { class: 'btn tiny', style: 'margin-top:6px', onclick: () => editRoomButtons(floor, room) }, 'Entity buttons…'));
+      box.appendChild(h('button', { class: 'btn tiny', 'data-ui-location': 'dialog:room-buttons', style: 'margin-top:6px', onclick: () => editRoomButtons(floor, room) }, UINavigation.label('dialog:room-buttons')));
     }
 
     /* --- what this room is bound to --- */
@@ -588,7 +603,7 @@ window.PanelsExtra = (function () {
     }
 
     /* --- behaviour --- */
-    box.appendChild(h('div', { class: 'subhead' }, 'Behaviour'));
+    box.appendChild(P().locationTitle('section:room.lighting'));
     box.appendChild(h('div', { class: 'field' },
       h('label', { class: 'inline' }, h('input', {
         type: 'checkbox', checked: !!room.ganged,
@@ -894,7 +909,7 @@ window.PanelsExtra = (function () {
     const d = type.defaults || {};
     const val = (k, fb) => item.props[k] ?? d[k] ?? fb;
 
-    box.appendChild(h('div', { class: 'subhead' }, has('fov') ? 'Aim and coverage' : 'Aim'));
+    box.appendChild(P().locationTitle('section:item.aim'));
 
     if (has('rot')) {
       const deg = Number(val('rot', 0)) || 0;
@@ -907,7 +922,7 @@ window.PanelsExtra = (function () {
         }, glyph));
       }
       box.appendChild(h('div', { class: 'field' },
-        h('label', {}, 'Facing'),
+        h('label', {}, UINavigation.propLabel(type, 'rot')),
         dial,
         numInput(deg, (v) => Store.mutate(() => { item.props.rot = ((Math.round(v || 0) % 360) + 360) % 360; }, 'rotate'), 5)));
       box.appendChild(h('p', { class: 'hint' },
@@ -929,15 +944,15 @@ window.PanelsExtra = (function () {
         h('input', {
           type: 'checkbox', checked: coneOn, style: 'width:auto;margin-right:6px',
           onchange: (e) => Store.mutate(() => { item.props.cone = e.target.checked; }, 'detection cone'),
-        }), 'Detection cone')));
+        }), UINavigation.propLabel(type, 'cone'))));
     }
 
     if (has('fov') && coneOn) {
       const fov = Number(val('fov', 90));
       const range = Number(val('range', 14));
       box.appendChild(h('div', { class: 'field row' },
-        h('div', {}, h('label', {}, 'Field of view (°)'), numInput(fov, (v) => Store.mutate(() => { item.props.fov = v; }, 'fov'), 5)),
-        h('div', {}, h('label', {}, 'Range (ft)'), numInput(range, (v) => Store.mutate(() => { item.props.range = v; }, 'range'), 0.5)),
+        h('div', {}, h('label', {}, UINavigation.propLabel(type, 'fov')), numInput(fov, (v) => Store.mutate(() => { item.props.fov = v; }, 'fov'), 5)),
+        h('div', {}, h('label', {}, UINavigation.propLabel(type, 'range')), numInput(range, (v) => Store.mutate(() => { item.props.range = v; }, 'range'), 0.5)),
       ));
       const area = (Math.PI * range * range) * (Math.min(360, Math.max(0, fov)) / 360);
       box.appendChild(h('p', { class: 'hint' },
@@ -963,7 +978,7 @@ window.PanelsExtra = (function () {
     const val = (k, fb) => item.props[k] ?? d[k] ?? fb;
     const num = (k, fb) => Number(val(k, fb)) || fb;
 
-    box.appendChild(h('div', { class: 'subhead' }, 'Light output'));
+    box.appendChild(P().locationTitle('section:item.lamp'));
     box.appendChild(h('div', { class: 'field row' },
       h('div', {}, h('label', {}, 'Watts each'), numInput(num('watt', 9), (v) => Store.mutate(() => { item.props.watt = v; }, 'watt'))),
       h('div', {}, h('label', {}, 'Lamps here'), numInput(num('count', 1), (v) => Store.mutate(() => { item.props.count = Math.max(1, Math.round(v || 1)); }, 'count'), 1)),
@@ -1010,7 +1025,8 @@ window.PanelsExtra = (function () {
     const cov = op.covering || null;
     const groups = [...new Set(Object.values(all).map((c) => c.group || 'Other'))];
 
-    box.appendChild(field('Covering', h('select', {
+    box.appendChild(P().locationTitle('section:opening.covering'));
+    box.appendChild(field(UINavigation.label('section:opening.covering'), h('select', {
       onchange: (e) => Store.mutate(() => {
         if (!e.target.value) { op.covering = null; return; }
         op.covering = Object.assign({ position: 100 }, op.covering, { type: e.target.value });
@@ -1041,7 +1057,7 @@ window.PanelsExtra = (function () {
     const types = (S.boundaries && S.boundaries.openingTypes) || {};
     const def = types[op.type] || {};
     const props = def.props || {};
-    box.appendChild(h('h2', {}, def.label || 'Opening'));
+    box.appendChild(panelTitle(def.label || 'Opening', 'panel:opening'));
     box.appendChild(h('p', { class: 'hint' }, h('span', { class: 'badge' }, op.id), ' · ', op.room, ' · ', wallLabel(op.wall)));
 
     box.appendChild(field('Type', h('select', {
@@ -1120,6 +1136,30 @@ window.PanelsExtra = (function () {
       }
     }
 
+    /* A bay projects out of the wall it sits in, and how far was a number the
+     * renderer read with nothing to set it — every bay in every plan was drawn
+     * at the same 1.5 ft. */
+    if (style === 'bay') {
+      box.appendChild(field('Projection from the wall (ft)',
+        numInput(op.projectFt ?? 1.5, (v) => Store.mutate(() => { op.projectFt = v ?? 1.5; }, 'bay projection'), 0.25)));
+    }
+
+    /* Overhead openings — a skylight, a light well, a double-height void — are
+     * holes in the CEILING, not gaps in a wall. The renderer has always known
+     * to keep them out of the wall runs; nothing ever let you say so. */
+    if (S.advanced) {
+      box.appendChild(h('div', { class: 'subhead' }, 'Advanced'));
+      box.appendChild(h('label', { class: 'inline' }, h('input', {
+        type: 'checkbox', checked: !!op.overhead,
+        onchange: (e) => Store.mutate(() => { op.overhead = e.target.checked || undefined; }, 'overhead'),
+      }), ' Overhead — a skylight or a void, not a hole in a wall'));
+      box.appendChild(h('p', { class: 'hint' },
+        'It stops cutting a gap in the wall it names and stops being offered to the room next door, '
+        + 'while its area and transmission still count toward daylight.'));
+    } else {
+      box.appendChild(h('p', { class: 'hint adv-note' }, 'More settings here — tick Advanced in the top bar.'));
+    }
+
     box.appendChild(h('div', { class: 'subhead' }, ' '));
     box.appendChild(h('button', { class: 'btn danger', onclick: () => Canvas.deleteSelected() }, 'Delete opening'));
   }
@@ -1184,11 +1224,19 @@ window.PanelsExtra = (function () {
     body.appendChild(h('p', { class: 'hint' },
       'Drawn from the bearing above, so the needle and the sun beams can never disagree. On by default whenever daylight is modelled — a lit plan with no north mark asks the reader to take the lighting on trust.'));
 
-    const amb = proj.sun.ambient || (proj.sun.ambient = {});
+    /* Read merged, write on change. Materialising `sun.ambient` merely to show
+     * its value put an empty object into the project the moment anybody opened
+     * this dialog — harmless, but a document should record decisions, not the
+     * fact that somebody once looked at a panel. */
     body.appendChild(field('Glazing that counts as fully daylit (glazed ÷ floor area)', h('input', {
       type: 'number', step: 0.01, min: 0.01, max: 1,
-      value: amb.referenceExposure ?? 0.16,
-      onchange: (e) => { Store.mutate(() => { amb.referenceExposure = Number(e.target.value) || 0.16; }, 'daylight reference'); refresh(); },
+      value: (proj.sun.ambient || {}).referenceExposure ?? 0.16,
+      onchange: (e) => {
+        Store.mutate(() => {
+          proj.sun.ambient = Object.assign({}, proj.sun.ambient, { referenceExposure: Number(e.target.value) || 0.16 });
+        }, 'daylight reference');
+        refresh();
+      },
     })));
     body.appendChild(h('p', { class: 'hint' },
       'A room glazed to this share of its own floor reads as fully lit by day; below it, proportionally less. Building practice puts usable daylight near 0.10 and good daylight near 0.20. Raise it if rooms look too bright by day, lower it if they look too dark. Any room can override it in its own panel.'));
@@ -1221,6 +1269,78 @@ window.PanelsExtra = (function () {
             onchange: (e) => { Store.mutate(() => { floor.sun.enabled = e.target.checked; }, 'floor sun'); refresh(); },
           }), ' Daylight on this floor')));
         body.appendChild(h('p', { class: 'hint' }, 'A basement, or a floor with no glazing, is usually worth turning off — it saves an ambient wash nothing justifies.'));
+      }
+    }
+
+    /* ---- advanced ----
+     *
+     * The constants the daylight model runs on. Every one of them was read by
+     * `sun.js` and reachable from nowhere in the editor: the sky curve, the
+     * beam geometry, the floor and ceiling of the ambient wash, how much the
+     * panels are allowed to argue with the almanac. A house never needs to
+     * touch them, which is why they are behind the Advanced toggle rather than
+     * in the list above — but "never needs to" is not "cannot". */
+    if (S.advanced) {
+      /* Read from the MERGED config and write only on change. Materialising a
+       * group just to show it would stamp the whole default block into
+       * project.json the moment anybody opened this dialog, and a project
+       * carrying an explicit copy of every default is one that stops tracking
+       * them when they improve. */
+      const merged = SunModel.mergeConfig(proj.sun);
+      const numIn = (label, group, key, step, hint) => field(label, h('input', {
+        type: 'number', step, value: (merged[group] || {})[key] ?? '',
+        onchange: (e) => {
+          Store.mutate(() => {
+            const next = Object.assign({}, SunModel.DEFAULTS[group], proj.sun[group]);
+            if (e.target.value === '') delete next[key]; else next[key] = Number(e.target.value);
+            proj.sun[group] = next;
+          }, 'sun ' + key);
+          refresh();
+        },
+      }), hint);
+
+      body.appendChild(h('div', { class: 'subhead' }, 'Advanced — the ambient wash'));
+      body.appendChild(numIn('Darkest a lit room gets at night', 'ambient', 'nightFloor', 0.01,
+        'The floor under the daylight term, so a room is never drawn as a black hole.'));
+      body.appendChild(numIn('Brightest by day', 'ambient', 'max', 0.05));
+      body.appendChild(numIn('Share a room with no glazing still receives', 'ambient', 'scatter', 0.01,
+        'Light that arrives round corners and through doorways rather than through a window of its own.'));
+      body.appendChild(numIn('Sky share an outdoor room takes', 'ambient', 'outdoor', 0.05,
+        '1 is open sky. Lower it for a terrace that is open above but overshadowed.'));
+
+      body.appendChild(h('div', { class: 'subhead' }, 'Advanced — the sky curve'));
+      body.appendChild(h('p', { class: 'hint' },
+        'How sky strength follows the sun’s elevation. It peaks well before the zenith on '
+        + 'purpose: a plan cares how much light gets THROUGH a window, and a high sun enters '
+        + 'a vertical opening at a poor angle.'));
+      body.appendChild(numIn('First light at (° elevation)', 'extinction', 'riseAt', 1));
+      body.appendChild(numIn('Full strength from (°)', 'extinction', 'peakFrom', 1));
+      body.appendChild(numIn('…to (°)', 'extinction', 'peakTo', 1));
+      body.appendChild(numIn('Fall-off past the peak', 'extinction', 'falloff', 0.05));
+
+      body.appendChild(h('div', { class: 'subhead' }, 'Advanced — sun patches'));
+      body.appendChild(numIn('Head height of an opening (ft)', 'beam', 'headFt', 0.5,
+        'Beam length is this over the tangent of the elevation, which is why a near-zenith noon throws shorter patches than a low morning sun.'));
+      body.appendChild(numIn('Longest patch drawn (ft)', 'beam', 'maxFt', 1));
+      body.appendChild(numIn('Stop drawing below (° elevation)', 'beam', 'minElevation', 1));
+      body.appendChild(numIn('Spread (°)', 'beam', 'spreadDeg', 1));
+
+      body.appendChild(h('div', { class: 'subhead' }, 'Advanced — corroboration'));
+      body.appendChild(numIn('How much the panels are believed', 'solarSensor', 'weight', 0.05,
+        'They only ever pull the estimate DOWN toward what is really happening.'));
+      body.appendChild(numIn('Ignore them below (° elevation)', 'solarSensor', 'minElevation', 1));
+      body.appendChild(numIn('Weather factor for a state nobody listed', 'weather', 'default', 0.05));
+
+      body.appendChild(h('div', { class: 'subhead' }, 'Advanced — where the position comes from'));
+      body.appendChild(field('Solar position', h('select', {
+        onchange: (e) => { Store.mutate(() => { proj.sun.source = e.target.value; }, 'sun source'); refresh(); },
+      },
+      h('option', { value: 'compute', selected: (proj.sun.source || 'compute') !== 'entity' }, 'Compute it from the location above'),
+      h('option', { value: 'entity', selected: proj.sun.source === 'entity' }, 'Take it from Home Assistant’s own sun entity')),
+      'Computing it needs only a latitude and longitude and works with no Home Assistant at all. Taking it from the entity gives you one source of truth instead of two that can disagree.'));
+      if (proj.sun.source === 'entity') {
+        body.appendChild(entityRow('Sun entity', proj.sun.sunEntity || 'sun.sun', ['sun'],
+          (id) => { Store.mutate(() => { proj.sun.sunEntity = id; }, 'sun entity'); refresh(); }));
       }
     }
 

@@ -259,6 +259,35 @@
     return null;
   }
 
+  /* What a marker IS, as opposed to what it is doing: the tank's 5000 litres,
+   * the inverter's 5 kW, the projector's 120-inch screen. A dozen properties
+   * across the library were countable, editable and read by nothing at all —
+   * a settings form full of fields that do nothing, which is the failure this
+   * codebase has already written down four times.
+   *
+   * Which properties are worth saying is DATA: a prop declares `spec` (a unit
+   * suffix, or `true` for a bare word) and it joins the line. A list of keys
+   * in here instead would be the copy that goes stale the first time a type
+   * gains a rating. */
+  function specLine(type, item) {
+    if (!type || !Array.isArray(type.props)) return '';
+    const own = (item && item.props) || {};
+    const def = type.defaults || {};
+    const bits = [];
+    for (const p of type.props) {
+      if (!p.spec) continue;
+      const v = own[p.key] !== undefined ? own[p.key] : def[p.key];
+      if (v === undefined || v === null || v === '') continue;
+      /* Zero is not a specification. "0 kW" and "0 ft throw" — the value a
+       * projector throw carries when the thing is a television — say nothing
+       * a reader wants, and a line of them says less than no line. */
+      if (typeof v === 'number' && (!isFinite(v) || v === 0)) continue;
+      if (p.spec === true) { bits.push(String(v)); continue; }
+      bits.push(/^[°%]/.test(p.spec) ? `${v}${p.spec}` : `${v} ${p.spec}`);
+    }
+    return bits.join(' · ');
+  }
+
   /* ------------------------------------------------------------- boundaries */
 
   /* Each room edge as a 1-D interval so overrides and openings can be applied
@@ -441,11 +470,11 @@
    * A solid wall is transmission 0 and drops out here, which is why an existing
    * plan that declares no boundaries behaves exactly as it did.
    */
-  function transmissiveRuns(room, floor, bDoc, defaults, onExtent) {
+  function transmissiveRuns(room, floor, bDoc, defaults, edgeIsExterior) {
     const out = [];
     for (const edge of roomEdges(room)) {
       if (edge.diagonal) continue;
-      const isExterior = onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
+      const isExterior = edgeIsExterior(edge);
       for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
         const def = (bDoc.types || {})[run.type] || {};
         const t = clamp(num(def.transmission, 0), 0, 1);
@@ -1579,6 +1608,23 @@
     /* Declared here rather than beside the boundary loop below, because the
      * light zones now read boundary runs too and are built first. */
     const onExtent = (x, y) => Math.abs(x) < 1e-6 || Math.abs(y) < 1e-6 || Math.abs(x - ext.w) < 1e-6 || Math.abs(y - ext.h) < 1e-6;
+    /* An edge is on the building's own perimeter only if the coordinate that
+     * stays FIXED along its length sits on the extent — not merely because its
+     * two endpoints each happen to touch the extent somewhere. `onExtent`
+     * tests a single point in isolation, which is right for a normal wall
+     * (every point on it shares the same fixed coordinate) but wrong for a
+     * long edge whose ends land on two DIFFERENT sides: a setback boundary
+     * spanning the full floor width has its left end on the west wall and its
+     * right end on the east wall, so both passed `onExtent` even though the
+     * edge itself runs along neither — and it defaulted to a thick exterior
+     * wall in the middle of the plan, stacked on top of the room's own
+     * (correctly thin) wall at the same seam. Diagonal edges have no single
+     * fixed coordinate, so they keep the old two-point test. */
+    const edgeIsExterior = (edge) => edge.diagonal
+      ? onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1])
+      : (edge.horizontal
+        ? (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.h) < 1e-6)
+        : (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.w) < 1e-6));
     const defaults = Object.assign({ exterior: 'wall_exterior', interior: 'wall_partition' }, bDoc.defaults || {});
 
     const zonePathOf = (room) => {
@@ -1630,7 +1676,7 @@
        * exactly like a doorway does — by its own transmission. */
       for (const other of [room, ...(floor.rooms || []).filter((r) => r.id !== room.id
         && (primaryRoom(floor, r) || r).id === room.id)]) {
-        for (const run of transmissiveRuns(other, floor, bDoc, defaults, onExtent)) {
+        for (const run of transmissiveRuns(other, floor, bDoc, defaults, edgeIsExterior)) {
           const a = pointOn(run.edge, run.from - 0.25), b = pointOn(run.edge, run.to + 0.25);
           const c = roomCentroid(other);
           const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
@@ -1689,7 +1735,7 @@
           if (neighbour && primaryRoom(floor, neighbour) === primaryRoom(floor, room) && neighbour !== room) continue;
         }
 
-        const isExterior = onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
+        const isExterior = edgeIsExterior(edge);
         for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
           for (const n of boundaryNodes(run, edge, bDoc, theme, P)) {
             n.roomId = room.id; n.wall = edge.wall;
@@ -1742,7 +1788,7 @@
          * before this the model could only see a hole somebody had drawn as an
          * `opening`. Same shape as the openings above, so `roomDaylight` needs
          * no idea which of the two it is looking at. */
-        for (const run of transmissiveRuns(room, floor, bDoc, defaults, onExtent)) {
+        for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExterior)) {
           ops.push({
             at: [pointOn(run.edge, run.from), pointOn(run.edge, run.to)],
             width: run.width,
@@ -1911,7 +1957,7 @@
          */
         const spillFt = num(zoneCfg.spillFt, 3.5);
         if (zoneCfg.enabled !== false) {
-          for (const run of transmissiveRuns(room, floor, bDoc, defaults, onExtent)) {
+          for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExterior)) {
             const carried = clamp(lit.level * lightCfg.maxWash * run.transmission, 0, 1);
             if (carried <= 0.02) continue;
             const a = pointOn(run.edge, run.from), b = pointOn(run.edge, run.to);
@@ -2079,11 +2125,18 @@
       if (room.noLabel || room.part_of || chipCfg.show === false) continue;
       const name = (room.name || room.id).toUpperCase();
       const lvl = roomLevels.get(room.id) || { on: 0, total: 0 };
-      const showCount = chipCfg.counts !== false
-        && room.showCount !== false
-        && !room.ganged
+      /* `showCount` is the room's own answer and beats the house's rules of
+       * thumb in BOTH directions. It used to be read only as a veto, so a room
+       * with one lamp — or a house that had switched counts off wholesale —
+       * had no way to ask for its count back; the nearer layer wins everywhere
+       * else in this model and there was no reason for this to be different.
+       * A ganged room still never shows one: tapping either lamp switches
+       * both, so "1 of 2 on" is a state that room cannot be in. */
+      const forced = room.showCount === true;
+      const showCount = room.showCount !== false && !room.ganged && (forced || (
+        chipCfg.counts !== false
         && lvl.total > num(chipCfg.hideWhenAtMost, 1)
-        && !(chipCfg.hideRooms || []).includes(room.id);
+        && !(chipCfg.hideRooms || []).includes(room.id)));
       const count = showCount ? `${lvl.on}/${lvl.total}` : '';
 
       /* Sized from the text rather than measured, because there is no text
@@ -2355,7 +2408,7 @@
   }
 
   return {
-    build, toSvg, nodeToSvg, resolveType, hitTargets,
+    build, toSvg, nodeToSvg, resolveType, specLine, hitTargets,
     makeProjector, roomPoints, roomBBox, roomCentroid, pointInRoom, roomAt, roomEdges,
     primaryRoom, colour, stateOf, lampColour, openingIsOpen, openingTransmission, coneNodes, MOTION_CSS,
     variantOf, markerRadius, labelText, thresholdColour, labelMetrics,

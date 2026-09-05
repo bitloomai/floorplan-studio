@@ -48,7 +48,36 @@
       },
       "sun": null,
       "popup": null,
-      "boundaries": [],
+      "boundaries": [
+        {
+          "id": "ground_bg",
+          "room": "ground_b",
+          "wall": "n",
+          "type": "glass_full",
+          "from": 26,
+          "to": 40
+        },
+        {
+          "id": "ground_bl",
+          "room": "ground_c",
+          "wall": "w",
+          "type": "louvre"
+        },
+        {
+          "id": "ground_bh",
+          "room": "ground_a",
+          "wall": "s",
+          "type": "wall_half",
+          "from": 0,
+          "to": 8
+        },
+        {
+          "id": "ground_bp",
+          "room": "ground_f",
+          "wall": "w",
+          "type": "glass_partition"
+        }
+      ],
       "rooms": [
         {
           "id": "ground_a",
@@ -186,6 +215,56 @@
           "controls": null,
           "keys": null,
           "shortcuts": []
+        },
+        {
+          "id": "ground_e",
+          "name": "Room E",
+          "shape": "rect",
+          "rect": [
+            18,
+            22,
+            6,
+            8
+          ],
+          "points": null,
+          "flooring": "granite",
+          "boost": null,
+          "dnd": null,
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "chip_at": null,
+          "chip_rotate": 0,
+          "part_of": null,
+          "controls": null,
+          "keys": null,
+          "shortcuts": []
+        },
+        {
+          "id": "ground_f",
+          "name": "Room F",
+          "shape": "rect",
+          "rect": [
+            24,
+            22,
+            6,
+            8
+          ],
+          "points": null,
+          "flooring": "tile_small",
+          "boost": null,
+          "dnd": null,
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "chip_at": null,
+          "chip_rotate": 0,
+          "part_of": null,
+          "controls": null,
+          "keys": null,
+          "shortcuts": []
         }
       ],
       "openings": [
@@ -206,7 +285,7 @@
           "type": "window",
           "room": "ground_b",
           "wall": "n",
-          "at": 8,
+          "at": 30,
           "w": 6,
           "h": 4,
           "sill": 2.5,
@@ -218,7 +297,7 @@
           "type": "window",
           "room": "ground_c",
           "wall": "w",
-          "at": 6,
+          "at": 21,
           "w": 5,
           "h": 4,
           "sill": 2.5,
@@ -256,6 +335,30 @@
           "wall": "e",
           "at": 8,
           "w": 2,
+          "h": 4,
+          "sill": 0,
+          "curtain": 0,
+          "transmission": 1
+        },
+        {
+          "id": "ground_d3",
+          "type": "door",
+          "room": "ground_f",
+          "wall": "s",
+          "at": 27.5,
+          "w": 2.5,
+          "h": 4,
+          "sill": 0,
+          "curtain": 0,
+          "transmission": 1
+        },
+        {
+          "id": "ground_d4",
+          "type": "opening",
+          "room": "ground_e",
+          "wall": "n",
+          "at": 19,
+          "w": 4,
           "h": 4,
           "sill": 0,
           "curtain": 0,
@@ -528,7 +631,8 @@
           "props": {
             "rot": 225,
             "fov": 90,
-            "range": 18
+            "range": 18,
+            "cone": true
           }
         },
         {
@@ -545,7 +649,8 @@
           "props": {
             "rot": 180,
             "fov": 110,
-            "range": 14
+            "range": 14,
+            "cone": true
           }
         },
         {
@@ -643,6 +748,175 @@
             "h": 3,
             "rot": 0
           }
+        },
+        {
+          "id": "ground_l11",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            21,
+            24
+          ],
+          "room": null,
+          "entity": "light.demo_ground_e1",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "ground_l12",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            22.5,
+            29
+          ],
+          "room": null,
+          "entity": "light.demo_ground_e2",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "ground_stair",
+          "kind": "furniture",
+          "type": "stairs",
+          "at": [
+            18,
+            22
+          ],
+          "room": null,
+          "entity": "light.demo_ground_stair",
+          "name": null,
+          "props": {
+            "w": 6,
+            "h": 5.5,
+            "variant": "u_switchback",
+            "steps": 15,
+            "axis": "ns",
+            "dir": "up",
+            "continues": "cut",
+            "lighting": "edge",
+            "lightEvery": 2,
+            "sequence": "progressive"
+          }
+        },
+        {
+          "id": "ground_lift",
+          "kind": "furniture",
+          "type": "lift",
+          "at": [
+            18.5,
+            28
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.5,
+            "h": 1.75,
+            "variant": "dumbwaiter"
+          }
+        },
+        {
+          "id": "ground_l13",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            26.5,
+            23.5
+          ],
+          "room": null,
+          "entity": "light.demo_ground_f1",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "ground_l14",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            26.5,
+            28.5
+          ],
+          "room": null,
+          "entity": "light.demo_ground_f2",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "ground_tub",
+          "kind": "furniture",
+          "type": "bathtub",
+          "at": [
+            24.25,
+            22.25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 4.5,
+            "h": 2.4,
+            "variant": "alcove"
+          }
+        },
+        {
+          "id": "ground_bsn",
+          "kind": "furniture",
+          "type": "basin",
+          "at": [
+            24.25,
+            25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.5,
+            "h": 1.4,
+            "variant": "counter_top"
+          }
+        },
+        {
+          "id": "ground_wc",
+          "kind": "furniture",
+          "type": "wc",
+          "at": [
+            24.25,
+            27
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 1.4,
+            "h": 2.5,
+            "variant": "close_coupled"
+          }
+        },
+        {
+          "id": "ground_shw",
+          "kind": "furniture",
+          "type": "shower",
+          "at": [
+            27.2,
+            25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.6,
+            "h": 2.6,
+            "variant": "square"
+          }
         }
       ],
       "schemaVersion": 1
@@ -662,7 +936,36 @@
       },
       "sun": null,
       "popup": null,
-      "boundaries": [],
+      "boundaries": [
+        {
+          "id": "first_bg",
+          "room": "first_b",
+          "wall": "n",
+          "type": "glass_full",
+          "from": 26,
+          "to": 40
+        },
+        {
+          "id": "first_bl",
+          "room": "first_c",
+          "wall": "w",
+          "type": "louvre"
+        },
+        {
+          "id": "first_bh",
+          "room": "first_a",
+          "wall": "s",
+          "type": "wall_half",
+          "from": 0,
+          "to": 8
+        },
+        {
+          "id": "first_bp",
+          "room": "first_f",
+          "wall": "w",
+          "type": "glass_partition"
+        }
+      ],
       "rooms": [
         {
           "id": "first_a",
@@ -800,6 +1103,56 @@
           "controls": null,
           "keys": null,
           "shortcuts": []
+        },
+        {
+          "id": "first_e",
+          "name": "Room E",
+          "shape": "rect",
+          "rect": [
+            18,
+            22,
+            6,
+            8
+          ],
+          "points": null,
+          "flooring": "granite",
+          "boost": null,
+          "dnd": null,
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "chip_at": null,
+          "chip_rotate": 0,
+          "part_of": null,
+          "controls": null,
+          "keys": null,
+          "shortcuts": []
+        },
+        {
+          "id": "first_f",
+          "name": "Room F",
+          "shape": "rect",
+          "rect": [
+            24,
+            22,
+            6,
+            8
+          ],
+          "points": null,
+          "flooring": "tile_small",
+          "boost": null,
+          "dnd": null,
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "chip_at": null,
+          "chip_rotate": 0,
+          "part_of": null,
+          "controls": null,
+          "keys": null,
+          "shortcuts": []
         }
       ],
       "openings": [
@@ -820,7 +1173,7 @@
           "type": "window",
           "room": "first_b",
           "wall": "n",
-          "at": 8,
+          "at": 30,
           "w": 6,
           "h": 4,
           "sill": 2.5,
@@ -832,7 +1185,7 @@
           "type": "window",
           "room": "first_c",
           "wall": "w",
-          "at": 6,
+          "at": 21,
           "w": 5,
           "h": 4,
           "sill": 2.5,
@@ -870,6 +1223,30 @@
           "wall": "e",
           "at": 8,
           "w": 2,
+          "h": 4,
+          "sill": 0,
+          "curtain": 0,
+          "transmission": 1
+        },
+        {
+          "id": "first_d3",
+          "type": "door",
+          "room": "first_f",
+          "wall": "s",
+          "at": 27.5,
+          "w": 2.5,
+          "h": 4,
+          "sill": 0,
+          "curtain": 0,
+          "transmission": 1
+        },
+        {
+          "id": "first_d4",
+          "type": "opening",
+          "room": "first_e",
+          "wall": "n",
+          "at": 19,
+          "w": 4,
           "h": 4,
           "sill": 0,
           "curtain": 0,
@@ -1142,7 +1519,8 @@
           "props": {
             "rot": 225,
             "fov": 90,
-            "range": 18
+            "range": 18,
+            "cone": true
           }
         },
         {
@@ -1159,7 +1537,8 @@
           "props": {
             "rot": 180,
             "fov": 110,
-            "range": 14
+            "range": 14,
+            "cone": true
           }
         },
         {
@@ -1257,6 +1636,175 @@
             "h": 3,
             "rot": 0
           }
+        },
+        {
+          "id": "first_l11",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            21,
+            24
+          ],
+          "room": null,
+          "entity": "light.demo_first_e1",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "first_l12",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            22.5,
+            29
+          ],
+          "room": null,
+          "entity": "light.demo_first_e2",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "first_stair",
+          "kind": "furniture",
+          "type": "stairs",
+          "at": [
+            18,
+            22
+          ],
+          "room": null,
+          "entity": "light.demo_first_stair",
+          "name": null,
+          "props": {
+            "w": 6,
+            "h": 5.5,
+            "variant": "u_switchback",
+            "steps": 15,
+            "axis": "ns",
+            "dir": "up",
+            "continues": "both",
+            "lighting": "edge",
+            "lightEvery": 2,
+            "sequence": "progressive"
+          }
+        },
+        {
+          "id": "first_lift",
+          "kind": "furniture",
+          "type": "lift",
+          "at": [
+            18.5,
+            28
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.5,
+            "h": 1.75,
+            "variant": "dumbwaiter"
+          }
+        },
+        {
+          "id": "first_l13",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            26.5,
+            23.5
+          ],
+          "room": null,
+          "entity": "light.demo_first_f1",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "first_l14",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            26.5,
+            28.5
+          ],
+          "room": null,
+          "entity": "light.demo_first_f2",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "first_tub",
+          "kind": "furniture",
+          "type": "bathtub",
+          "at": [
+            24.25,
+            22.25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 4.5,
+            "h": 2.4,
+            "variant": "corner"
+          }
+        },
+        {
+          "id": "first_bsn",
+          "kind": "furniture",
+          "type": "basin",
+          "at": [
+            24.25,
+            25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.5,
+            "h": 1.4,
+            "variant": "pedestal"
+          }
+        },
+        {
+          "id": "first_wc",
+          "kind": "furniture",
+          "type": "wc",
+          "at": [
+            24.25,
+            27
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 1.4,
+            "h": 2.5,
+            "variant": "wall_hung"
+          }
+        },
+        {
+          "id": "first_shw",
+          "kind": "furniture",
+          "type": "shower",
+          "at": [
+            27.2,
+            25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.6,
+            "h": 2.6,
+            "variant": "quadrant"
+          }
         }
       ],
       "schemaVersion": 1
@@ -1276,7 +1824,36 @@
       },
       "sun": null,
       "popup": null,
-      "boundaries": [],
+      "boundaries": [
+        {
+          "id": "second_bg",
+          "room": "second_b",
+          "wall": "n",
+          "type": "glass_full",
+          "from": 26,
+          "to": 40
+        },
+        {
+          "id": "second_bl",
+          "room": "second_c",
+          "wall": "w",
+          "type": "louvre"
+        },
+        {
+          "id": "second_bh",
+          "room": "second_a",
+          "wall": "s",
+          "type": "wall_half",
+          "from": 0,
+          "to": 8
+        },
+        {
+          "id": "second_bp",
+          "room": "second_f",
+          "wall": "w",
+          "type": "glass_partition"
+        }
+      ],
       "rooms": [
         {
           "id": "second_a",
@@ -1414,6 +1991,56 @@
           "controls": null,
           "keys": null,
           "shortcuts": []
+        },
+        {
+          "id": "second_e",
+          "name": "Room E",
+          "shape": "rect",
+          "rect": [
+            18,
+            22,
+            6,
+            8
+          ],
+          "points": null,
+          "flooring": "granite",
+          "boost": null,
+          "dnd": null,
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "chip_at": null,
+          "chip_rotate": 0,
+          "part_of": null,
+          "controls": null,
+          "keys": null,
+          "shortcuts": []
+        },
+        {
+          "id": "second_f",
+          "name": "Room F",
+          "shape": "rect",
+          "rect": [
+            24,
+            22,
+            6,
+            8
+          ],
+          "points": null,
+          "flooring": "tile_small",
+          "boost": null,
+          "dnd": null,
+          "master": null,
+          "ganged": false,
+          "outdoor": false,
+          "noLabel": false,
+          "chip_at": null,
+          "chip_rotate": 0,
+          "part_of": null,
+          "controls": null,
+          "keys": null,
+          "shortcuts": []
         }
       ],
       "openings": [
@@ -1434,7 +2061,7 @@
           "type": "window",
           "room": "second_b",
           "wall": "n",
-          "at": 8,
+          "at": 30,
           "w": 6,
           "h": 4,
           "sill": 2.5,
@@ -1446,7 +2073,7 @@
           "type": "window",
           "room": "second_c",
           "wall": "w",
-          "at": 6,
+          "at": 21,
           "w": 5,
           "h": 4,
           "sill": 2.5,
@@ -1484,6 +2111,30 @@
           "wall": "e",
           "at": 8,
           "w": 2,
+          "h": 4,
+          "sill": 0,
+          "curtain": 0,
+          "transmission": 1
+        },
+        {
+          "id": "second_d3",
+          "type": "door",
+          "room": "second_f",
+          "wall": "s",
+          "at": 27.5,
+          "w": 2.5,
+          "h": 4,
+          "sill": 0,
+          "curtain": 0,
+          "transmission": 1
+        },
+        {
+          "id": "second_d4",
+          "type": "opening",
+          "room": "second_e",
+          "wall": "n",
+          "at": 19,
+          "w": 4,
           "h": 4,
           "sill": 0,
           "curtain": 0,
@@ -1756,7 +2407,8 @@
           "props": {
             "rot": 225,
             "fov": 90,
-            "range": 18
+            "range": 18,
+            "cone": true
           }
         },
         {
@@ -1773,7 +2425,8 @@
           "props": {
             "rot": 180,
             "fov": 110,
-            "range": 14
+            "range": 14,
+            "cone": true
           }
         },
         {
@@ -1871,6 +2524,175 @@
             "h": 3,
             "rot": 0
           }
+        },
+        {
+          "id": "second_l11",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            21,
+            24
+          ],
+          "room": null,
+          "entity": "light.demo_second_e1",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "second_l12",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            22.5,
+            29
+          ],
+          "room": null,
+          "entity": "light.demo_second_e2",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "second_stair",
+          "kind": "furniture",
+          "type": "stairs",
+          "at": [
+            18,
+            22
+          ],
+          "room": null,
+          "entity": "light.demo_second_stair",
+          "name": null,
+          "props": {
+            "w": 6,
+            "h": 5.5,
+            "variant": "u_switchback",
+            "steps": 15,
+            "axis": "ns",
+            "dir": "up",
+            "continues": "both",
+            "lighting": "edge",
+            "lightEvery": 2,
+            "sequence": "progressive"
+          }
+        },
+        {
+          "id": "second_lift",
+          "kind": "furniture",
+          "type": "lift",
+          "at": [
+            18.5,
+            28
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.5,
+            "h": 1.75,
+            "variant": "dumbwaiter"
+          }
+        },
+        {
+          "id": "second_l13",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            26.5,
+            23.5
+          ],
+          "room": null,
+          "entity": "light.demo_second_f1",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "second_l14",
+          "kind": "fixture",
+          "type": "spot",
+          "at": [
+            26.5,
+            28.5
+          ],
+          "room": null,
+          "entity": "light.demo_second_f2",
+          "name": null,
+          "props": {
+            "watt": 9
+          }
+        },
+        {
+          "id": "second_tub",
+          "kind": "furniture",
+          "type": "bathtub",
+          "at": [
+            24.25,
+            22.25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 4.5,
+            "h": 2.4,
+            "variant": "freestanding"
+          }
+        },
+        {
+          "id": "second_bsn",
+          "kind": "furniture",
+          "type": "basin",
+          "at": [
+            24.25,
+            25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.5,
+            "h": 1.4,
+            "variant": "under_counter"
+          }
+        },
+        {
+          "id": "second_wc",
+          "kind": "furniture",
+          "type": "wc",
+          "at": [
+            24.25,
+            27
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 1.4,
+            "h": 2.5,
+            "variant": "squat"
+          }
+        },
+        {
+          "id": "second_shw",
+          "kind": "furniture",
+          "type": "shower",
+          "at": [
+            27.2,
+            25
+          ],
+          "room": null,
+          "entity": null,
+          "name": null,
+          "props": {
+            "w": 2.6,
+            "h": 2.6,
+            "variant": "walk_in"
+          }
         }
       ],
       "schemaVersion": 1
@@ -1890,7 +2712,26 @@
       },
       "sun": null,
       "popup": null,
-      "boundaries": [],
+      "boundaries": [
+        {
+          "id": "terrace_br",
+          "room": "terrace_a",
+          "wall": "s",
+          "type": "glass_railing"
+        },
+        {
+          "id": "terrace_bm",
+          "room": "terrace_a",
+          "wall": "w",
+          "type": "metal_railing"
+        },
+        {
+          "id": "terrace_bn",
+          "room": "terrace_b",
+          "wall": "n",
+          "type": "parapet_glass"
+        }
+      ],
       "rooms": [
         {
           "id": "terrace_a",
@@ -1977,12 +2818,13 @@
           "type": "window",
           "room": "terrace_b",
           "wall": "e",
-          "at": 8,
+          "at": 4,
           "w": 5,
           "h": 4,
           "sill": 2.5,
           "curtain": 0.25,
-          "transmission": 0.85
+          "transmission": 0.85,
+          "edge": 1
         }
       ],
       "items": [
@@ -2084,7 +2926,26 @@
       },
       "sun": null,
       "popup": null,
-      "boundaries": [],
+      "boundaries": [
+        {
+          "id": "deck_br",
+          "room": "deck_a",
+          "wall": "s",
+          "type": "glass_railing"
+        },
+        {
+          "id": "deck_bm",
+          "room": "deck_a",
+          "wall": "w",
+          "type": "metal_railing"
+        },
+        {
+          "id": "deck_bn",
+          "room": "deck_b",
+          "wall": "n",
+          "type": "parapet_glass"
+        }
+      ],
       "rooms": [
         {
           "id": "deck_a",
@@ -2171,12 +3032,13 @@
           "type": "window",
           "room": "deck_b",
           "wall": "e",
-          "at": 8,
+          "at": 4,
           "w": 5,
           "h": 4,
           "sill": 2.5,
           "curtain": 0.25,
-          "transmission": 0.85
+          "transmission": 0.85,
+          "edge": 1
         }
       ],
       "items": [

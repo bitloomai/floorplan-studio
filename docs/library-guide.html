@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The library — Floorplan Studio</title>
+<meta name="description" content="Everything you can place, why it is grouped the way it is, and how to add your own.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="help.css">
+<script>try{var d=document.documentElement,t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');if(t)d.setAttribute('data-theme',t);if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="top"><div class="row">
+  <button class="icon-btn" id="sideBtn" title="Contents" aria-label="Show or hide contents" aria-controls="side" aria-expanded="false"><svg class="glyph" viewBox="0 0 18 16" width="18" height="16" aria-hidden="true" focusable="false"><line x1="4" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <a class="brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio</span></a>
+  <div class="search">
+    <span class="mag"><svg class="glyph" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="2.4" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(7 7) scale(0.9)"/></svg></span>
+    <input id="q" type="search" placeholder="Search  /" autocomplete="off" aria-label="Search help" role="combobox" aria-autocomplete="list" aria-controls="results" aria-expanded="false">
+    <div class="results" id="results" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+  <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Toggle theme"><svg class="glyph" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(8 8) scale(0.85)"/></svg></button>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Help navigation">
+    <div class="side-head"><a class="side-brand" href="index.html"><img class="app-icon" src="favicon.svg" width="30" height="30" alt=""><span>Floorplan Studio<small>Help guide</small></span></a><button class="icon-btn" id="sideClose" aria-label="Close contents">×</button></div>
+    <nav aria-label="Help contents">
+    <div class="lbl">Help</div>
+    <a href="index.html">Contents</a>
+    <a href="start.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 L 1.5 -1.6 L 5.9 0 L 1.5 1.6 L 0 6 L -1.5 1.6 L -5.9 0 L -1.5 -1.6 Z" stroke-width="1" stroke-linejoin="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Getting started</span></a><a href="plan.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Drawing the plan</span></a><a href="rooms.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Rooms</span></a><a href="walls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><rect x="0.6" y="-4.2" width="5" height="8.4" rx="1" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Walls and openings</span></a><a href="library-guide.html" aria-current="page"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The library</span></a><a href="light.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 0 -6 A 4.4 4.4 0 0 1 2.6 1.6 L -2.6 1.6 A 4.4 4.4 0 0 1 0 -6 Z" fill="none" stroke-width="1.4" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="3.4" x2="2" y2="3.4" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.3" y1="5.2" x2="1.3" y2="5.2" stroke-width="1.5" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Light and daylight</span></a><a href="controls.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><line x1="-5.4" y1="-3.4" x2="5.4" y2="-3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-1.6" cy="-3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="0" x2="5.4" y2="0" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.2" cy="0" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-5.4" y1="3.4" x2="5.4" y2="3.4" stroke-width="1.1" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-2.8" cy="3.4" r="1.5" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Controls and popups</span></a><a href="dashboard.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-6" y="-4.6" width="12" height="8.4" rx="1.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-3" y1="6.2" x2="3" y2="6.2" stroke-width="1.4" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>The dashboard</span></a><a href="data.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><path d="M 1.4 -6 L -3.6 0.6 L 0 0.6 L -1.4 6 L 3.6 -0.6 L 0 -0.6 Z" fill="none" stroke-width="1.3" stroke-linejoin="round" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Projects, import and export</span></a><a href="reference.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0.8" r="5" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="0" y2="-2.4" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="0" y1="0.8" x2="2.6" y2="0.8" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-2" y1="-5.6" x2="2" y2="-5.6" stroke-width="1.3" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Reference</span></a>
+    <hr>
+    <div class="lbl">Browse</div>
+    <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
+    <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
+    </nav>
+  </aside>
+  <main id="main" tabindex="-1">
+
+<div class="wrap narrow page">
+  <h1>The library</h1>
+  <p class="lede">4 topics.</p>
+  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong><a href="#library-palette">The library</a><a href="#panel-item">The item panel</a><a href="#item-aim">Which way a device faces</a><a href="#item-stairs">Stairs and lifts</a></nav>
+  <article class="topic glass" id="library-palette">
+<h2><a class="heading-link" href="#library-palette">The library</a></h2>
+<p class="summary">Everything you can place, why it is grouped the way it is, and how to add your own.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Device library → edit. Open the library in the left sidebar.</li></ul>
+<p>The palette holds every <strong>type</strong> you can place, keyed <code>&lt;kind&gt;.&lt;name&gt;</code> — for example <code>device.camera</code>, <code>fixture.spot</code>, <code>furniture.bathtub</code>.</p>
+<p>Four kinds, and the distinction is about what a thing <em>does</em>, not what it looks like:</p>
+<table><thead><tr><th>kind</th><th>what it is</th></tr></thead><tbody><tr><td><code>fixture</code></td><td>something that emits light</td></tr><tr><td><code>device</code></td><td>something with a state worth showing</td></tr><tr><td><code>furniture</code></td><td>something that occupies space</td></tr><tr><td><code>logic</code></td><td>a scene, an automation, a helper — pinned to a place</td></tr></tbody></table>
+<h2>Placing</h2>
+<p>Click a palette item, then click the plan — it stays armed, so ten downlights do not need ten trips back to the palette. Or drag a palette item straight onto the plan to place it there directly. <strong>Esc</strong> disarms.</p>
+<p>While armed you can still grab and adjust the item you just placed; clicking anywhere else places another.</p>
+<h2>Groups</h2>
+<p>Types are grouped by where they belong in a house rather than alphabetically, because &quot;what goes in a bathroom&quot; is the question people actually have.</p>
+<h2>Adding your own</h2>
+<p>The library editor lets you add a type or change one. Two things to know:</p>
+<p><strong>Editing the shipped defaults does not change a project already running.</strong> Your copy of the library is materialised on first run, and updates only fill in fields that are genuinely absent — which is what stops an app update from clobbering something you deliberately set.</p>
+<p><strong>A type is only as good as its properties.</strong> A look you add is not offered until it appears in the type's <code>variant</code> options, and a property nothing draws is a control that does nothing. The suite checks both directions.</p></div>
+<div class="related">Read next: <a href="library-guide.html#panel-item">The item panel</a> · <a href="library-guide.html#item-aim">Which way a device faces</a></div>
+</article>
+<article class="topic glass" id="panel-item">
+<h2><a class="heading-link" href="#panel-item">The item panel</a></h2>
+<p class="summary">Everything one placed thing is — its look, its size, its entity and what it reports.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Item inspector → Home Assistant. Choose Select, then click an item on the plan to open its inspector on the right.</li><li><strong>Find it:</strong> Item inspector → Look. Choose Select, then click an item on the plan to open its inspector on the right.</li><li><strong>Find it:</strong> Item inspector → Size. Choose Select, then click an item on the plan to open its inspector on the right.</li><li><strong>Find it:</strong> Item inspector → Properties. Choose Select, then click an item on the plan to open its inspector on the right.</li><li><strong>Find it:</strong> Item inspector → Tap area. Enable Advanced in the top bar. Choose Select, then click an item on the plan to open its inspector on the right.</li><li><strong>Find it:</strong> Item inspector → Channels. Choose Select, then click an item on the plan to open its inspector on the right.</li></ul>
+<p>Select anything you have placed and this panel edits it. What appears depends entirely on the <strong>type</strong> — a camera offers a field of view, a bed offers which wall its pillows sit against, and neither offers the other's settings.</p>
+<h2>Look</h2>
+<p>Most types offer several <strong>looks</strong>, and a look is a different drawing rather than a restyling. A CRT is not a flat panel squashed; a corner bath is not an alcove bath rotated.</p>
+<p>Several looks bring their own <strong>footprint</strong>, and choosing one on an item still at its default size resizes it to something true. If you have already set a size by hand, it is left alone — picking a look never silently undoes a measurement.</p>
+<h2>Size and rotation</h2>
+<p><code>w</code> and <code>h</code> are in feet. Furniture is anchored at its <strong>top-left corner</strong>, so the numbers describe a box starting where you placed it.</p>
+<p>Nudge with the arrow keys (Shift for a foot), rotate with <code>[</code> and <code>]</code>, resize with <code>−</code> and <code>+</code>.</p>
+<h2>Entity</h2>
+<p>Binding an entity is what makes an item <em>report</em> rather than merely appear. An unbound item still draws — that is a legitimate state for furniture and for a fitting nothing automates.</p>
+<p>A <strong>read-only</strong> binding shows state without offering to change it, which is the right setting for a sensor and the wrong one for a lamp.</p>
+<h2>When a reading stays blank</h2>
+<p>Some things ARE their reading — a solar array, an energy meter, a tank level. For those, <code>state === 'on'</code> is never true, so they would sit in the &quot;off&quot; style forever with the number suppressed. Their type sets a numeric rule instead. If a readout is mysteriously blank, that is the first thing to check.</p></div>
+<div class="related">Read next: <a href="library-guide.html#item-aim">Which way a device faces</a> · <a href="library-guide.html#library-palette">The library</a> · <a href="light.html#concept-artificial-light">Lamps, lumens and how bright a room reads</a></div>
+</article>
+<article class="topic glass" id="item-aim">
+<h2><a class="heading-link" href="#item-aim">Which way a device faces</a></h2>
+<p class="summary">Rotation, field of view and range — and why the coverage wedge is off until you ask for it.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Item inspector → Aim and coverage. Choose Select, then click an item on the plan to open its inspector on the right.</li></ul>
+<p>Anything directional — a camera, a motion sensor, an air conditioner, a TV, a speaker — carries a <strong>rotation</strong>, and it decides which way the thing points.</p>
+<p>Rotation is in <strong>screen degrees</strong>: <code>0</code> points up the page, and the number increases clockwise. Like wall letters, this is the drawing's frame, not your compass.</p>
+<h2>The wedge is opt-in</h2>
+<p>A device that <em>can</em> draw a coverage wedge does not draw one until you tick <strong>Detection cone</strong>. That is deliberate: on a real plan with sixteen sensors, the wedges bury the rooms they are drawn on and the plan stops being readable.</p>
+<p>Turning it on is also what makes <strong>field of view</strong> and <strong>range</strong> matter. Until then they are numbers nothing consumes.</p>
+<h2>The mistake to check for</h2>
+<p>A type that ships a default rotation gives the <strong>same</strong> facing to every item that never set one. An air conditioner defaulting to 270 is correct in every room where the unit sits on an east wall and blows into the plaster in every room where it sits on a west one.</p>
+<p>Nothing about that looks wrong. The unit draws, the entity binds, the state reads — only the air goes into the wall.</p>
+<blockquote>The plan audit (<code>node tools/audit-plan.js</code>) checks this by measuring how far each cone's centreline gets into its room before leaving it. A camera on an outside wall watching the street is doing its job; one buried in brickwork is not, and the difference is a measurement rather than an opinion.</blockquote>
+<h2>Line fixtures are different</h2>
+<p>For a tubelight or a cove strip, <code>rot</code> is the <strong>axis it runs along</strong>, not a direction it points. The same field means two different things depending on the type.</p></div>
+<div class="related">Read next: <a href="reference.html#concept-units">Feet, and which way is north</a> · <a href="library-guide.html#panel-item">The item panel</a></div>
+</article>
+<article class="topic glass" id="item-stairs">
+<h2><a class="heading-link" href="#item-stairs">Stairs and lifts</a></h2>
+<p class="summary">A stair on a plan is a stair CUT — which is why it has an up run, a down run and a break line.</p>
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Select Stairs on the plan → Item inspector. To add one, choose Device library → Furniture → Stairs, then click the plan. Press Esc to stop placing.</li><li><strong>Find it:</strong> Select Lift on the plan → Item inspector. To add one, choose Device library → Furniture → Lift, then click the plan. Press Esc to stop placing.</li></ul>
+<p>Stairs and lifts are <strong>architecture rather than kit</strong>, so they take building properties — how many steps, which way you climb, how the flight turns — instead of a size and a picture.</p>
+<h2>Five arrangements</h2>
+<p><code>straight</code>, <code>l_shaped</code>, <code>u_switchback</code>, <code>winder</code>, <code>spiral</code>. A U-switchback is the dog-leg almost every stairwell actually is, and a spiral is a genuinely different object rather than a squashed straight run.</p>
+<p><strong><code>axis</code> is which way the flight runs</strong> — <code>ns</code> down the page, <code>ew</code> across it. A switchback in a shaft that is wider than it is deep runs across, and drawing it the other way turns a real staircase through ninety degrees.</p>
+<p>Do not rotate the item to achieve this. Furniture is anchored at its <strong>top-left corner</strong>, so a rotated flight's real footprint is a box neither the document nor the plan audit can describe.</p>
+<h2>The floor line</h2>
+<p>A plan is a horizontal slice about four feet above the floor, so the treads above that height belong to the storey above. <code>continues</code> says what to draw:</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><code>none</code></td><td>one whole flight — a stoop, a stage step</td></tr><tr><td><code>cut</code></td><td>what is past the break goes to the next storey, drawn faint</td></tr><tr><td><code>both</code></td><td>an up run <strong>and</strong> a down run, which is what a plan of any middle floor of a house shows</td></tr></tbody></table>
+<p><code>cutAt</code> is how far along the break falls, because that depends on the riser height — a flight of six deep treads is cut much later than a flight of eighteen.</p>
+<p>Under <code>both</code>, both arrows point the <strong>same</strong> way: they are two runs that each leave this floor, not two halves of one climb.</p>
+<h2>Step lighting</h2>
+<p>A stair can be bound to an entity like any fixture. <code>lighting</code> puts light on the treads themselves — a pip each side, a lit nosing, or both — and <code>lightEvery</code> is the cadence an electrician actually installs. <code>sequence: progressive</code> makes the flight climb one tread at a time when it comes on, which is what a motion-triggered stair light does.</p></div>
+<div class="related">Read next: <a href="library-guide.html#item-aim">Which way a device faces</a> · <a href="reference.html#concept-units">Feet, and which way is north</a></div>
+</article>
+</div>
+  </main>
+</div>
+<div class="wrap"><footer>
+Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
+shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
+Every glyph is drawn by the app's own <code>shapes.js</code>. Version 0.0.1.
+</footer></div>
+<script src="help.js"></script>
+</body></html>

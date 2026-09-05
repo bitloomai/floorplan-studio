@@ -36,6 +36,136 @@ window.Panels = (function () {
     toastTimer = setTimeout(() => { t.hidden = true; }, isErr ? 5200 : 2600);
   }
 
+  /* ---------- help ----------
+   *
+   * A "?" beside a panel or a section opens every topic that applies THERE, in
+   * one sheet, rather than a tooltip per control.
+   *
+   * That is the whole design decision. A tooltip answers "what is this field",
+   * which is the question you have already answered by reading the label; it
+   * cannot answer "why is this off by default" or "what does this interact
+   * with", because those span several controls. So help is per PLACE, and a
+   * place asks for what applies to it by selector — it does not know which
+   * topics exist, and no topic knows where the panel puts things. That is what
+   * stops the two drifting apart.
+   *
+   * Asking for a panel returns its sections too, so the panel-level "?" is a
+   * superset and a section's "?" is the tight answer.
+   *
+   * The server renders the markdown. This page carries no parser, and the
+   * editor, the MCP answer and the documentation site cannot disagree about
+   * what a topic says. */
+
+  // Always read current registry data: a saved library edit changes generated help.
+
+  function helpBtn(selectors, label) {
+    const key = [].concat(selectors).join(',');
+    return h('button', {
+      class: 'help-btn', type: 'button', title: label || 'What is this?',
+      'aria-label': label || 'Help for this section',
+      onclick: (e) => { e.stopPropagation(); showHelp(selectors, label); },
+    }, '?');
+  }
+
+  /* A heading with its own "?" — the one place a panel title is built, so a
+   * panel that gains a title gains a help button by construction. */
+  function panelTitle(text, selectors) {
+    const id = [].concat(selectors || []).find((s) => UINavigation.locations[s]);
+    if (id && id !== 'panel:item' && id !== 'panel:opening') text = UINavigation.label(id);
+    return h('div', { class: 'panel-title', 'data-ui-location': id }, h('h2', {}, text), selectors ? helpBtn(selectors, 'Help: ' + text) : null);
+  }
+
+  function sectionTitle(text, selectors) {
+    const id = [].concat(selectors || []).find((s) => UINavigation.locations[s]);
+    if (id) text = UINavigation.label(id);
+    return h('div', { class: 'panel-title sub', 'data-ui-location': id }, h('h3', {}, text), selectors ? helpBtn(selectors, 'Help: ' + text) : null);
+  }
+
+  function locationTitle(id, selectors) {
+    return sectionTitle(UINavigation.label(id), selectors || id);
+  }
+
+  async function showHelp(selectors, label, topicId) {
+    const key = [].concat(selectors).join(',');
+    const body = h('div', { class: 'help-sheet' }, h('p', { class: 'hint' }, 'Loading…'));
+    modal(label ? label.replace(/^Help: /, '') + ' — help' : 'Help', body);
+    let data;
+    try { data = topicId ? await API.helpTopic(topicId) : await API.help(key); }
+    catch (e) { body.replaceChildren(h('p', { class: 'hint' }, 'Help is unavailable: ' + e.message)); return; }
+    if (!data.topics.length) {
+      body.replaceChildren(h('p', { class: 'hint' }, 'Nothing is written about this yet.'));
+      return;
+    }
+    body.replaceChildren(...data.topics.map((t) => {
+      /* `innerHTML` on server-rendered help. The corpus ships inside the app —
+       * it is not user content and never passes through a project document —
+       * and the renderer escapes everything it did not itself emit. */
+      const article = h('article', { class: 'help-topic' },
+        h('h3', {}, t.title),
+        h('p', { class: 'help-summary' }, t.summary));
+      const bodyEl = h('div', { class: 'help-body' });
+      bodyEl.innerHTML = t.html;
+      article.appendChild(bodyEl);
+      if (t.see && t.see.length) article.appendChild(h('div', { class: 'help-related' },
+        h('span', { class: 'hint' }, 'Read next'),
+        ...t.see.map((id) => h('button', { class: 'btn tiny', onclick: () => showHelp([], null, id) }, id.replace(/-/g, ' ')))));
+      if (t.derived) {
+        article.appendChild(h('p', { class: 'hint' },
+          'Generated from this type\'s own registry entry, so it cannot go stale.'));
+      }
+      return article;
+    }));
+    body.prepend(h('button', { class: 'btn help-back', onclick: () => helpDialog() }, '← Search all help'));
+  }
+
+  /* The top bar's "?" — the way in when you do not already have the thing
+   * selected. Search first, because someone who opens this has a word in mind;
+   * the browse list is what you fall back to when you do not. */
+  async function helpDialog() {
+    const results = h('div', { class: 'help-results' });
+    const input = h('input', {
+      type: 'search', placeholder: 'Search help — daylight, transmission, stairs, cone…',
+      oninput: () => run(input.value),
+    });
+    const wrap = h('div', { class: 'help-browser' }, input, results);
+    modal('Help', wrap);
+    input.focus();
+
+    let index = null, request = 0;
+
+    // An exact search hit opens that topic, not every topic sharing its selector.
+    const openTopic = (t) => showHelp([], t.title, t.id);
+    const line = (t) => h('button', {
+      class: 'help-hit', type: 'button', onclick: () => openTopic(t),
+    }, h('strong', {}, t.title), h('span', {}, t.summary));
+
+    async function run(q) {
+      const ticket = ++request;
+      try {
+      if (q && q.trim()) {
+        const r = await API.helpSearch(q.trim());
+        if (ticket !== request) return;
+        results.replaceChildren(...(r.topics.length
+          ? r.topics.map(line)
+          : [h('p', { class: 'hint' }, 'Nothing matches that.')]));
+        return;
+      }
+      if (!index) index = await API.helpIndex();
+      if (ticket !== request) return;
+      /* Browsing is grouped by category, and the derived per-type topics are
+       * left out: 258 rows of "this is a type" is a list nobody scrolls, and
+       * they are one click away from the item itself. */
+      const authored = index.topics.filter((t) => !t.derived);
+      results.replaceChildren(...index.categories.map((c) => {
+        const mine = authored.filter((t) => t.category === c.id);
+        if (!mine.length) return null;
+        return h('section', {}, h('h4', {}, c.label), ...mine.map(line));
+      }).filter(Boolean));
+      } catch (e) { if (ticket === request) results.replaceChildren(h('p', { class: 'hint' }, 'Could not load help: ' + e.message)); }
+    }
+    run('');
+  }
+
   /* ---------- modal ---------- */
 
   function modal(title, bodyEl) {
@@ -253,9 +383,32 @@ window.Panels = (function () {
     });
   }
 
+  /* ---------- advanced settings ----------
+   *
+   * The panels can edit far more than a plan needs, and showing all of it by
+   * default is how a form stops being read: the three fields that matter are
+   * buried among twenty that almost nobody sets. Anything genuinely optional
+   * goes through `adv()`, which draws it only when the top-bar toggle is on and
+   * COUNTS it when it is not, so `advNote()` can say what is being withheld.
+   * Hiding a setting silently would be worse than the clutter — you would have
+   * to already know it existed to go looking for it. */
+  let hiddenAdvanced = 0;
+
+  function adv(box, build) {
+    if (!S.advanced) { hiddenAdvanced++; return; }
+    build(box);
+  }
+
+  function advNote(box) {
+    if (S.advanced || !hiddenAdvanced) return;
+    box.appendChild(h('p', { class: 'hint adv-note' },
+      `${hiddenAdvanced} more setting${hiddenAdvanced === 1 ? '' : 's'} here — tick Advanced in the top bar.`));
+  }
+
   function renderInspector() {
     const box = $('inspector');
     box.replaceChildren();
+    hiddenAdvanced = 0;
     const floor = Store.floor();
     if (!floor) {
       box.appendChild(h('p', { class: 'empty' }, 'No floors yet. Use + in the floor bar to add one.'));
@@ -297,7 +450,7 @@ window.Panels = (function () {
   }
 
   function renderFloorPanel(box, floor) {
-    box.appendChild(h('h2', {}, 'Floor'));
+    box.appendChild(panelTitle('Floor', 'panel:floor'));
     box.appendChild(field('Name', h('input', {
       type: 'text', value: floor.name,
       onchange: (e) => Store.mutate(() => { floor.name = e.target.value; }, 'rename floor'),
@@ -385,7 +538,7 @@ window.Panels = (function () {
   }
 
   function renderRoomPanel(box, floor, room) {
-    box.appendChild(h('h2', {}, 'Room'));
+    box.appendChild(panelTitle('Room', 'panel:room'));
     box.appendChild(field('Name', h('input', {
       type: 'text', value: room.name,
       onchange: (e) => Store.mutate(() => { room.name = e.target.value; }, 'rename room'),
@@ -464,7 +617,14 @@ window.Panels = (function () {
       room.points = pts;
     }, 'curve wall');
 
-    box.appendChild(h('div', { class: 'subhead' }, 'Curved walls'));
+    /* A row per wall, and almost every room is four straight ones — so this is
+     * the longest block in the panel and the least often used. It stays a
+     * click away rather than in everybody's way. */
+    const anyCurved = outlinePts().some((p) => p.length > 2 && p[2]);
+    if (S.advanced || anyCurved) renderCurvedWalls(); else hiddenAdvanced++;
+
+    function renderCurvedWalls() {
+    box.appendChild(locationTitle('section:room.curved'));
     box.appendChild(h('p', { class: 'hint' },
       'How far each wall bows out of a straight line, in feet. 0 is straight — a '
       + 'square room is every wall at 0. A negative number bows it the other way, '
@@ -490,6 +650,7 @@ window.Panels = (function () {
       ));
     });
     box.appendChild(curveRows);
+    }
 
     PanelsExtra.flooringField(box, room);
 
@@ -513,7 +674,7 @@ window.Panels = (function () {
      * usually the ceiling fan sitting exactly where the centre is. `chip_at`
      * overrides that outright: a position set by hand is a decision, so nothing
      * second-guesses it afterwards. Nudging simply writes the first one. */
-    if (!room.noLabel) {
+    if (!room.noLabel) adv(box, () => {
       const centre = PlanScene.roomCentroid(room);
       const nudge = (dx, dy) => Store.mutate(() => {
         const from = room.chip_at || centre;
@@ -539,7 +700,21 @@ window.Panels = (function () {
       ));
       box.appendChild(field('Rotate the name (°)', numInput(room.chip_rotate || 0,
         (v) => Store.mutate(() => { room.chip_rotate = ((Math.round(v || 0) % 360) + 360) % 360; }, 'rotate room label'), 15)));
-    }
+
+      /* The live "3 of 5 on" count beside the name. It has been in the model
+       * and read by the renderer from the beginning with no control anywhere,
+       * so a room whose count was noise could only be quietened by hand-editing
+       * JSON — the same gap `chip_at` had. Blank follows the house rule. */
+      box.appendChild(field('Show the on/total count', h('select', {
+        onchange: (e) => Store.mutate(() => {
+          if (e.target.value === '') delete room.showCount;
+          else room.showCount = e.target.value === 'yes';
+        }, 'room count'),
+      },
+      h('option', { value: '', selected: room.showCount === undefined }, 'Follow the house'),
+      h('option', { value: 'yes', selected: room.showCount === true }, 'Always'),
+      h('option', { value: 'no', selected: room.showCount === false }, 'Never'))));
+    });
 
     PanelsExtra.roomExtras(box, floor, room);
 
@@ -547,38 +722,44 @@ window.Panels = (function () {
     /* Daylight, per room. "Enough glass" is a judgement about a room, not about
      * a house: a stairwell and a living room with identical glazed-to-floor
      * ratios are not equally well lit in practice. Blank inherits the house. */
-    box.appendChild(h('div', { class: 'subhead' }, 'Daylight'));
-    const dl = room.daylight || {};
-    box.appendChild(field('Fully-daylit glazing ratio (blank = use the house)', h('input', {
-      type: 'number', step: 0.01, min: 0.01, max: 1, value: dl.referenceExposure ?? '',
-      placeholder: String((S.project.sun && S.project.sun.ambient && S.project.sun.ambient.referenceExposure) ?? 0.16),
-      onchange: (e) => Store.mutate(() => {
-        const v = e.target.value === '' ? null : Number(e.target.value);
-        if (v === null) { if (room.daylight) delete room.daylight.referenceExposure; } else {
-          room.daylight = Object.assign({}, room.daylight, { referenceExposure: v });
-        }
-      }, 'room daylight'),
-    })));
-    if (room.outdoor) {
-      box.appendChild(h('p', { class: 'hint' },
-        'This room is marked outdoor, so it is lit from above and the ratio is not consulted — it takes the open-sky share instead.'));
-    }
+    adv(box, () => {
+      box.appendChild(h('div', { class: 'subhead' }, 'Daylight'));
+      const dl = room.daylight || {};
+      box.appendChild(field('Fully-daylit glazing ratio (blank = use the house)', h('input', {
+        type: 'number', step: 0.01, min: 0.01, max: 1, value: dl.referenceExposure ?? '',
+        placeholder: String((S.project.sun && S.project.sun.ambient && S.project.sun.ambient.referenceExposure) ?? 0.16),
+        onchange: (e) => Store.mutate(() => {
+          const v = e.target.value === '' ? null : Number(e.target.value);
+          if (v === null) { if (room.daylight) delete room.daylight.referenceExposure; } else {
+            room.daylight = Object.assign({}, room.daylight, { referenceExposure: v });
+          }
+        }, 'room daylight'),
+      })));
+      if (room.outdoor) {
+        box.appendChild(h('p', { class: 'hint' },
+          'This room is marked outdoor, so it is lit from above and the ratio is not consulted — it takes the open-sky share instead.'));
+      }
+    });
 
     box.appendChild(h('div', { class: 'subhead' }, `Markers inside (${inRoom.length})`));
     for (const it of inRoom) {
+      const spec = PlanScene.specLine(PlanScene.resolveType(S.library, it), it);
       box.appendChild(h('button', {
         class: 'btn tiny', style: 'display:block;width:100%;text-align:left;margin-bottom:4px',
         onclick: () => Store.select('item', it.id),
-      }, `${it.type} — ${it.entity || it.name || 'unbound'}`));
+      }, `${it.type} — ${it.entity || it.name || 'unbound'}${spec ? ' · ' + spec : ''}`));
     }
 
+    advNote(box);
     box.appendChild(h('div', { class: 'subhead' }, ' '));
     box.appendChild(h('button', { class: 'btn danger', onclick: () => Canvas.deleteSelected() }, 'Delete room'));
   }
 
   function renderItemPanel(box, floor, item) {
     const t = PlanScene.resolveType(S.library, item) || {};
-    box.appendChild(h('h2', {}, t.label || item.type));
+    /* The item panel asks for its own TYPE alongside the panel, so a camera's
+     * sheet carries what a camera IS next to what the panel does with it. */
+    box.appendChild(panelTitle(t.label || item.type, ['panel:item', 'type:' + item.kind + '.' + item.type]));
     box.appendChild(h('p', { class: 'hint' }, h('span', { class: 'badge' }, item.kind), ' ', item.id));
 
     box.appendChild(h('div', { class: 'field row' },
@@ -590,7 +771,7 @@ window.Panels = (function () {
      * flight of stairs with lit risers is a real thing with a switch on it.
      * Only those get an entity picker; a sofa does not need one. */
     if (item.kind !== 'furniture' || (t.render || {}).bindable) {
-      box.appendChild(h('div', { class: 'subhead' }, 'Home Assistant'));
+      box.appendChild(locationTitle('section:item.entity'));
       const cur = item.entity || '(not bound)';
       box.appendChild(h('div', { class: 'field' },
         h('label', {}, 'Entity'),
@@ -609,28 +790,33 @@ window.Panels = (function () {
        * type may still guess one — a camera looks for its own detection sensor
        * — and if neither is available, hold falls back to the marker's own
        * entity, which is what it has always done. */
-      const holdCur = (item.props || {}).holdEntity;
-      box.appendChild(h('div', { class: 'field' },
-        h('label', {}, 'Long press opens'),
-        h('div', { class: 'entity-pick' },
-          h('span', { class: 'cur mono', title: holdCur || '' }, holdCur || '(this entity, or a guess)'),
-          h('button', { class: 'btn tiny', onclick: () => pickEntity(null, (id) => Store.mutate(() => {
-            item.props = Object.assign({}, item.props, { holdEntity: id });
-          }, 'hold target')) }, 'Pick…'),
-          holdCur && h('button', { class: 'btn tiny', title: 'Clear', onclick: () => Store.mutate(() => {
-            if (item.props) delete item.props.holdEntity;
-          }, 'clear hold') }, '✕'),
-        ),
-      ));
+      adv(box, () => {
+        const holdCur = (item.props || {}).holdEntity;
+        box.appendChild(h('div', { class: 'field' },
+          h('label', {}, 'Long press opens'),
+          h('div', { class: 'entity-pick' },
+            h('span', { class: 'cur mono', title: holdCur || '' }, holdCur || '(this entity, or a guess)'),
+            h('button', { class: 'btn tiny', onclick: () => pickEntity(null, (id) => Store.mutate(() => {
+              item.props = Object.assign({}, item.props, { holdEntity: id });
+            }, 'hold target')) }, 'Pick…'),
+            holdCur && h('button', { class: 'btn tiny', title: 'Clear', onclick: () => Store.mutate(() => {
+              if (item.props) delete item.props.holdEntity;
+            }, 'clear hold') }, '✕'),
+          ),
+        ));
+      });
 
       box.appendChild(field('Label on the plan', h('input', {
         type: 'text', value: item.name || '', placeholder: 'defaults to the entity name',
         onchange: (e) => Store.mutate(() => { item.name = e.target.value || null; }, 'label'),
       })));
-      box.appendChild(field('Room', h('input', {
+      /* Membership is worked out from where the marker stands; naming a room
+       * by hand is for the cases geometry cannot answer — a pillar-mounted
+       * array that overhangs its own slab. */
+      adv(box, () => box.appendChild(field('Room', h('input', {
         type: 'text', value: item.room || '', placeholder: 'auto from position',
         onchange: (e) => Store.mutate(() => { item.room = e.target.value || null; }, 'room'),
-      })));
+      }))));
     }
 
     /* type-declared properties, grouped
@@ -640,14 +826,17 @@ window.Panels = (function () {
      * it reaches, how much light it makes. `rot` and the coverage pair are
      * lifted out of the list because they have better controls than a number
      * box — see below. */
-    const props = (t.props || []).filter((p) => p.type !== 'channels');
-    const SIZE = new Set(['w', 'h']);
+    /* `hitRect` is declared so an MCP caller can find it, and edited by the
+     * Tap area block below — offering it a second time as four raw numbers in
+     * the generic list is how two controls end up disagreeing. */
+    const props = (t.props || []).filter((p) => p.type !== 'channels' && p.key !== 'hitRect');
+    const SIZE = new Set(UINavigation.groups.size);
     /* `cone` belongs here rather than in the generic list: it gates whether
      * `fov` and `range` are shown at all, so the three have to be drawn by one
      * function or the checkbox appears twice and the wrong copy is the one
      * people find. */
-    const AIM = new Set(['rot', 'fov', 'range', 'cone']);
-    const LAMP = new Set(['watt', 'count', 'efficacy', 'beam', 'kelvin']);
+    const AIM = new Set(UINavigation.groups.aim);
+    const LAMP = new Set(UINavigation.groups.lamp);
 
     /* ---- Look ----
      *
@@ -671,11 +860,10 @@ window.Panels = (function () {
     const markerVariants = family && window.Shapes ? Shapes.variantsOf(family) : [];
     const furnitureVariants = furnitureShape && window.Shapes ? Shapes.furnitureVariantsOf(furnitureShape) : [];
     const hasVariantGrid = markerVariants.length > 1 || furnitureVariants.length > 1;
-    const rest = props.filter((p) => !SIZE.has(p.key) && !AIM.has(p.key) && !(hasVariantGrid && p.key === 'variant')
-      && !(item.kind === 'fixture' && LAMP.has(p.key)));
+    const rest = props.filter((p) => UINavigation.propSection(t, p) === 'properties');
 
     if (markerVariants.length > 1) {
-      box.appendChild(h('div', { class: 'subhead' }, 'Look'));
+      box.appendChild(locationTitle('section:item.look'));
       const grid = h('div', { class: 'variant-grid' });
       const current = item.props.variant || (t.defaults || {}).variant || Shapes.MARKER_DEFAULT[family];
       for (const v of markerVariants) {
@@ -700,7 +888,7 @@ window.Panels = (function () {
       }
       box.appendChild(grid);
     } else if (furnitureVariants.length > 1) {
-      box.appendChild(h('div', { class: 'subhead' }, 'Look'));
+      box.appendChild(locationTitle('section:item.look'));
       const grid = h('div', { class: 'variant-grid' });
       const current = item.props.variant || (t.defaults || {}).variant || furnitureVariants[0];
       for (const v of furnitureVariants) {
@@ -711,19 +899,37 @@ window.Panels = (function () {
         /* Preserve the real footprint's aspect ratio in the picker. Forcing a
          * 2x6 bicycle or scooter into a 32x32 square is exactly how a sound
          * top-down drawing turns back into a comical blob before placement. */
-        const fw = numOr((t.defaults || {}).w, 3), fh = numOr((t.defaults || {}).h, 3);
+        const vs = Shapes.furnitureVariantSize(furnitureShape, v);
+        const fw = vs ? vs[0] : numOr((t.defaults || {}).w, 3);
+        const fh = vs ? vs[1] : numOr((t.defaults || {}).h, 3);
         const fs = 32 / Math.max(fw, fh, 0.1);
         const fW = fw * fs, fH = fh * fs, fX = (40 - fW) / 2, fY = (40 - fH) / 2;
         const nodes = Shapes.furniture(furnitureShape, {
           x: 0, y: 0, w: fw, h: fh, X: fX, Y: fY, W: fW, H: fH,
           P: { X: (x) => fX + x * fs, Y: (y) => fY + y * fs, S: (len) => len * fs },
-          fill: 'currentColor', line: 'currentColor', p: Object.assign({}, t.defaults || {}, { variant: v }),
+          fill: 'currentColor', line: 'currentColor',
+          p: Object.assign({}, t.defaults || {}, { variant: v, w: fw, h: fh }),
         });
         for (const n of nodes) svg.appendChild(Canvas.nodeToEl(n));
+        const sized = Shapes.furnitureVariantSize(furnitureShape, v);
         const btn = h('button', {
           class: 'variant' + (v === current ? ' on' : ''),
-          title: v,
-          onclick: () => Store.mutate(() => { item.props.variant = v; }, 'look'),
+          title: sized ? `${v} — ${sized[0]} x ${sized[1]} ft` : v,
+          /* Some looks are a different OBJECT, not the same one restyled: a
+           * CRT is two feet deep where a flat panel is five inches, and an
+           * L-shaped flight does not fit the 3.5 x 10 box a straight run
+           * lives in — pick one there and the drawing has to squeeze two legs
+           * into a corridor. So the look brings its own footprint, but ONLY
+           * while the item is still at the size its type shipped with: once
+           * somebody has sized it themselves, that measurement is a decision
+           * and nothing here overrides it. */
+          onclick: () => Store.mutate(() => {
+            item.props.variant = v;
+            const d = t.defaults || {};
+            const untouched = (item.props.w === undefined || item.props.w === d.w)
+              && (item.props.h === undefined || item.props.h === d.h);
+            if (sized && untouched) { item.props.w = sized[0]; item.props.h = sized[1]; }
+          }, 'look'),
         });
         btn.appendChild(svg);
         btn.appendChild(h('span', {}, v));
@@ -733,7 +939,7 @@ window.Panels = (function () {
     }
 
     if (item.kind === 'furniture' || props.some((p) => SIZE.has(p.key))) {
-      box.appendChild(h('div', { class: 'subhead' }, 'Size'));
+      box.appendChild(locationTitle('section:item.size'));
       box.appendChild(h('div', { class: 'field row' },
         h('div', {}, h('label', {}, 'width (ft)'), numInput(item.props.w ?? (t.defaults || {}).w, (v) => Store.mutate(() => { item.props.w = v; }, 'w'))),
         h('div', {}, h('label', {}, item.kind === 'furniture' ? 'depth (ft)' : 'height (ft)'), numInput(item.props.h ?? (t.defaults || {}).h, (v) => Store.mutate(() => { item.props.h = v; }, 'h'))),
@@ -745,9 +951,9 @@ window.Panels = (function () {
      * something ten feet across — a solar array, a water tank. Setting a
      * rectangle here makes the whole object tappable; smaller targets sitting
      * on top of it still win, because tap shapes are ordered largest-first. */
-    if (item.kind !== 'furniture') {
+    if (item.kind !== 'furniture') adv(box, () => {
       const hr = (item.props || {}).hitRect;
-      box.appendChild(h('div', { class: 'subhead' }, 'Tap area'));
+      box.appendChild(locationTitle('section:item.tap'));
       box.appendChild(h('label', { class: 'inline' },
         h('input', {
           type: 'checkbox', checked: Array.isArray(hr),
@@ -769,13 +975,20 @@ window.Panels = (function () {
           h('div', {}, h('label', {}, 'height (ft)'), numInput(hr[3], (v) => set(3, v), 0.0625)),
         ));
       }
-    }
+    });
 
     if (props.some((p) => AIM.has(p.key))) PanelsExtra.aimFields(box, item, t, props);
     if (item.kind === 'fixture' && props.some((p) => LAMP.has(p.key))) PanelsExtra.lampFields(box, floor, item, t, props);
 
-    if (rest.length) box.appendChild(h('div', { class: 'subhead' }, 'Properties'));
-    for (const p of rest) {
+    /* A property marked `advanced` in the library is one that changes
+     * something real but that almost no plan sets — a marker's pixel size, a
+     * solar array's tilt, where the floor plane cuts a flight. The flag lives
+     * in the registry rather than in a list here for the same reason every
+     * other such list does: a second copy is the copy that goes stale. */
+    const shown = rest.filter((p) => S.advanced || !p.advanced);
+    hiddenAdvanced += rest.length - shown.length;
+    if (shown.length) box.appendChild(locationTitle('section:item.properties'));
+    for (const p of shown) {
       if (p.type === 'number') {
         box.appendChild(field(p.label, numInput(item.props[p.key] ?? (t.defaults || {})[p.key], (v) => Store.mutate(() => { item.props[p.key] = v; }, p.key), p.step)));
       } else if (p.type === 'entity') {
@@ -790,10 +1003,15 @@ window.Panels = (function () {
           type: 'text', value: current, placeholder: '#rrggbb, transparent, or @themeToken',
           onchange: (e) => Store.mutate(() => { item.props[p.key] = e.target.value.trim() || 'transparent'; }, p.key),
         });
+        /* `onchange`, not `oninput` — see the note beside the flooring colour
+         * swatch in panels-extra.js. `Store.mutate` repaints the whole
+         * inspector on every call, and `input` fires on every drag tick inside
+         * the picker, so this element used to recreate itself out from under
+         * its own open picker before a drag could go anywhere. */
         const picker = h('input', {
           type: 'color', value: /^#[0-9a-f]{6}$/i.test(current) ? current : '#000000',
           title: 'Pick a plain color',
-          oninput: (e) => {
+          onchange: (e) => {
             text.value = e.target.value;
             Store.mutate(() => { item.props[p.key] = e.target.value; }, p.key);
           },
@@ -818,9 +1036,11 @@ window.Panels = (function () {
             type: 'text', value: color, placeholder: '#rrggbb',
             onchange: (e) => Store.mutate(() => { ensureRules()[index].color = e.target.value.trim(); }, 'threshold color'),
           });
+          /* `onchange`, not `oninput` — see the note beside the flooring
+           * colour swatch in panels-extra.js. */
           const colorPicker = h('input', {
             type: 'color', value: /^#[0-9a-f]{6}$/i.test(color) ? color : '#000000',
-            oninput: (e) => {
+            onchange: (e) => {
               colorText.value = e.target.value;
               Store.mutate(() => { ensureRules()[index].color = e.target.value; }, 'threshold color');
             },
@@ -860,6 +1080,18 @@ window.Panels = (function () {
         });
         box.appendChild(field(p.label, input));
         if (p.hint) box.appendChild(h('p', { class: 'hint' }, p.hint));
+      } else if (p.type === 'boolean') {
+        /* Was falling through to the free-text box below, which cannot express
+         * false: the drawers read `p.sink !== false`, so anything typed there —
+         * including the word "false" — left the sink switched on. Two of these
+         * shipped (a counter's sink, a pergola's cross-battens) and neither
+         * control could turn its feature off. */
+        const cur = item.props[p.key] ?? (t.defaults || {})[p.key] ?? true;
+        box.appendChild(h('label', { class: 'inline' },
+          h('input', {
+            type: 'checkbox', checked: cur !== false,
+            onchange: (e) => Store.mutate(() => { item.props[p.key] = e.target.checked; }, p.key),
+          }), ' ' + p.label));
       } else if (p.type === 'select') {
         /* Was falling through to the free-text box below, which let a typo
          * into a field whose whole job is to hold one of a known set. */
@@ -915,6 +1147,7 @@ window.Panels = (function () {
       }, `+ ${noun}`));
     }
 
+    advNote(box);
     box.appendChild(h('div', { class: 'subhead' }, ' '));
     box.appendChild(h('button', { class: 'btn danger', onclick: () => Canvas.deleteSelected() }, 'Delete marker'));
   }
@@ -1267,8 +1500,9 @@ window.Panels = (function () {
   return {
     renderAll, renderFloors, renderLibrary, renderInspector, renderThemePicker, addFloor,
     toast, modal, closeModal, applyUiTheme, shortcutsDialog,
-    editLibrary, editTheme, importDialog, exportDialog, flashAperture, pickEntity,
+    editLibrary, editTheme, importDialog, exportDialog, flashAperture, pickEntity, helpDialog,
     // shared with panels-extra.js so both build controls the same way
+    helpBtn, panelTitle, sectionTitle, locationTitle, showHelp,
     h, field, numInput,
   };
 }());

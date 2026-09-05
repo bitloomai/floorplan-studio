@@ -64,6 +64,15 @@
     /* Rooms lit by lamps stop taking a daylight wash as well; whichever is
      * brighter wins rather than the two adding up to a blown-out white. */
     combine: 'max',            // 'max' | 'add'
+    /* A lamp's pool is clipped to its own room, plus a patch through each
+     * opening reaching `spillFt x that opening's transmission`.
+     *
+     * These two numbers were documented, read by the renderer and absent from
+     * here, so `mergeConfig` never carried them and the editor had nothing to
+     * bind a control to — `plan-scene.js` supplied the same pair inline as a
+     * last-resort default instead. That is why light zones were the one part
+     * of the lighting model with no UI at all. */
+    zones: { enabled: true, spillFt: 3.5 },
   };
 
   function mergeConfig(...layers) {

@@ -2,6 +2,7 @@
 (function () {
   'use strict';
 
+  UINavigation.bind(document);
   const S = Store.S;
   const $ = (id) => document.getElementById(id);
   let saveTimer = null;
@@ -82,6 +83,7 @@
       Canvas.paint(); showSun();
     });
     $('btnExport').addEventListener('click', () => Panels.exportDialog());
+    $('btnHelp').addEventListener('click', () => Panels.helpDialog());
     $('btnShortcuts').addEventListener('click', () => Panels.shortcutsDialog());
     $('btnSave').addEventListener('click', save);
     $('modalClose').addEventListener('click', () => Panels.closeModal());
@@ -98,6 +100,13 @@
       if (S.view.live) loadStates();
       Canvas.paint();
     });
+
+    /* Remembered in this browser, so it is set once rather than every session.
+     * The change emits `selection`, which is what repaints the open panel — the
+     * toggle has to act on what you are already looking at, not on the next
+     * thing you click. */
+    $('advancedMode').checked = S.advanced;
+    $('advancedMode').addEventListener('change', (e) => Store.setAdvanced(e.target.checked));
 
     $('snapToggle').addEventListener('change', (e) => { S.view.snap = e.target.checked; });
     $('gridToggle').addEventListener('change', (e) => { S.view.showGrid = e.target.checked; Canvas.paint(); });

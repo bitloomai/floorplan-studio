@@ -13,7 +13,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 
-const VERSION = '0.10.0';
+const VERSION = '0.0.1';
 const DEFAULTS_DIR = path.join(__dirname, '..', 'defaults');
 const DATA_DIR = process.env.FPS_DATA_DIR || path.join(__dirname, '..', 'data');
 
@@ -390,6 +390,11 @@ function renameLibraryTypes(doc, fresh) {
  * it. Same rule throughout — never overwrite, only fill. `props` is keyed by
  * `key` rather than by position, because appending by index would duplicate
  * every prop the moment the shipped order changed. */
+/* Old prop key -> the key that replaced it. Dropped from a saved library only
+ * when the shipped one carries the replacement and no longer carries the old
+ * name, so this can never delete something a user still relies on. */
+const RETIRED_PROPS = { hit_rect: 'hitRect' };
+
 function fillTypeGaps(doc, fresh) {
   const notes = [];
   if (!doc.types || typeof doc.types !== 'object') return notes;
@@ -400,9 +405,47 @@ function fillTypeGaps(doc, fresh) {
       if (field === 'props') {
         if (!Array.isArray(value)) continue;
         if (!Array.isArray(mine.props)) { mine.props = JSON.parse(JSON.stringify(value)); notes.push(`${k}.props`); continue; }
-        const have = new Set(mine.props.map((p) => p && p.key));
+        const have = new Map(mine.props.map((p) => [p && p.key, p]));
         for (const p of value) {
-          if (p && !have.has(p.key)) { mine.props.push(JSON.parse(JSON.stringify(p))); notes.push(`${k}.props:${p.key}`); }
+          if (!p) continue;
+          const existing = have.get(p.key);
+          if (!existing) { mine.props.push(JSON.parse(JSON.stringify(p))); notes.push(`${k}.props:${p.key}`); continue; }
+          /* A prop the document already has still needs the DESCRIPTIVE fields
+           * the shipped one has since gained — `spec`, `advanced`, `hint`, and
+           * the option list a picker is built from. This is the same gap
+           * `fillFlooringReflectance` exists for, one level down: adding whole
+           * props worked, topping up a prop already present did not, so a
+           * long-lived install kept a `variant` list that predates half the
+           * looks the renderer draws and showed every fine-tuning number in the
+           * default panel because nothing there was ever marked advanced.
+           *
+           * Only fields that are ABSENT are filled, so anything edited in the
+           * library editor stands. `options` is the one exception worth naming:
+           * it is topped up by MEMBERSHIP rather than replaced, because a list
+           * somebody curated is theirs but a look the renderer can draw and the
+           * picker never offers is simply unreachable. */
+          for (const f of ['spec', 'advanced', 'hint', 'label', 'type', 'min', 'max', 'step', 'domains', 'noun', 'variantFamily']) {
+            if (p[f] !== undefined && existing[f] === undefined) { existing[f] = JSON.parse(JSON.stringify(p[f])); notes.push(`${k}.props:${p.key}.${f}`); }
+          }
+          if (Array.isArray(p.options) && Array.isArray(existing.options)) {
+            const seen = new Set(existing.options.map((o) => (o && typeof o === 'object' ? o.value : o)));
+            for (const o of p.options) {
+              const v = o && typeof o === 'object' ? o.value : o;
+              if (!seen.has(v)) { existing.options.push(JSON.parse(JSON.stringify(o))); notes.push(`${k}.props:${p.key}.options:${v}`); }
+            }
+          }
+        }
+        /* A prop the shipped library has RENAMED leaves its old self behind
+         * forever otherwise. `hit_rect` is the case that proved it: the
+         * renderer only ever read `hitRect`, so the old key was a control that
+         * did nothing, and after the rename an upgraded install carried both. */
+        const shippedKeys = new Set(value.map((p) => p && p.key));
+        for (let i = mine.props.length - 1; i >= 0; i--) {
+          const key = mine.props[i] && mine.props[i].key;
+          if (key && RETIRED_PROPS[key] && shippedKeys.has(RETIRED_PROPS[key]) && !shippedKeys.has(key)) {
+            mine.props.splice(i, 1);
+            notes.push(`${k}.props:-${key}`);
+          }
         }
       } else if (value && typeof value === 'object' && !Array.isArray(value)) {
         if (!mine[field] || typeof mine[field] !== 'object') { mine[field] = JSON.parse(JSON.stringify(value)); notes.push(`${k}.${field}`); continue; }
@@ -480,6 +523,10 @@ module.exports = {
   VERSION,
   dataDir: () => DATA_DIR,
   init,
+  /* Exported for the suite. This is the mechanism the audits keep catching out
+   * — a field the shipped registry has and a long-lived saved copy does not —
+   * and it was untestable from outside while it lived behind readDoc(). */
+  upgradeDoc,
   emptyProject,
   backupDashboard,
 

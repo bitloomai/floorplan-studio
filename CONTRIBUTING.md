@@ -71,12 +71,16 @@ Then, as applicable:
 - **Added or changed an app option?** Add it to `floorplan_studio/config.yaml`'s `schema:` *and* to
   `floorplan_studio/translations/en.yaml`. A test checks that every schema key is translated,
   because an untranslated option shows the user a raw key.
-- **Bumped the version?** `floorplan_studio/config.yaml`, `package.json` and `store.js`'s
-  `VERSION` must agree, and `floorplan_studio/CHANGELOG.md` must have the entry. Tests check the
-  first part; the changelog is on you.
+- **Version policy:** keep the development version at `0.0.1`. Do not bump it
+  unless the maintainer explicitly asks. User testing precedes the alpha
+  release; current development commits may be replaced by a clean initial
+  release commit. When a version change is authorized, keep config.yaml,
+  package.json, store.js, Dockerfile and the current README badges in sync.
 - **Touched the icon or logo?** Edit `branding/*.svg`, never the PNGs — those
   are generated. Re-export with `node tools/serve-static.js` and commit both
   the SVG and the regenerated PNG. See `floorplan_studio/DOCS.md`, section "Branding".
+  Run `node tools/sync-branding.js` and `node tools/make-docs.js` to refresh
+  editor and help assets; both accept `--check` to detect drift.
 
 New behaviour needs a test. The suite is a plain script with an `ok(name, cond)`
 helper — no framework, no runner, no configuration. Add to the section it

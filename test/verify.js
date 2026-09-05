@@ -527,6 +527,43 @@ const fixtureBadDefaultVariant = fixtureFamilyTypes.filter(([, t]) => {
 });
 ok('every fixture default variant exists in its family', fixtureBadDefaultVariant.length === 0, fixtureBadDefaultVariant.map((x) => x[0]).join(','));
 
+/* Every FURNITURE variant has to draw something, and something DIFFERENT.
+ *
+ * A look that renders the same nodes as its neighbour is a picker entry that
+ * does nothing — the user chooses "corner bath", the plan keeps drawing the
+ * alcove one, and nothing anywhere reports a fault. That is not hypothetical:
+ * a house layout can only ever show a few of these (three bathrooms cannot hold
+ * five tubs), so no fixture could have proved the rest work. This can.
+ *
+ * Compared at each variant's OWN default footprint, because a look that changes
+ * the footprint and not the drawing is still a real look — a corner tub is
+ * square where an alcove tub is long, and that is the difference.
+ *
+ * This replaced a version that named `screen`, `tv_unit` and `water` by hand,
+ * so every look added after it was written went unchecked. It walks every shape
+ * in `FURNITURE` now. */
+const dupVariants = [];
+const emptyVariants = [];
+for (const shape of Object.keys(Shapes.FURNITURE)) {
+  const looks = Shapes.furnitureVariantsOf(shape);
+  if (looks.length < 2) continue;
+  const seen = new Map();
+  for (const v of looks) {
+    const [fw, fh] = Shapes.furnitureVariantSize(shape, v) || [4, 3];
+    const nodes = Shapes.furniture(shape, {
+      X: 0, Y: 0, W: fw * 22, H: fh * 22, fill: '#eee', line: '#555',
+      t: { coolTint: '#cfe', coolRim: '#8ac' }, P: { S: (ft) => ft * 22 },
+      p: { variant: v },
+    });
+    if (!Array.isArray(nodes) || !nodes.length) { emptyVariants.push(`${shape}.${v}`); continue; }
+    const sig = JSON.stringify(nodes) + `@${fw}x${fh}`;
+    if (seen.has(sig)) dupVariants.push(`${shape}.${v} draws exactly ${seen.get(sig)}`);
+    seen.set(sig, v);
+  }
+}
+ok('every furniture look draws something', emptyVariants.length === 0, emptyVariants.join(', '));
+ok('and no two looks of one shape draw the same thing', dupVariants.length === 0, dupVariants.join('; '));
+
 /* Every variant has to survive being resized to the ends of its range and to
  * both states. A drawing that divides by its own radius produces NaN at R=0 and
  * an invisible marker on someone's plan. */
@@ -831,6 +868,34 @@ ok('and bounce 0 reproduces the old model exactly',
 
 console.log('\n== sun ==');
 const { lat, lon } = project.sun.location;
+
+/* Every constant these two models run on has to be reachable from the editor.
+ * The audit that prompted this found nine that were not: the whole extinction
+ * curve, the beam geometry, three quarters of the ambient block, how much the
+ * solar sensor is believed, and whether the position is computed or taken from
+ * Home Assistant's own entity. Each was read by the model, documented in
+ * ARCHITECTURE.md, and editable only by hand-writing project.json.
+ *
+ * Checked by NAME against the editor's own source rather than by driving the
+ * DOM, because the failure being guarded against is a setting nobody wired up
+ * at all — not a control that renders wrongly. */
+{
+  const editor = ['panels.js', 'panels-extra.js', 'panels-dashboard.js']
+    .map((f) => fs.readFileSync(path.join(APP, 'public', 'js', f), 'utf8')).join('\n');
+  const reach = (obj, prefix) => {
+    const missing = [];
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === 'factors' || k === 'label') continue;   // a per-weather-state table, not a control
+      if (!new RegExp(`['"\`.\\[]${k}\\b`).test(editor)) missing.push(prefix + k);
+      if (v && typeof v === 'object' && !Array.isArray(v)) missing.push(...reach(v, prefix + k + '.'));
+    }
+    return missing;
+  };
+  const sunGaps = reach(Sun.DEFAULTS, 'sun.');
+  ok('every daylight constant is reachable from the editor', sunGaps.length === 0, sunGaps.join(', '));
+  const lightGaps = reach(Light.DEFAULTS, 'lighting.');
+  ok('every lamplight constant is reachable from the editor', lightGaps.length === 0, lightGaps.join(', '));
+}
 
 /* These used to build their instants with `new Date(y, m, d, 10, 0)`, which is
  * ten o'clock ON THE MACHINE RUNNING THE TEST. That only ever agreed with the
@@ -1677,6 +1742,236 @@ for (const [k, t] of furnTypes) {
   }
 }
 ok('every declared property is well-formed', badProp.length === 0, badProp.slice(0, 4).join(', '));
+
+/* ---- a property nothing draws ----
+ *
+ * The rule this codebase keeps rediscovering: a settings form full of fields
+ * that do nothing teaches people the fields do nothing. These were all
+ * declared, editable, and read by NOTHING before this pass — the drawing was
+ * identical whatever you set. Each check varies one property and insists the
+ * picture changes. */
+ok('a sectional draws the seats it says it has',
+  countTag('sectional', { w: 9, h: 3.2, seats: 3 }, 'line') !== countTag('sectional', { w: 9, h: 3.2, seats: 7 }, 'line'));
+ok('a desk draws the drawers it says it has',
+  countTag('desk', { w: 4.5, h: 2.2, drawers: 1 }, 'line') !== countTag('desk', { w: 4.5, h: 2.2, drawers: 5 }, 'line'));
+ok('a wine rack draws the rows it says it has',
+  countTag('wine_rack', { w: 4, h: 2.4, shelves: 2 }, 'circle') !== countTag('wine_rack', { w: 4, h: 2.4, shelves: 5 }, 'circle'));
+ok('a filing cabinet draws the drawers it says it has',
+  countTag('filing_cabinet', { w: 1.5, h: 2, shelves: 2 }, 'line') !== countTag('filing_cabinet', { w: 1.5, h: 2, shelves: 5 }, 'line'));
+ok('a UPS rack draws the units it says it has',
+  countTag('ups_rack', { w: 3, h: 2, shelves: 2 }, 'rect') !== countTag('ups_rack', { w: 3, h: 2, shelves: 5 }, 'rect'));
+ok('a bar counter draws the stools it says it has',
+  countTag('bar_counter', { w: 7, h: 2, seats: 2 }, 'circle') !== countTag('bar_counter', { w: 7, h: 2, seats: 6 }, 'circle'));
+{
+  const head = (faces) => Shapes.furniture('bunk', mkCtx({ w: 3.5, h: 6.5, faces }))
+    .filter((n) => n.tag === 'rect' && n.attrs.opacity === 0.34).map((n) => n.attrs.y);
+  ok('a bunk puts its pillows against the wall it faces',
+    JSON.stringify(head('n')) !== JSON.stringify(head('s')), head('n') + ' vs ' + head('s'));
+}
+
+/* No node may carry a top-level `cls`: the serialiser reads `attrs` only, so a
+ * drawer that invents one renders everything unclassed and unanimated. The
+ * water tank carried a dead `fps-water` for which no rule has ever existed. */
+{
+  const stray = [];
+  for (const shape of Object.keys(Shapes.FURNITURE)) {
+    for (const n of Shapes.furniture(shape, mkCtx({ w: 4, h: 4 })) || []) if (n && n.cls !== undefined) stray.push(shape);
+  }
+  ok('no furniture node carries a top-level cls the serialiser cannot see', stray.length === 0, stray.join(','));
+}
+
+/* ---- stairs are cut at the floor line ---- */
+const cutStair = (p) => Shapes.furniture('stairs', mkCtx(Object.assign({ w: 3.5, h: 10, steps: 12 }, p)));
+const faint = (p) => cutStair(p).filter((n) => n.tag === 'line' && n.attrs.opacity === 0.38);
+const breaks = (p) => cutStair(p).filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1.4);
+ok('a whole flight has no break and no faded treads',
+  faint({ continues: 'none' }).length === 0 && breaks({ continues: 'none' }).length === 0);
+ok('a cut flight fades the treads past the break and marks where it falls',
+  faint({ continues: 'cut' }).length > 0 && breaks({ continues: 'cut' }).length === 2);
+ok('an up-and-down pair breaks the flight but fades neither run',
+  faint({ continues: 'both' }).length === 0 && breaks({ continues: 'both' }).length === 2);
+{
+  /* Climbing, the storey above is at the TOP of the box; descending it is at
+   * the bottom. Reading the tread index in drawing order rather than travel
+   * order put the cut at the wrong end — which looks like a shading choice
+   * rather than a mistake, so it is worth pinning by coordinate. */
+  const midY = (p) => {
+    const ys = faint(p).map((n) => n.attrs.y1);
+    return ys.reduce((a, b) => a + b, 0) / ys.length;
+  };
+  const up = midY({ continues: 'cut' }), down = midY({ continues: 'cut', dir: 'down' });
+  ok('the cut is above you going up and below you going down', up < down, `up ${up.toFixed(0)} < down ${down.toFixed(0)}`);
+}
+ok('a cut flight says UP or DN and a whole one does not',
+  cutStair({ continues: 'cut' }).some((n) => n.tag === 'text' && n.text === 'UP')
+  && cutStair({ continues: 'cut', dir: 'down' }).some((n) => n.tag === 'text' && n.text === 'DN')
+  && !cutStair({ continues: 'none' }).some((n) => n.tag === 'text'));
+{
+  /* Treads used to split half and half between the legs whatever their
+   * length, so an L in a narrow stairwell packed five of them into a two-foot
+   * arm. Count the nosings on each leg by orientation: the short leg must get
+   * fewer than the long one. */
+  const nodes = cutStair({ variant: 'l_shaped', steps: 12, continues: 'none' });
+  const vertical = nodes.filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1 && n.attrs.x1 === n.attrs.x2).length;
+  const horizontal = nodes.filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1 && n.attrs.y1 === n.attrs.y2).length;
+  ok('an L-shaped flight splits its treads by leg length, not in half',
+    vertical < horizontal, `${vertical} on the short arm, ${horizontal} on the long one`);
+}
+{
+  const w = cutStair({ variant: 'winder', steps: 12, continues: 'none' })
+    .filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1).length;
+  const l = cutStair({ variant: 'l_shaped', steps: 12, continues: 'none' })
+    .filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1).length;
+  ok('winder treads come out of the step count rather than being added to it',
+    w <= l, `winder ${w} vs l_shaped ${l} for the same 12 steps`);
+}
+
+/* ---- looks that carry their own footprint ---- */
+{
+  const bad = [];
+  for (const [shape, byVariant] of Object.entries(Shapes.FURNITURE_VARIANT_SIZES)) {
+    const known = Shapes.furnitureVariantsOf(shape);
+    for (const [variant, size] of Object.entries(byVariant)) {
+      if (!known.includes(variant)) bad.push(`${shape}.${variant} is not a look`);
+      if (!Array.isArray(size) || size.length !== 2 || !size.every((n) => typeof n === 'number' && n > 0)) bad.push(`${shape}.${variant} size`);
+    }
+  }
+  ok('every look that brings a footprint names a look that exists', bad.length === 0, bad.join(', '));
+  ok('a CRT is not drawn at a flat panel’s depth',
+    Shapes.furnitureVariantSize('screen', 'crt')[1] > Shapes.furnitureVariantSize('screen', 'flat')[1]);
+}
+/* ---- the pickers and the renderer agree about what exists ---- */
+{
+  const drift = [];
+  for (const [key, t] of Object.entries(lib.types)) {
+    const prop = (t.props || []).find((p) => p.key === 'variant');
+    if (!prop) continue;
+    const r = t.render || {};
+    const real = r.family ? Shapes.variantsOf(r.family) : Shapes.furnitureVariantsOf(r.shape);
+    if (!real.length) continue;
+    const declared = (prop.options || []).map((o) => (o && typeof o === 'object' ? o.value : o));
+    for (const v of real) if (!declared.includes(v)) drift.push(`${key} is missing ${v}`);
+    for (const v of declared) if (!real.includes(v)) drift.push(`${key} offers ${v}, which nothing draws`);
+  }
+  ok('every look list matches the looks the renderer actually has', drift.length === 0, drift.slice(0, 4).join(', '));
+}
+{
+  /* Every prop `type` the item panel has a branch for. Anything else falls
+   * through to a free-text box, which cannot express a boolean at all: the
+   * counter's sink and the pergola's cross-battens were both controls that
+   * could never be switched off. */
+  const panels = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
+  /* `text` is the fall-through, and correctly so: a label's template really is
+   * free text. Every other type needs a branch of its own, because the
+   * fall-through is a text box and a text box cannot express false. */
+  const handled = new Set(['number', 'entity', 'color', 'thresholds', 'json', 'select', 'boolean', 'channels', 'text']);
+  const unhandled = [];
+  for (const [key, t] of Object.entries(lib.types)) {
+    for (const p of t.props || []) {
+      if (p.key === 'hitRect') continue;          // its own Tap area block
+      if (!handled.has(p.type)) unhandled.push(`${key}/${p.key}:${p.type}`);
+    }
+  }
+  ok('every declared property type has a control that can express it', unhandled.length === 0, unhandled.slice(0, 4).join(', '));
+  for (const type of handled) {
+    if (type === 'channels' || type === 'number' || type === 'text') continue;
+    ok(`the item panel renders a ${type} property`, panels.includes(`p.type === '${type}'`));
+  }
+}
+{
+  /* A prop the renderer reads under a different name is a control that does
+   * nothing — `hit_rect` was declared for two types while `plan-scene.js` has
+   * only ever read `hitRect`. */
+  const planScene = fs.readFileSync(path.join(APP, 'lib', 'plan-scene.js'), 'utf8');
+  const stale = [];
+  for (const [key, t] of Object.entries(lib.types)) {
+    for (const p of t.props || []) if (p.key === 'hit_rect') stale.push(key);
+  }
+  ok('no type still declares the old hit_rect name', stale.length === 0, stale.join(','));
+  ok('the tap rectangle is declared under the name the renderer reads',
+    planScene.includes('p.hitRect') && Object.values(lib.types).some((t) => (t.props || []).some((p) => p.key === 'hitRect')));
+}
+
+/* ---- what a marker IS, not what it is doing ---- */
+{
+  const water = lib.types['device.water'];
+  ok('a marker can state its own capacity', scene.specLine(water, { props: {} }) === '5000 L',
+    scene.specLine(water, { props: {} }));
+  ok('an item’s own figure beats the type default',
+    scene.specLine(water, { props: { litres: 2000 } }) === '2000 L');
+  ok('zero is not a specification',
+    !/throw/.test(scene.specLine(lib.types['device.tv'], { props: { diagonal: 65, throw: 0 } })));
+  ok('a type with nothing worth stating says nothing',
+    scene.specLine(lib.types['furniture.bed'], { props: {} }) === '');
+  /* The countable properties that used to be read by nothing at all. If one
+   * of these loses its `spec` and gains no drawing, it is dead again. */
+  const orphans = [];
+  for (const [key, t] of Object.entries(lib.types)) {
+    for (const p of t.props || []) {
+      if (['litres', 'kw', 'kwh', 'lpm', 'tons', 'db', 'diagonal', 'head'].includes(p.key) && !p.spec) orphans.push(`${key}/${p.key}`);
+    }
+  }
+  ok('every rating property is read by something', orphans.length === 0, orphans.slice(0, 4).join(', '));
+}
+
+/* ---- what the panel shows by default ---- */
+{
+  const essential = ['w', 'h', 'rot', 'variant', 'watt', 'steps', 'shelves', 'seats', 'gangs', 'cols', 'rows'];
+  const wrong = [];
+  for (const [key, t] of Object.entries(lib.types)) {
+    for (const p of t.props || []) if (p.advanced && essential.includes(p.key)) wrong.push(`${key}/${p.key}`);
+  }
+  ok('nothing a plan needs is hidden behind Advanced', wrong.length === 0, wrong.slice(0, 4).join(', '));
+  const advCount = Object.values(lib.types).flatMap((t) => t.props || []).filter((p) => p.advanced).length;
+  ok('the fine-tuning properties are marked advanced', advCount > 50, advCount + ' props');
+  const html = fs.readFileSync(path.join(APP, 'public', 'index.html'), 'utf8');
+  ok('the editor has one Advanced switch, in the top bar', /id="advancedMode"/.test(html));
+  const panels = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
+  ok('a panel says how many settings it is not showing', /adv-note/.test(panels));
+}
+
+/* ---- what a long-lived install actually holds ----
+ *
+ * The failure this project has now found four times: the shipped registry
+ * gains a field, `upgradeDoc` adds whole ENTRIES a saved document has never
+ * seen, and the entry that already exists keeps its old shape forever. This
+ * pass found it one level deeper again — in the props ARRAY, where a variant
+ * list could not catch up with the looks the renderer had gained and nothing
+ * could ever be marked advanced. */
+{
+  const old = {
+    schemaVersion: lib.schemaVersion,
+    types: {
+      'device.water': {
+        label: 'Tank level', kind: 'device', category: 'power',
+        render: { shape: 'disc', family: 'water' },
+        props: [
+          { key: 'variant', label: 'Look', type: 'select', options: ['drop', 'tank'] },
+          { key: 'hit_rect', label: 'Tap area', type: 'rect' },
+          { key: 'litres', label: 'Capacity (L)', type: 'number' },
+          { key: 'size', label: 'Marker size (px)', type: 'number' },
+        ],
+      },
+    },
+  };
+  const upgraded = store.upgradeDoc('library', JSON.parse(JSON.stringify(old)));
+  const props = upgraded.types['device.water'].props;
+  const byKey = Object.fromEntries(props.map((p) => [p.key, p]));
+  ok('an upgrade teaches an old look list the looks the renderer has gained',
+    (byKey.variant.options || []).includes('pump'), (byKey.variant.options || []).join(','));
+  ok('an upgrade marks the fine-tuning properties advanced', byKey.size && byKey.size.advanced === true);
+  ok('an upgrade gives a rating property somewhere to be read', byKey.litres && byKey.litres.spec === 'L');
+  ok('an upgrade drops a property the shipped library has renamed',
+    !byKey.hit_rect && !!byKey.hitRect, props.map((p) => p.key).join(','));
+  const curated = { schemaVersion: lib.schemaVersion, types: JSON.parse(JSON.stringify(old.types)) };
+  curated.types['device.water'].props[0].label = 'My own label';
+  curated.types['device.water'].props[2].spec = 'litres';
+  const after = store.upgradeDoc('library', curated);
+  const mine = after.types['device.water'].props;
+  ok('and never overwrites what somebody set themselves',
+    mine.find((p) => p.key === 'variant').label === 'My own label'
+    && mine.find((p) => p.key === 'litres').spec === 'litres');
+}
 
 /* ------------------------------------------------------ full scene build */
 
@@ -2722,6 +3017,26 @@ ok('a room that says noLabel gets no chip at all',
     p.floors.find((x) => x.id === f2.id).rooms.forEach((y) => { if (y.id === countedRooms[0]) y.noLabel = true; });
   })).length === chipBase.length - 1);
 
+/* `room.showCount` is the room's own answer and beats the house's rules of
+ * thumb in BOTH directions. It used to be read only as a veto, so a room with
+ * a single lamp had no way to ask for its count back — and the editor had no
+ * control for it at all, in either direction. */
+ok('a room can refuse a count the house would give it',
+  chipCounts(chipProj((p) => {
+    p.floors.find((x) => x.id === f2.id).rooms.forEach((y) => { if (y.id === countedRooms[0]) y.showCount = false; });
+  })).length === chipBase.length - 1);
+ok('and can ask for one the house would withhold',
+  chipCounts(chipProj((p) => {
+    p.chips = { hideWhenAtMost: 99 };
+    p.floors.find((x) => x.id === f2.id).rooms.forEach((y) => { if (y.id === countedRooms[0]) y.showCount = true; });
+  })).length === 1);
+ok('but a ganged room still shows none, whatever it asks for',
+  chipCounts(chipProj((p) => {
+    p.floors.find((x) => x.id === f2.id).rooms.forEach((y) => {
+      if (y.id === countedRooms[0]) { y.showCount = true; y.ganged = true; }
+    });
+  })).length === chipBase.length - 1);
+
 /* The light-zone work in PROGRESS depends on these existing, and REPLICATION.md
  * says so — so it is checked rather than remembered. */
 ok('every room emits a clip path the glow pools could use', (() => {
@@ -2791,6 +3106,23 @@ ok('reduced motion is honoured in the cards too', /prefers-reduced-motion/.test(
  * room from the sun, and out of it from a lamp. One number does both. */
 
 console.log('\n== coverings and light zones ==');
+
+/* Light zones were documented, read by the renderer, and absent from the
+ * lighting DEFAULTS — so `mergeConfig` never carried them, the editor had
+ * nothing to bind a control to, and `plan-scene.js` supplied the pair inline as
+ * a last-resort default instead. That absence is exactly why this was the one
+ * part of the lighting model with no UI at all. */
+{
+  const merged = Light.mergeConfig(null);
+  ok('the lighting model declares its light zones', merged.zones && merged.zones.enabled === true
+    && typeof merged.zones.spillFt === 'number', JSON.stringify(merged.zones));
+  ok('and a project can override just the spill',
+    Light.mergeConfig({ zones: { spillFt: 9 } }).zones.enabled === true
+    && Light.mergeConfig({ zones: { spillFt: 9 } }).zones.spillFt === 9);
+  const dash = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-dashboard.js'), 'utf8');
+  ok('and the editor can reach every one of them',
+    ['zones', 'spillFt', 'bounce', 'combine'].every((k) => dash.includes(k)));
+}
 
 const covs = Object.entries(boundaries.coverings || {});
 ok('a coverings registry ships', covs.length >= 10, covs.length + ' coverings');
@@ -4060,6 +4392,54 @@ ok('a colour field keeps a theme token instead of flattening it to a hex', (() =
   return !!row && /type: 'text'/.test(row[1]) && /@token or #hex/.test(row[1]);
 })());
 
+ok('a colour swatch commits on change, not on every drag tick', (() => {
+  /* `renderInspector` rebuilds the whole room panel with `box.replaceChildren`
+   * on both a Store `project` mutation and a `selection` emit — including the
+   * very colour input the user is mid-drag inside. A native `type=color`
+   * input fires `input` continuously while its picker is open but `change`
+   * only once, when it closes; wiring the commit to `input` tore the element
+   * out from under its own open picker on the first pixel of drag, which read
+   * as "the picker won't let me drag the dot" and, since the colour never
+   * actually got a chance to change, as "flooring colour does nothing." Found
+   * by reproducing it: dispatching repeated `input` events on the real DOM
+   * element and watching the room panel replace it mid-sequence. */
+  const row = /if \(spec\.kind === 'color'\) \{([\s\S]*?)\n      \}/.exec(
+    fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8'));
+  return !!row && /onchange: \(e\) => \{ text\.value = e\.target\.value; set\(e\.target\.value\); \}/.test(row[1])
+    && !/oninput.*set\(/.test(row[1]);
+})());
+
+ok('every other colour swatch in the editor commits the same way', (() => {
+  const files = ['panels.js', 'panels-extra.js'].map((f) => fs.readFileSync(path.join(APP, 'public', 'js', f), 'utf8'));
+  /* Every `type: 'color'` input in the editor either commits through
+   * `onchange`, or — like the theme editor's swatches — never triggers a
+   * `Store.mutate`/`Store.emit` at all, so there is nothing for it to
+   * self-destruct out from under. `oninput` paired with a Store write is
+   * exactly the bug above, wherever else it appears. */
+  const bad = [];
+  for (const src of files) {
+    const re = /type: 'color'[\s\S]{0,400}?oninput: \(e\) => \{([\s\S]{0,300}?)\n(\s*)\}/g;
+    let m;
+    while ((m = re.exec(src))) {
+      if (/Store\.mutate|Store\.emit|flooringChanged/.test(m[1])) bad.push(m[0].slice(0, 60));
+    }
+  }
+  return bad.length === 0;
+})());
+
+ok('the plan canvas does not offer its labels up for text selection', (() => {
+  /* Every pointerdown on the canvas is a potential drag — a room, a vertex, a
+   * marker — and the browser is free to read the same mousedown as "start a
+   * text selection" whenever it lands on or near an SVG `<text>` (a room
+   * label, a dimension, a marker glyph) unless told otherwise. Nothing in
+   * `begin()` calls `preventDefault`, so the CSS is what settles it; without
+   * it, a drag started over a label fought the browser for the gesture the
+   * whole way, which read as "drag mostly doesn't work." */
+  const css = fs.readFileSync(path.join(APP, 'public', 'css', 'app.css'), 'utf8');
+  const rule = /#canvas\s*\{[^}]*\}/.exec(css);
+  return !!rule && /user-select:\s*none/.test(rule[0]);
+})());
+
 ok('the editor-only half of the flooring registry never reaches the card', (() => {
   /* The card DRAWS floors, so it needs every finish and its options; it does
    * not edit them, so `generatorOptions` (which controls to show for each
@@ -4401,7 +4781,8 @@ ok('a bowed wall actually renders as an arc rather than a straight line', (() =>
 
 ok('the room panel offers curved walls and names them like the wall picker', (() => {
   const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
-  return /Curved walls/.test(src)
+  return /locationTitle\('section:room.curved'\)/.test(src)
+    && require(path.join(APP, 'lib', 'ui-navigation')).label('section:room.curved') === 'Curved walls'
     && /bulgeToRadius/.test(src) && /radiusToBulge/.test(src)
     && /PanelsExtra\.wallLabel/.test(src);
 })());
@@ -4551,6 +4932,29 @@ ok('and the picker offers a curved wall once, not once per segment', (() => {
     && /curved/.test(src);
 })());
 
+ok('a wide interior edge is not mistaken for an exterior wall', (() => {
+  /* isExterior used to test each endpoint of an edge in isolation against the
+   * floor extent, which is right for a normal wall (every point on it shares
+   * the same fixed coordinate) but wrong for a long edge whose two ends land
+   * on DIFFERENT sides — a setback boundary spanning the full floor width has
+   * its left end on the west wall and its right end on the east wall, so both
+   * passed the old test even though the edge itself runs along neither. Found
+   * auditing a real house: it drew a thick exterior wall in the middle of the
+   * plan, stacked on the room's own correctly-thin wall at the same seam. */
+  const room = { id: 'wide', shape: 'rect', rect: [0, 0, 20, 5] };
+  const p = { name: 't', ppf: 20, origin: [0, 0], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 }, rooms: [room],
+    openings: [], boundaries: [], items: [] }] };
+  const out = scene.build(p, p.floors[0], lib, themes.themes.frosted.plan, { states: {}, boundaries, flooring });
+  const south = out.layers.boundaries.filter((n) => n.roomId === 'wide' && n.wall === 's' && n.tag === 'line');
+  const north = out.layers.boundaries.filter((n) => n.roomId === 'wide' && n.wall === 'n' && n.tag === 'line');
+  if (!south.length || !north.length) return false;
+  /* The south edge (y=5, not on the extent) stays a thin partition; the north
+   * edge (y=0, genuinely on the extent) is still a thick exterior wall. */
+  return south.every((n) => Number(n.attrs['stroke-width']) < 2)
+    && north.every((n) => Number(n.attrs['stroke-width']) > 2);
+})());
+
 
 
 /* ------------------------------------------------------- your own house ---
@@ -4570,6 +4974,193 @@ ok('and the picker offers a curved wall once, not once per segment', (() => {
  * committed. Nothing about your house is printed beyond counts — a failure
  * names the floor or the type, never a room, so pasting the output into an
  * issue does not paste your home into it. */
+
+/* ------------------------------------------------------------------- help
+ *
+ * The help corpus is one source read by four things — the editor's "?" sheets,
+ * MCP's get_help, the generated site, and this. What is checked here is not the
+ * prose (nothing can check prose) but every way the corpus can come adrift from
+ * the app it describes: a selector nobody looks up, a panel nobody wrote about,
+ * a type that appeared after the docs were built, a `see:` pointing nowhere.
+ *
+ * Those are the failures that are invisible in every single surface, because
+ * each one looks locally fine. */
+
+console.log('\n== help ==');
+{
+  const Help = require(path.join(APP, 'lib', 'help'));
+  const v = Help.validate(lib);
+  ok('the help corpus validates', v.ok, v.errors.slice(0, 3).join(' | ') || `${v.count} topics`);
+
+  const { all } = Help.corpus(lib);
+  const written = all.filter((t) => !t.derived);
+  const Nav = require(path.join(APP, 'lib', 'ui-navigation'));
+  const generated = all.filter((t) => t.typeKey);
+  ok('authored explanations never remove types from the generated reference',
+    generated.length === Object.keys(lib.types).length
+      && generated.some((t) => t.typeKey === 'furniture.stairs' && t.see.includes('item-stairs'))
+      && generated.some((t) => t.typeKey === 'furniture.lift' && t.see.includes('item-stairs')));
+  ok('every help topic has an access path', all.every((t) => t.navigation && t.navigation.length));
+  const navErrors = [];
+  for (const id of Object.keys(Nav.locations).concat(Object.keys(Nav.aliases))) {
+    try { Nav.route(id); } catch (e) { navErrors.push(e.message); }
+  }
+  ok('UI navigation has no missing parents or cycles', navErrors.length === 0, navErrors.join(', '));
+  const badProps = [];
+  for (const [key, type] of Object.entries(lib.types)) {
+    for (const p of type.props || []) {
+      const r = Nav.forType(key, type, lib, p);
+      if (!r.steps.length || !r.steps.some((s) => s.id === 'section:item.' + Nav.propSection(type, p))
+        || (p.advanced && !r.requirements.some((s) => s.includes('Advanced')))) badProps.push(key + '.' + p.key);
+    }
+  }
+  ok('every declared type property resolves to its UI group and prerequisites', !badProps.length, badProps.slice(0, 5).join(', '));
+  const renamed = JSON.parse(JSON.stringify(lib));
+  renamed.types['furniture.chair'].label = 'Test seat';
+  const category = renamed.categories.find((c) => c.id === renamed.types['furniture.chair'].category);
+  category.label = 'Test category';
+  renamed.types['furniture.chair'].props.push({ key: 'auditFeature', label: 'Test feature', type: 'number', advanced: true });
+  const newChair = Help.corpus(renamed).byId.get('type-furniture-chair');
+  ok('renaming a type or category and adding a property updates its help automatically',
+    newChair.navigation[0].placement.includes('Test category') && newChair.navigation[0].placement.includes('Test seat')
+      && newChair.body.includes('Test feature') && newChair.body.includes('Enable Advanced'));
+  const lookLabel = Nav.locations['section:item.look'].label;
+  try {
+    Nav.locations['section:item.look'].label = 'Test appearance';
+    ok('moving a UI label updates the generated access instructions', Help.deriveType('furniture.chair', lib.types['furniture.chair'], lib).body.includes('Test appearance'));
+  } finally { Nav.locations['section:item.look'].label = lookLabel; }
+  const chair = generated.find((t) => t.typeKey === 'furniture.chair');
+  ok('chair looks use the real renderer options and the shared Look location',
+    Nav.looks(lib.types['furniture.chair']).every((look) => chair.body.includes('`' + look + '`'))
+      && chair.body.includes('Item inspector → Look'));
+  ok('an exact topic request returns only that topic with the same access instructions',
+    Help.sheetHtml([], lib, { id: chair.id }).topics.length === 1
+      && Help.sheetHtml([], lib, { id: chair.id }).topics[0].html === Help.toHtml(Help.topicBody(chair))
+      && Help.sheetHtml([], lib, { id: 'not-a-topic' }).topics.length === 0);
+  ok('multiword help search finds a type and its setting together', Help.search('chair variant', lib).some((t) => t.id === chair.id));
+  const decl = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
+  ok('the editor uses the same property grouping and headings as the help paths',
+    decl.includes('UINavigation.propSection(t, p)') && decl.includes('UINavigation.label(id)')
+      && !decl.includes('helpCache.get'));
+  ok('help links cannot inject attributes or executable URLs',
+    !/href="javascript:|onmouseover="/.test(Help.toHtml('[bad](javascript:alert) [quoted](https://example.com/"onmouseover="oops)'))
+      && Help.toHtml('[safe](https://example.com/)').includes('href="https://example.com/"'));
+  const siteRoot = path.join(ROOT, 'docs');
+  const pages = new Map(fs.readdirSync(siteRoot).filter((f) => f.endsWith('.html')).map((f) => [f, fs.readFileSync(path.join(siteRoot, f), 'utf8')]));
+  const brokenLinks = [];
+  for (const [name, html] of pages) {
+    for (const [, href] of html.matchAll(/href="([^"\s]+)"/g)) {
+      if (/^(?:https?:|mailto:)/.test(href)) continue;
+      const [file, hash] = href.split('#');
+      const target = file || name;
+      if (!fs.existsSync(path.join(siteRoot, target))) brokenLinks.push(name + ': ' + href);
+      else if (hash && !pages.get(target)?.includes('id="' + hash + '"')) brokenLinks.push(name + ': ' + href);
+    }
+  }
+  ok('every generated help link reaches an existing page and anchor', !brokenLinks.length, brokenLinks.slice(0, 5).join(', '));
+  const searchRows = JSON.parse(fs.readFileSync(path.join(siteRoot, 'search.json'), 'utf8'));
+  ok('every search hit opens the exact topic or UI location', searchRows.every((row) => {
+    const [file, id] = row.u.split('#');
+    return id && pages.get(file)?.includes('id="' + id + '"');
+  }));
+  ok('the library guide and complete type reference have separate destinations',
+    pages.get('library-guide.html')?.includes('id="library-palette"')
+      && generated.every((t) => pages.get('library.html')?.includes('id="' + t.id + '"')));
+  ok('every help page uses the favicon built from the canonical app icon',
+    [...pages.values()].every((html) => html.includes('rel="icon" type="image/svg+xml" href="favicon.svg"'))
+      && fs.readFileSync(path.join(siteRoot, 'favicon.svg'), 'utf8') === fs.readFileSync(path.join(ROOT, 'branding', 'icon.svg'), 'utf8'));
+  ok('there is help to show at all', written.length >= 15, `${written.length} written topics`);
+
+  /* Every place the editor puts a "?" has to answer with something. An empty
+   * sheet is worse than no button — it reads as a broken feature. */
+  const PLACES = ['panel:floor', 'panel:room', 'panel:item', 'panel:opening', 'topbar', 'canvas'];
+  const empty = PLACES.filter((p) => !Help.sheet(p, lib).topics.length);
+  ok('every place with a "?" has something to say', empty.length === 0, empty.join(', '));
+
+  /* The claim is "every fixture, device and feature carries help". This is the
+   * half of it a machine can hold to. */
+  const noHelp = Object.keys(lib.types).filter((k) => !Help.sheet('type:' + k, lib).topics.length);
+  ok('every library type has help', noHelp.length === 0,
+    noHelp.length ? noHelp.slice(0, 4).join(', ') : `${Object.keys(lib.types).length} types`);
+
+  /* A topic that applies to a type key which no longer exists is a topic
+   * nothing will ever show — the exact rot a rename causes. */
+  const dangling = [];
+  for (const t of written) {
+    for (const s of t.applies) {
+      if (s.startsWith('type:') && !lib.types[s.slice(5)]) dangling.push(`${t.id} -> ${s}`);
+      if (s.startsWith('shape:') && !Shapes.FURNITURE[s.slice(6)]) dangling.push(`${t.id} -> ${s}`);
+    }
+  }
+  ok('no topic points at a type or shape that stopped existing', dangling.length === 0, dangling.join(', '));
+
+  /* The renderer is hand-rolled, so the one thing it must not do is emit markup
+   * it was handed. The corpus ships with the app rather than coming from a
+   * user, but the editor sets this with innerHTML and a renderer that passes
+   * tags through would make that a real hole the day the corpus is not. */
+  const nasty = Help.toHtml('a <script>alert(1)</script> and <img src=x onerror=y>');
+  ok('the markdown renderer escapes markup rather than passing it through',
+    !/<script|<img/i.test(nasty), nasty.slice(0, 60));
+  ok('and still renders the markdown it does support',
+    /<strong>b<\/strong>/.test(Help.toHtml('**b**'))
+    && /<code>c<\/code>/.test(Help.toHtml('`c`'))
+    && /<h2>h<\/h2>/.test(Help.toHtml('## h'))
+    && /<li>i<\/li>/.test(Help.toHtml('- i')));
+  /* A digit between spaces used to collide with the code-span placeholder and
+   * turn a number into a code chip. */
+  ok('a bare number is not mistaken for a code span',
+    !/<code>/.test(Help.toHtml('there are 3 of them')), Help.toHtml('there are 3 of them'));
+
+  /* Asking for a panel returns its sections too; asking for a section does not
+   * drag in the whole panel. That containment is what makes one sheet complete
+   * and the other tight. */
+  const panel = Help.sheet('panel:room', lib).topics.map((t) => t.id);
+  const section = Help.sheet('section:room.lighting', lib).topics.map((t) => t.id);
+  ok('a panel sheet includes its sections', section.every((id) => panel.includes(id)),
+    `${section.length} in section, ${panel.length} in panel`);
+  ok('and a section sheet is not the whole panel', section.length < panel.length);
+
+  /* The site is generated, so it can be checked the way the test house is. */
+  try {
+    execFileSync(process.execPath, [path.join(ROOT, 'tools', 'make-docs.js'), '--check'], { encoding: 'utf8' });
+    ok('docs/ matches the help corpus', true);
+  } catch (e) {
+    /* Report what the generator actually said. "Run the generator" is the
+     * right advice when a topic changed and useless when the spawn itself
+     * failed, and the two are indistinguishable without this. */
+    const said = String(e.stderr || e.stdout || e.message || '').trim().split('\n').slice(0, 3).join(' | ');
+    ok('docs/ matches the help corpus', false,
+      said || 'run `node tools/make-docs.js` and commit the result');
+  }
+
+  /* The site's stylesheet is a string literal inside make-docs.js, so an edit
+   * to the prose in one of its comments can leave the comment unterminated —
+   * and CSS answers that by silently dropping every rule after it. The page
+   * still renders, with half a stylesheet, which reads as a layout bug rather
+   * than a parse error. It cost a round trip; nothing else catches it. */
+  {
+    const css = fs.readFileSync(path.join(ROOT, 'docs', 'help.css'), 'utf8');
+    const opens = (css.match(/\/\*/g) || []).length, closes = (css.match(/\*\//g) || []).length;
+    ok('the docs stylesheet has balanced comments', opens === closes, `${opens} open, ${closes} closed`);
+    let depth = 0, stray = 0;
+    for (const ch of css.replace(/\/\*[\s\S]*?\*\//g, '')) {
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth < 0) stray++; }
+    }
+    ok('and balanced braces', depth === 0 && stray === 0, `depth ${depth}, stray closers ${stray}`);
+    /* The two rules the layout actually hangs off. Present is not the same as
+     * correct, but absent means the sidebar has silently stopped existing. */
+    ok('and still declares the sidebar layout',
+      /\.shell\{[^}]*grid-template-columns/.test(css) && /min-width:861px/.test(css));
+  }
+
+  /* Help is an EDITOR concern. Baking it into the dashboard card would put a
+   * documentation corpus on every dashboard load, for a surface where nobody
+   * reads documentation. */
+  const cardSrc = fs.readFileSync(path.join(APP, 'lib', 'card-build.js'), 'utf8');
+  ok('the generated card does not bake the help corpus in',
+    !/help/i.test(cardSrc.replace(/\/\*[\s\S]*?\*\//g, '')));
+}
 
 console.log('\n== your own house (optional) ==');
 
@@ -4659,6 +5250,43 @@ if (!myHouseFile) {
           { version: 'local' }).bytes / 1024).toFixed(0)} KiB`;
       } catch (e) { return 'build failed'; }
     })());
+
+    /* The reference above and the LIVE document the editor actually serves are
+     * two files holding one house, which is how three divergent copies of it
+     * came to exist: an August conversion sat in `app/data/` for a fortnight
+     * while a much richer September one sat in `fixtures/`, and nothing ever
+     * said so. The live copy had lost every lamp wattage, every room type, the
+     * real sun location and 52 boundaries, and it all looked completely normal.
+     *
+     * Editing in the editor is SUPPOSED to move the two apart, so drift is
+     * reported and not failed. What is failed is the two files describing
+     * DIFFERENT HOUSES — a different `id` means one of them is a leftover, and
+     * that is the state this check exists to make impossible to sit in. */
+    const liveFile = path.join(APP, 'data', 'project.json');
+    if (!fs.existsSync(liveFile)) {
+      skipped('the live document is the same house as this reference', 'no app/data/project.json — nothing has run here yet');
+    } else {
+      let liveDoc = null;
+      try { liveDoc = JSON.parse(fs.readFileSync(liveFile, 'utf8')); } catch (e) { /* reported below */ }
+      ok('the live document is the same house as this reference',
+        !!liveDoc && liveDoc.id === mine.id,
+        liveDoc ? `app/data is "${liveDoc.id}", fixtures is "${mine.id}"` : 'app/data/project.json will not parse');
+
+      if (liveDoc && liveDoc.id === mine.id) {
+        const shape = (p) => p.floors.reduce((a, f) => ({
+          rooms: a.rooms + (f.rooms || []).length,
+          openings: a.openings + (f.openings || []).length,
+          items: a.items + (f.items || []).length,
+          boundaries: a.boundaries + (f.boundaries || []).length,
+        }), { rooms: 0, openings: 0, items: 0, boundaries: 0 });
+        const a = shape(mine), b = shape(liveDoc);
+        const moved = Object.keys(a).filter((k) => a[k] !== b[k])
+          .map((k) => `${k} ${b[k]} vs ${a[k]}`);
+        ok('and has not drifted away from it', moved.length === 0,
+          moved.length ? `live has ${moved.join(', ')} — re-export the reference if the live copy is right`
+            : 'identical counts');
+      }
+    }
   }
 }
 
