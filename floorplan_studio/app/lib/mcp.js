@@ -308,15 +308,16 @@ tool({
     const help = require('./help');
     const a = args || {};
     const library = await store.readLibrary();
+    const helpOptions = { boundaries: await store.readBoundaries() };
     const brief = (t) => ({ id: t.id, title: t.title, summary: t.summary, category: t.category, applies: t.applies });
 
     if (a.index) {
-      const { all } = help.corpus(library);
+      const { all } = help.corpus(library, helpOptions);
       return { categories: help.categories(), topics: all.map(brief) };
     }
-    if (a.q) return { query: a.q, topics: help.search(a.q, library).slice(0, 25).map(brief) };
+    if (a.q) return { query: a.q, topics: help.search(a.q, library, helpOptions).slice(0, 25).map(brief) };
     if (a.id) {
-      const { all } = help.corpus(library);
+      const { all } = help.corpus(library, helpOptions);
       const hit = all.find((t) => t.id === a.id);
       if (!hit) {
         throw new ToolError(`no help topic "${a.id}" — call get_help({ index: true }) for the list`);
@@ -325,7 +326,7 @@ tool({
     }
     if (a.for) {
       const selectors = String(a.for).split(',').map((s) => s.trim()).filter(Boolean);
-      const s = help.sheet(selectors, library);
+      const s = help.sheet(selectors, library, helpOptions);
       if (!s.topics.length) {
         /* An empty answer to a plausible-looking selector is nearly always a
          * prefix typo, and the fix is one call away — so say which. */
@@ -553,7 +554,7 @@ function editOpenings(project, library, boundaries, floor, a) {
       id, type, room: v.room, wall: v.wall, at: v.at,
       w: v.w !== undefined ? v.w : (defaults.w || 2.5),
     });
-    for (const k of ['h', 'sill', 'swing', 'hinge', 'leaves', 'slideTo', 'curtain']) {
+    for (const k of ['h', 'sill', 'swing', 'hinge', 'leaves', 'leafRatio', 'slideTo', 'depth', 'curtain']) {
       if (opening[k] === undefined && defaults[k] !== undefined) opening[k] = defaults[k];
     }
     floor.openings.push(opening);

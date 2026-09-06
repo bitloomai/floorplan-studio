@@ -230,6 +230,23 @@ edit_collection({ collection: "openings", op: "add", floorId: "first_floor",
 Omit `w`/`h` and the type's own defaults apply — a double door and a vent are
 not the same size.
 
+**Compound gates and garage doors**
+
+Read `openingTypes` in the boundaries registry for gate and garage mechanisms.
+They are openings on an outdoor room/driveway or garage wall, not furniture
+markers. Treat the perimeter with `compound_wall`; place openings on any side.
+Use adjacent openings for mixed vehicle/pedestrian mechanisms and independent
+sensors. `swing` chooses in/out, `hinge` the start/end jamb, `slideTo` the
+stacking end (or both for paired sliding), and `leaves` the panel count.
+`leafRatio` controls an unequal paired swing; `depth` is garage parking depth.
+
+Optional `sensor` binds a binary contact (off closed, on open); optional `cover`
+binds the motor's cover entity and reads current_position. A contact takes
+priority. Unbound `position` is the 0..100 preview percentage; older `open`
+booleans still work. Missing/unavailable readings are unknown, with a hollow
+pip and the type's fallback drawing. `get_help({id:"walls-openings"})` returns
+the generated catalogue and UI access paths from the current boundary registry.
+
 **Make an edge glass, or open**
 
 ```

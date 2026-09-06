@@ -3,8 +3,8 @@ id: walls-openings
 title: Doors, windows and openings
 summary: Holes cut in a wall — where they sit, how wide they are, and what light they let through.
 category: walls
-tags: opening, door, window, swing, sill, transmission
-applies: panel:opening, field:opening.at, field:opening.wall, concept:opening
+tags: opening, door, window, swing, sill, transmission, gate, garage, shutter, folding, sliding, villa
+applies: panel:opening, section:opening.mechanism, field:opening.at, field:opening.wall, concept:opening
 see: walls-boundaries, opening-coverings, concept-daylight
 order: 35
 ---
@@ -35,14 +35,54 @@ both directions. You do not draw it twice.
 
 ## Swing
 
-`swing` is geometry, not vocabulary. `in` bulges toward the room's own `+x`/`+y`
-side, and which side of the doorway that lands on depends on whether the door
-sits on a low or high edge of the room. If the arc comes out on the wrong side,
-flip it and look — that is faster than reasoning about it.
+`in` swings or folds into the owning room; `out` moves away from it. Hinge
+selects the stacking/hinged end. On horizontal walls, start is the left jamb;
+on vertical walls, start is the top jamb. Paired leaves hinge at opposite ends.
+
+## Compound walls, vehicle gates and pedestrian access
+
+Draw the yard or driveway as outdoor rooms around the building. In the room's
+**Walls & railings**, give the outside edges **Compound wall**, and use **Open
+(no barrier)** on yard edges that should connect freely. Use the Opening tool,
+choose a gate type and click the compound wall. Gates work on any of the four
+sides; multiple openings can share a side. Keep each opening within its wall.
+
+Use separate adjacent openings for a sliding vehicle gate and a swinging
+pedestrian gate, or other mixed mechanisms. Each can have its own sensor and
+state. A paired swing gate can also have unequal leaves using First leaf share;
+both leaves then share one state. Folding gates support inside/outside folding
+and one or two stacking banks. Leave physical room for the leaf, stack or
+sliding run-back. The drawing does not check clearance against parked cars.
+
+## Sensors, motors and a drawing without sensors
+
+Select the opening → **Opening mechanism**. Contact sensor is optional:
+`binary_sensor` off means closed and on means open. A contact takes priority
+when both bindings are filled. Motor / cover entity reads a `cover` entity's
+current position (0 closed, 100 open), or its open/closed state when no position
+is supplied. Opening and closing states remain visible in the dashboard tooltip.
+Enable **Live states** in the editor's top bar to preview those readings on the
+canvas. The dashboard follows Home Assistant live automatically.
+
+Without either binding, Preview opening (%) sets the drawing. A missing,
+unknown or unavailable bound entity uses the type's default drawing with a
+hollow status pip and an unknown tooltip; it does not confirm that a gate is
+closed. A solid pip indicates a known reading. Tapping a bound opening opens
+Home Assistant's more-info dialog; tapping the plan does not operate the motor.
+
+## Garage doors in plan view
+
+Rolling shutters retract vertically into the lintel barrel. Sectional doors
+and tilt-up doors park overhead; dashed panels show that overhead footprint,
+not a leaf lying on the garage floor. Side-sliding sections park along the
+inside side wall. Parking depth controls the depicted clearance. Partial
+positions are schematic; for a rolling shutter the threshold bar thins as it
+opens because a top-down view cannot show vertical travel directly.
 
 ## Transmission
 
 Every opening type passes a share of the daylight that reaches it. Clear glass
-passes most; a grill vent passes some; a solid door passes almost none, and a
-door that is **open** passes all of it. Bind a contact sensor and the plan will
-know which it is.
+passes most; a grill vent passes some; a solid closed gate passes almost none.
+Gate and garage types interpolate from their closed transmission to full
+transmission as they open. Existing indoor types retain their configured
+transmission. Bind a sensor or cover entity to follow a gate's state.

@@ -272,6 +272,13 @@ footer{margin-top:4rem;padding:1.2rem 0 0;border-top:1px solid var(--line2);colo
 .side-head .side-brand{display:flex;align-items:center;gap:.6rem;padding:0;min-height:44px;color:var(--ink);text-decoration:none;font-size:.88rem}
 .side-brand .app-icon{flex:0 0 auto}
 .side-brand small{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
+.opening-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:1rem;margin:1rem 0}
+.opening-previews figure{margin:0;padding:.8rem;border:1px solid var(--line2);border-radius:12px;min-width:0}
+.opening-previews figcaption{font-size:.85rem;font-weight:600;margin-bottom:.5rem}
+.opening-previews p{margin:.6rem 0 0;font-size:.78rem;color:var(--muted)}
+.preview-state{display:flex;align-items:center;gap:.6rem;min-width:0}
+.preview-state span{flex:0 0 3.2rem;font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.preview-state svg{display:block;flex:1 1 auto;min-width:0;width:100%;height:auto;max-height:5.5rem;color:var(--ink)}
 @media(min-width:861px){#sideClose{display:none}.side-head{padding-top:.2rem}.side{border-right:1px solid var(--line2)}:root[data-side=open] .side{box-shadow:none}}
 .drawer-open{overflow:hidden}
 [hidden]{display:none!important}

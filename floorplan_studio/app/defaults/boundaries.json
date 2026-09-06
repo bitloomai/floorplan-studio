@@ -630,6 +630,259 @@
         "sill": 5,
         "covering": null
       }
+    },
+    "gate_pedestrian": {
+      "label": "Pedestrian gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "swing",
+        "gate": true
+      },
+      "props": {
+        "w": 3.5,
+        "h": 7,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 1
+      },
+      "hint": "A single narrow leaf for pedestrian access. Place beside a vehicle gate to track the two independently.",
+      "openTransmission": 1
+    },
+    "gate_swing": {
+      "label": "Single swing gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "swing",
+        "gate": true
+      },
+      "props": {
+        "w": 10,
+        "h": 7,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 1
+      },
+      "hint": "One vehicle-width leaf hinges inward or outward from either jamb.",
+      "openTransmission": 1
+    },
+    "gate_double": {
+      "label": "Paired swing gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "swing",
+        "gate": true
+      },
+      "props": {
+        "w": 12,
+        "h": 7,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 2,
+        "leafRatio": 0.5
+      },
+      "hint": "Two leaves meet between the posts. Adjust the first leaf share for an unequal vehicle/pedestrian pair.",
+      "openTransmission": 1
+    },
+    "gate_sliding": {
+      "label": "Sliding gate (tracked)",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "slide",
+        "gate": true
+      },
+      "props": {
+        "w": 12,
+        "h": 7,
+        "slideTo": "start"
+      },
+      "hint": "The full leaf slides alongside the boundary to either end; allow a clear run-back equal to the opening width.",
+      "openTransmission": 1
+    },
+    "gate_cantilever": {
+      "label": "Cantilever sliding gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "slide",
+        "gate": true,
+        "cantilever": true
+      },
+      "props": {
+        "w": 12,
+        "h": 7,
+        "slideTo": "start"
+      },
+      "hint": "A supported sliding leaf with a counterbalance tail, without a ground track.",
+      "openTransmission": 1
+    },
+    "gate_sliding_pair": {
+      "label": "Paired sliding gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "slide",
+        "gate": true
+      },
+      "props": {
+        "w": 16,
+        "h": 7,
+        "slideTo": "both"
+      },
+      "hint": "Two half-width leaves slide away from the centre to opposite sides.",
+      "openTransmission": 1
+    },
+    "gate_telescopic": {
+      "label": "Telescopic sliding gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "telescopic",
+        "gate": true
+      },
+      "props": {
+        "w": 12,
+        "h": 7,
+        "slideTo": "start",
+        "leaves": 3
+      },
+      "hint": "Two to six staggered leaves overlap to reduce the required run-back.",
+      "openTransmission": 1
+    },
+    "gate_folding": {
+      "label": "Folding gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "fold",
+        "gate": true
+      },
+      "props": {
+        "w": 10,
+        "h": 7,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 4
+      },
+      "hint": "Linked leaves stack at one jamb, folding inward or outward. Hinge chooses the stacking end.",
+      "openTransmission": 1
+    },
+    "gate_folding_pair": {
+      "label": "Paired folding gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "fold",
+        "gate": true,
+        "split": true
+      },
+      "props": {
+        "w": 16,
+        "h": 7,
+        "swing": "in",
+        "hinge": "start",
+        "leaves": 4
+      },
+      "hint": "Two folding banks stack at opposite jambs. Leaves is the total panel count: 4, 8 or 12.",
+      "openTransmission": 1
+    },
+    "gate_scissor": {
+      "label": "Collapsible lattice gate",
+      "group": "Outdoor gates",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "scissor",
+        "gate": true
+      },
+      "props": {
+        "w": 10,
+        "h": 7,
+        "slideTo": "start",
+        "leaves": 6
+      },
+      "hint": "An expanding lattice retracts to a compact stack at the selected end.",
+      "openTransmission": 1
+    },
+    "garage_rolling": {
+      "label": "Rolling garage shutter",
+      "group": "Garage doors",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "roll",
+        "gate": false
+      },
+      "props": {
+        "w": 9,
+        "h": 7
+      },
+      "hint": "A slatted curtain rolls into a barrel above the lintel. Dashed overhead markings show the roll in plan; the threshold bar shows remaining closure.",
+      "openTransmission": 1
+    },
+    "garage_sectional": {
+      "label": "Sectional overhead garage door",
+      "group": "Garage doors",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "sectional",
+        "gate": false
+      },
+      "props": {
+        "w": 9,
+        "h": 7,
+        "depth": 7
+      },
+      "hint": "Hinged sections travel on tracks into the garage ceiling. Dashed panels show the overhead footprint when raised.",
+      "openTransmission": 1
+    },
+    "garage_tilt": {
+      "label": "Tilt-up garage door",
+      "group": "Garage doors",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "tilt",
+        "gate": false
+      },
+      "props": {
+        "w": 9,
+        "h": 7,
+        "depth": 7
+      },
+      "hint": "One rigid panel tilts overhead. The dashed footprint indicates the raised panel and its outward clearance.",
+      "openTransmission": 1
+    },
+    "garage_side": {
+      "label": "Side-sliding sectional garage door",
+      "group": "Garage doors",
+      "transmission": 0,
+      "defaultOpen": true,
+      "render": {
+        "style": "side_sectional",
+        "gate": false
+      },
+      "props": {
+        "w": 9,
+        "h": 7,
+        "slideTo": "start",
+        "depth": 9
+      },
+      "hint": "Sections turn through a corner and park along an inside side wall. Slide direction chooses that wall.",
+      "openTransmission": 1
     }
   },
   "_coverings_comment": "What hangs in front of an opening. `open` and `closed` are the light that gets through at each extreme; the opening's own `covering.position` (0 closed .. 100 open, Home Assistant's own scale for a cover) picks a point between them. Bind `covering.entity` to a cover entity and the position follows it live — `current_position` when the cover reports one, otherwise its open/closed state. Adding one is a JSON entry: nothing in the renderer knows the word \"blind\".",

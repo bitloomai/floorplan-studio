@@ -610,9 +610,7 @@ window.PanelsDashboard = (function () {
 
     body.append(
       h('p', { class: 'hint' },
-        'Lamps light rooms the same way the sun does: watts × lamp count × efficacy gives lumens, '
-        + 'lumens over the room’s floor area gives foot-candles, and that becomes the wash you see. '
-        + 'Set each fitting’s own watts on its marker; these are the constants that turn them into light.'),
+        'Adjust the house’s lighting appearance here. Set each fitting’s wattage on its marker.'),
       h('label', { class: 'inline' },
         h('input', {
           type: 'checkbox', checked: cfg.enabled !== false,
@@ -634,11 +632,7 @@ window.PanelsDashboard = (function () {
           }, 'coverage'),
         }), ' Draw what devices reach'),
       h('p', { class: 'hint' },
-        'The wedge a camera sees, a motion sensor covers, an AC blows across or a speaker throws — '
-        + 'drawn from each marker’s own field of view, range and facing. Turn it off and the markers '
-        + 'stay exactly where they are; only the wedges go, and their numbers are kept. '
-        + 'Worth turning off in a house whose sensors sit close together, where the coverage can end '
-        + 'up hiding the plan it is drawn on.'),
+        'Show each device’s range and direction. Turn off to reduce clutter; device settings are kept.'),
       h('div', { class: 'subhead' }, 'Doors'),
       h('label', { class: 'inline' },
         h('input', {
@@ -648,10 +642,7 @@ window.PanelsDashboard = (function () {
           }, 'swing arcs'),
         }), ' Draw the arc a door swings through'),
       h('p', { class: 'hint' },
-        'The dashed quarter-circle on an open door. It is drawing convention rather than '
-        + 'information — the leaf already shows which way the door opens — so a plan with many '
-        + 'doors close together often reads better without it. Any single door can override this '
-        + 'in its own panel, and turning it off changes nothing about how doors behave.'),
+        'Show dashed swing arcs. Each door can override this setting in its inspector.'),
       h('div', { class: 'subhead' }, 'Motion'),
       h('label', { class: 'inline' },
         h('input', {

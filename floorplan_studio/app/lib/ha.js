@@ -44,7 +44,7 @@ const TOKEN = SUPERVISOR_TOKEN || DEV_TOKEN;
 const SAFE_ATTRS = [
   'friendly_name', 'device_class', 'unit_of_measurement',
   'brightness', 'rgb_color', 'hs_color', 'color_temp_kelvin', 'color_mode',
-  'percentage', 'temperature', 'current_temperature', 'hvac_action',
+  'percentage', 'current_position', 'temperature', 'current_temperature', 'hvac_action',
 ];
 
 /* Domains whose location data has no business in a drawing tool. Dropped

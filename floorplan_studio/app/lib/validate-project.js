@@ -116,6 +116,10 @@ function validate(project, library) {
       if (!WALLS.has(op.wall)) err(`${opath}.wall`, `wall must be one of n/e/s/w, got ${JSON.stringify(op.wall)}`);
       if (!isFiniteNum(op.at)) err(`${opath}.at`, 'at must be a number (position along the wall)');
       if (!isFiniteNum(op.w) || op.w <= 0) err(`${opath}.w`, 'w must be a number greater than 0');
+      if (op.position !== undefined && (!isFiniteNum(op.position) || op.position < 0 || op.position > 100)) err(`${opath}.position`, 'position must be 0..100 (closed to open)');
+      if (op.leafRatio !== undefined && (!isFiniteNum(op.leafRatio) || op.leafRatio < .1 || op.leafRatio > .9)) err(`${opath}.leafRatio`, 'leafRatio must be 0.1..0.9');
+      if (op.depth !== undefined && (!isFiniteNum(op.depth) || op.depth <= 0)) err(`${opath}.depth`, 'parking depth must be greater than 0');
+      if (op.cover && (typeof op.cover !== 'string' || !/^cover\.[a-z0-9_]+$/.test(op.cover))) err(`${opath}.cover`, 'motor entity must be a cover entity id');
     });
 
     const items = Array.isArray(floor.items) ? floor.items : [];

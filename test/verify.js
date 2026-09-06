@@ -1138,6 +1138,113 @@ ok('sensor on   -> open', scene.openingIsOpen(anyDoor, doorDef, { 'binary_sensor
 ok('unavailable -> open (degrades to the default)', scene.openingIsOpen(anyDoor, doorDef, { 'binary_sensor.d': { state: 'unavailable' } }));
 ok('missing entity -> open', scene.openingIsOpen(anyDoor, doorDef, {}));
 const realDoor = (f2.openings || []).find((o) => /^door/.test(o.type));
+/* Gates use the wall frame and the same live state in editor, card and export. */
+const gateTypes = Object.entries(boundaries.openingTypes).filter(([,t]) => t.group);
+function gateDrawing(type, value = {}, states = {}) {
+  const floor = {id:'yard',extent:{w:40,h:40},rooms:[{id:'yard',shape:'rect',rect:[0,0,40,40]}],items:[],
+    openings:[{id:'gate',room:'yard',wall:'n',at:14,w:12,type,...value}]};
+  const drawing=scene.build({ppf:10,origin:[0,0]},floor,lib,themes.themes.frosted.plan,{boundaries,flooring,states});
+  return drawing.layers.openings.map(n=> {
+    const attrs={...n.attrs};
+    for (const k of ['x1','x2','cx']) if (typeof attrs[k]==='number') attrs[k]-=drawing.projector.X(0);
+    for (const k of ['y1','y2','cy']) if (typeof attrs[k]==='number') attrs[k]-=drawing.projector.Y(0);
+    return {...n,attrs};
+  });
+}
+ok('every gate and garage mechanism differs between closed and open on all four walls', gateTypes.length >= 14 && gateTypes.every(([type]) =>
+  ['n','e','s','w'].every(wall => {
+    const closed = JSON.stringify(gateDrawing(type,{wall,open:false}));
+    const open = JSON.stringify(gateDrawing(type,{wall,open:true}));
+    return closed !== open && !/NaN|Infinity/.test(closed + open);
+  })));
+ok('partial motor position drives a different drawing for every gate mechanism', gateTypes.every(([type]) => {
+  const draw = position => JSON.stringify(gateDrawing(type,{cover:'cover.test_gate'}, {'cover.test_gate':{state:'open',attributes:{current_position:position}}}));
+  return draw(0) !== draw(50) && draw(50) !== draw(100);
+}));
+ok('a half-open pocket door retains half its visible leaf on either side', ['start', 'end'].every(slideTo => {
+  const leaf = gateDrawing('door_pocket', {position:50, slideTo}).filter(n => n.tag === 'line' && n.attrs['stroke-width'] === 3.5);
+  return leaf.length === 1 && Math.abs(Math.hypot(leaf[0].attrs.x2 - leaf[0].attrs.x1, leaf[0].attrs.y2 - leaf[0].attrs.y1) - 60) < 1e-6;
+}));
+ok('sliding gates park outside the correct jamb and paired leaves clear both jambs', (() => {
+  const leaves = slideTo => gateDrawing('gate_sliding',{open:true,slideTo}).filter(n=>n.tag==='line' && n.attrs['stroke-width']===3.5).map(n=>n.attrs);
+  return leaves('start').every(a=>a.x2<=140) && leaves('end').every(a=>a.x1>=260)
+    && leaves('both').length===2 && leaves('both')[0].x2===140 && leaves('both')[1].x1===260;
+})());
+ok('telescopic gate leaves overlap when parked instead of requiring full run-back', (() => {
+  const leaves = gateDrawing('gate_telescopic',{open:true,slideTo:'start',leaves:3}).filter(n=>n.tag==='line' && n.attrs['stroke-width']===2.5);
+  return leaves.length===3 && leaves.every(n=>n.attrs.x1===100 && n.attrs.x2===140) && new Set(leaves.map(n=>n.attrs.y1)).size===3;
+})());
+ok('folding leaves preserve physical length and fold to either side and either jamb', ['in','out'].every(swing=>['start','end'].every(hinge=> {
+  const parts=gateDrawing('gate_folding',{open:true,swing,hinge,leaves:4}).filter(n=>n.tag==='line' && n.attrs['stroke-width']===2.8);
+  return parts.length===4 && parts.every(({attrs:a})=>Math.abs(Math.hypot(a.x2-a.x1,a.y2-a.y1)-30)<1e-8)
+    && parts.every(({attrs:a})=>swing==='in'?Math.min(a.y1,a.y2)>-1e-8:Math.max(a.y1,a.y2)<1e-8)
+    && Math.abs(parts[0].attrs.x1-(hinge==='start'?140:260))<1e-8;
+})));
+ok('unequal paired swing gates keep both hinges at their outer posts', (() => {
+  const parts=gateDrawing('gate_double',{open:true,leafRatio:.25,hinge:'end'}).filter(n=>n.tag==='line' && n.attrs['stroke-width']===2);
+  return parts.length===2 && Math.abs(parts[0].attrs.x1-140)<1e-8 && Math.abs(parts[1].attrs.x1-260)<1e-8
+    && Math.abs(parts[0].attrs.y2-30)<1e-8 && Math.abs(parts[1].attrs.y2-90)<1e-8;
+})());
+ok('a rolling shutter never parks a solid leaf alongside the wall', (() => {
+  const open=gateDrawing('garage_rolling',{open:true});
+  return open.some(n=>n.attrs['stroke-dasharray']) && !open.some(n=>n.tag==='line' && n.attrs['stroke-width']===6 && n.attrs.stroke===themes.themes.frosted.plan.wallThin);
+})());
+ok('a missing bound sensor cannot reuse a manually closed preview as confirmed closure', (() => {
+  const s=scene.openingState({sensor:'binary_sensor.gate',open:false},boundaries.openingTypes.gate_swing,{});
+  return !s.known && s.state==='unknown' && s.position===1;
+})());
+ok('contacts take priority over motors and invalid cover positions never imply closure', (() => {
+  const type=boundaries.openingTypes.gate_swing;
+  const s=scene.openingState({sensor:'binary_sensor.gate',cover:'cover.gate'},type,{'binary_sensor.gate':{state:'off'},'cover.gate':{state:'open',attributes:{current_position:80}}});
+  const unknown=scene.openingState({cover:'cover.gate'},type,{'cover.gate':{state:'unavailable',attributes:{current_position:0}}});
+  return s.position===0 && s.known && !unknown.known && unknown.position===1;
+})());
+ok('gate transmission follows physical position through a compound wall', (() => {
+  const op={type:'gate_swing',cover:'cover.gate'};
+  const trans=p=>scene.openingTransmission(op,boundaries,'compound_wall',{'cover.gate':{state:p?'open':'closed',attributes:{current_position:p}}});
+  return trans(0)===0 && trans(50)===.5 && trans(100)===1;
+})());
+ok('opening help follows custom boundary labels and defaults', (() => {
+  const help=require(path.join(APP,'lib','help'));
+  const custom=JSON.parse(JSON.stringify(boundaries));custom.openingTypes.gate_swing.label='Test renamed gate';custom.openingTypes.gate_swing.props.w=17;
+  const topic=help.corpus(lib,{boundaries:custom}).byId.get('walls-openings');
+  return topic.body.includes('Test renamed gate') && topic.body.includes('**17 ft**') && topic.body.includes('Opening mechanism');
+})());
+ok('outward perimeter gates fit the exported canvas without resizing on live updates', (() => {
+  return ['n','e','s','w'].every(wall=> {
+    const floor={id:'yard',extent:{w:40,h:40},rooms:[{id:'yard',shape:'rect',rect:[0,0,40,40]}],items:[],
+      openings:[{id:'g',room:'yard',type:'gate_swing',wall,at:14,w:12,swing:'out',sensor:'binary_sensor.g'}]};
+    const draw=state=>scene.build({ppf:10,origin:[0,0]},floor,lib,themes.themes.frosted.plan,{boundaries,states:{'binary_sensor.g':{state}}});
+    const a=draw('on'),b=draw('off');
+    return a.width===b.width && a.height===b.height && a.layers.openings.every(n=> {
+      const p=n.attrs;
+      return [[p.x1,p.y1],[p.x2,p.y2],[p.cx,p.cy]].filter(([x,y])=>Number.isFinite(x)&&Number.isFinite(y))
+        .every(([x,y])=>x>=0&&y>=0&&x<=a.width&&y<=a.height);
+    });
+  });
+})());
+ok('editor entity redaction keeps cover position but still removes location attributes', (() => {
+  const box={module:{exports:{}},process:{env:{}},require};
+  require('vm').runInNewContext(fs.readFileSync(path.join(APP,'lib','ha.js'),'utf8') + '\nmodule.exports.redact = redact;',box);
+  const ha=box.module.exports;
+  const redacted=ha.redact({entity_id:'cover.test_gate',state:'open',attributes:{current_position:45,latitude:10,longitude:20,access_token:'not-a-token'}});
+  return redacted.attributes.current_position===45 && !('latitude' in redacted.attributes)
+    && !('longitude' in redacted.attributes) && !('access_token' in redacted.attributes);
+})());
+ok('the live card watches gate motors, describes partial states and opens more-info without operating them', (() => {
+  let Card;
+  require('vm').runInNewContext(fs.readFileSync(path.join(APP,'lib','card-runtime.js'),'utf8'), {
+    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,
+    FPS_DATA:{project:{},boundaries},
+  });
+  const card=Object.create(Card.prototype);
+  card._floor={items:[],rooms:[],openings:[{id:'g',type:'gate_sliding',cover:'cover.test_gate'}]};
+  card._hass={states:{'cover.test_gate':{state:'opening',attributes:{current_position:35}}}};
+  let tapped;card.moreInfo=id=>{tapped=id;};
+  card.moreInfoForOpening('g');
+  return card.boundEntities().includes('cover.test_gate') && card.describeOpening('g').includes('35% open')
+    && card.describeOpening('g').includes('opening') && tapped==='cover.test_gate';
+})());
 if (realDoor) {
   realDoor.sensor = 'binary_sensor.probe';
   const shut = build({ states: { 'binary_sensor.probe': { state: 'off' } } }).layers.openings.length;
@@ -1783,7 +1890,10 @@ ok('a bar counter draws the stools it says it has',
 /* ---- stairs are cut at the floor line ---- */
 const cutStair = (p) => Shapes.furniture('stairs', mkCtx(Object.assign({ w: 3.5, h: 10, steps: 12 }, p)));
 const faint = (p) => cutStair(p).filter((n) => n.tag === 'line' && n.attrs.opacity === 0.38);
-const breaks = (p) => cutStair(p).filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1.4);
+/* The break-mark lines are part of `indicators`, off by default (see the
+ * "hide the arrow/break lines" tests below) — force them on here so this
+ * block keeps testing the break-mark GEOMETRY, not its default visibility. */
+const breaks = (p) => cutStair(Object.assign({ indicators: true }, p)).filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1.4);
 ok('a whole flight has no break and no faded treads',
   faint({ continues: 'none' }).length === 0 && breaks({ continues: 'none' }).length === 0);
 ok('a cut flight fades the treads past the break and marks where it falls',
@@ -1824,6 +1934,42 @@ ok('a cut flight says UP or DN and a whole one does not',
     .filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1).length;
   ok('winder treads come out of the step count rather than being added to it',
     w <= l, `winder ${w} vs l_shaped ${l} for the same 12 steps`);
+}
+
+/* ---- the travel arrow and floor-cut lines are off by default ---- */
+{
+  const arrowLine = (nodes) => nodes.some((n) => n.tag === 'path' && n.attrs.d && n.attrs.d.startsWith('M') && n.attrs.d.includes('L') && n.attrs.fill === 'none' && n.attrs.stroke && n.attrs['stroke-width'] === 1.6);
+  const upText = (nodes) => nodes.some((n) => n.tag === 'text' && n.text === 'UP');
+  for (const variant of ['straight', 'l_shaped', 'winder', 'u_switchback', 'spiral']) {
+    const off = cutStair({ variant, continues: 'cut' });
+    ok(`${variant}: indicators default off hides the arrowhead but keeps UP`,
+      !arrowLine(off) && upText(off));
+    const on = cutStair({ variant, continues: 'cut', indicators: true });
+    ok(`${variant}: indicators:true restores the arrowhead`, arrowLine(on));
+  }
+  ok('breakMark draws nothing when indicators are off',
+    cutStair({ continues: 'cut' }).filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1.4).length === 0);
+}
+
+/* ---- an open well between a switchback's two flights ---- */
+{
+  const switchback = (p) => cutStair(Object.assign({ variant: 'u_switchback', continues: 'none' }, p));
+  const dividerLines = (nodes) => nodes.filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1.4);
+  const withoutWell = switchback({});
+  const smallWell = switchback({ well: 0.2 });
+  const openWell = switchback({ well: 2 });
+  ok('well: 0/unset draws today\'s single divider between the two flights',
+    dividerLines(withoutWell).length === 1);
+  ok('a well below the open threshold still reads as a single divider',
+    dividerLines(smallWell).length === 1);
+  ok('a well past the threshold draws two rails bounding the gap, not one line',
+    dividerLines(openWell).length === 2);
+  ok('opening the well does not change the step count drawn',
+    withoutWell.filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1).length
+    === openWell.filter((n) => n.tag === 'line' && n.attrs['stroke-width'] === 1).length);
+  ok('an oversized stairwell keeps non-negative geometry in both orientations',
+    ['ns', 'ew'].every(axis => switchback({ well: 100, axis }).every(node =>
+      ['width', 'height', 'r', 'rx', 'ry'].every(key => node.attrs[key] === undefined || node.attrs[key] >= 0))));
 }
 
 /* ---- looks that carry their own footprint ---- */
@@ -2639,6 +2785,27 @@ ok('props.hitRect gives a marker a real tap rectangle', (() => {
   return t && t.tag === 'rect' && t.attrs.width > 0 && t.attrs.height > 0;
 })());
 
+/* "Layer order" (the panel's Send-to-back/Bring-to-front buttons) is nothing
+ * more than a room's position in `floor.rooms` — this pins that reordering
+ * the array is enough to flip which of two overlapping rooms actually wins
+ * both the paint and the tap, with no second copy of the ordering to fix in
+ * the card. */
+{
+  const overlapFloor = { id: 'f', rooms: [
+    { id: 'back', shape: 'rect', rect: [0, 0, 10, 10] },
+    { id: 'front', shape: 'rect', rect: [2, 2, 10, 10] },
+  ] };
+  const P = scene.makeProjector({ ppf: 20, origin: [0, 0] });
+  const order = () => scene.hitTargets(overlapFloor, lib, P).filter((t) => t.target === 'room').map((t) => t.id);
+  ok('rooms hit-test in floor.rooms array order', order().join(',') === 'back,front');
+  overlapFloor.rooms.reverse();
+  ok('reordering the array (what Bring to front/Send to back does) flips it',
+    order().join(',') === 'front,back');
+  const built = scene.build({ floors: [overlapFloor], compass: {} }, overlapFloor, lib, themes.themes.frosted.plan, { states: {}, boundaries, flooring });
+  ok('the renderer paints in the same order — the last room in the array paints on top',
+    built.layers.flooring[built.layers.flooring.length - 1].roomId === 'back');
+}
+
 /* Sun on means location and orientation, or the plan is confidently wrong
  * rather than simply unlit. */
 const sunReq = (sun, compass) => require(path.join(APP, 'lib', 'validate-project')).validate(
@@ -2652,6 +2819,22 @@ ok('a compass satisfies the orientation requirement instead of a bearing',
   sunReq({ enabled: true, location: { lat: 30, lon: 0 } }, { up: 'E', right: 'S', down: 'W', left: 'N' }).length === 0);
 ok('an impossible latitude is caught',
   sunReq({ enabled: true, location: { lat: 130, lon: 0 }, screenUpBearing: 0 }).includes('sun.location'));
+
+/* Wall/edge labels ("top (N)") used to read a separately-stored
+ * `project.compass` that nothing updated when the bearing changed — the
+ * needle would rotate and the labels would not. `compassLetters` is the fix:
+ * a pure function of the bearing, so there is exactly one number to change. */
+ok('compassLetters matches the historical N/E/S/W default at bearing 0',
+  JSON.stringify(Sun.compassLetters(0)) === JSON.stringify({ up: 'N', right: 'E', down: 'S', left: 'W' }));
+ok('compassLetters rotates with the bearing — east up turns the whole rose',
+  JSON.stringify(Sun.compassLetters(90)) === JSON.stringify({ up: 'E', right: 'S', down: 'W', left: 'N' }));
+ok('compassLetters wraps and defaults an unset bearing to 0',
+  JSON.stringify(Sun.compassLetters(360)) === JSON.stringify(Sun.compassLetters(0))
+  && JSON.stringify(Sun.compassLetters(undefined)) === JSON.stringify(Sun.compassLetters(0)));
+ok('wallLabel is derived from sun.screenUpBearing, not project.compass', (() => {
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
+  return /SunModel\.compassLetters/.test(src) && /screenUpBearing/.test(src.slice(src.indexOf('function wallLabel'), src.indexOf('function wallLabel') + 400));
+})());
 
 /* Long press: explicit wins, a guess is only taken when the entity exists, and
  * nothing about it may throw. The resolution is a pure function of the item,
@@ -3807,8 +3990,12 @@ function withServerOnce(options, run, readyPattern) {
   /* server.js logs the PORT it was TOLD to listen on, not what the OS handed
    * back, so `0` (ephemeral) is unusable here — the log line would always
    * read ":0" no matter what port was actually bound. A random high port is
-   * a small, accepted collision risk instead. */
-  const port = 40000 + Math.floor(Math.random() * 10000);
+   * a small, accepted collision risk instead. Kept BELOW 49152: Windows
+   * reserves random hundred-port blocks of the dynamic range for Hyper-V and
+   * WSL (see `netsh interface ipv4 show excludedportrange protocol=tcp`), and
+   * binding one fails with EACCES — which reads as a broken TLS test rather
+   * than as a port that was never available. */
+  const port = 40000 + Math.floor(Math.random() * 9000);
   const ready = readyPattern || /listening on/;
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(APP, 'server.js')], {
@@ -3928,7 +4115,7 @@ if (!haveTls) {
     'no test/fixtures-tls/*.pem — create them with: openssl req -x509 -newkey rsa:2048 -nodes '
     + '-keyout test/fixtures-tls/test-key.pem -out test/fixtures-tls/test-cert.pem -days 3650 -subj "/CN=localhost"');
 } else await okAsync('setting ssl_cert/ssl_key ALSO serves MCP over HTTPS, without touching the plain-HTTP one', async () => {
-  const sslPort = 40000 + Math.floor(Math.random() * 10000);
+  const sslPort = 40000 + Math.floor(Math.random() * 9000);
   return withServer(
     { ssl_cert: TLS_CERT, ssl_key: TLS_KEY, mcp_ssl_port: sslPort },
     async (port) => {
@@ -3945,7 +4132,7 @@ if (!haveTls) {
 });
 await okAsync('an unreadable cert/key falls back to HTTP-only, loudly, rather than refusing to start', async () => {
   return withServer(
-    { ssl_cert: 'does-not-exist.pem', ssl_key: 'also-missing.pem', mcp_ssl_port: 40000 + Math.floor(Math.random() * 10000) },
+    { ssl_cert: 'does-not-exist.pem', ssl_key: 'also-missing.pem', mcp_ssl_port: 40000 + Math.floor(Math.random() * 9000) },
     async (port) => {
       const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4706,6 +4893,69 @@ ok('the headless API cannot call a Home Assistant service', (() => {
  * was through code, which is exactly how it survived: every test and every
  * scripted check called `Store.select('room', id)` directly. */
 
+ok('furniture resize preserves the opposite corner at arbitrary rotations', (() => {
+  const context = {window:{}, Store:{S:{}}, Shapes};
+  require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'public/js/canvas.js'), 'utf8'), context);
+  const c = context.window.Canvas;
+  const rotate = (x,y,a) => [x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)];
+  return [0,37,90,225].every(rot => [-1,1].every(dx => [-1,1].every(dy => {
+    const b = {w:4,h:6,cx:10,cy:12,rot}, a=rot*Math.PI/180;
+    const target=rotate(dx*4,dy*5,a);
+    const next=c.resizedBox(b,dx,dy,b.cx+target[0],b.cy+target[1],false);
+    const oldAnchor=rotate(-dx*b.w/2,-dy*b.h/2,a);
+    const newAnchor=rotate(-dx*next.w/2,-dy*next.h/2,a);
+    return Math.abs(next.w-6)<1e-8 && Math.abs(next.h-8)<1e-8
+      && Math.abs(next.at[0]+next.w/2+newAnchor[0]-b.cx-oldAnchor[0])<1e-8
+      && Math.abs(next.at[1]+next.h/2+newAnchor[1]-b.cy-oldAnchor[1])<1e-8;
+  })));
+})());
+ok('furniture resize supports edges, positive limits and proportional corners', (() => {
+  const context = {window:{}, Store:{S:{}}, Shapes};
+  require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'public/js/canvas.js'), 'utf8'), context);
+  const c=context.window.Canvas, b={w:4,h:6,cx:10,cy:12,rot:0};
+  const edge=c.resizedBox(b,1,0,14,100,false), crossed=c.resizedBox(b,1,1,-100,-100,false);
+  const scaled=c.resizedBox(b,1,1,14,17,true);
+  return edge.h===6 && edge.w===6 && crossed.w>0 && crossed.h>0 && Math.abs(scaled.w/scaled.h-4/6)<1e-8;
+})());
+ok('vacuum lift rotation grip follows the doorway at the right of the symbol',
+  Shapes.furnitureFront('lift','vacuum') === 90 && Shapes.furnitureFront('screen','crt') === 180);
+ok('every non-perimeter fixture exposes mouse resize in the rendered unit',
+  Object.values(lib.types).filter(t=>t.kind==='fixture' && t.render.shape!=='perimeter').every(t=>
+    t.render.resize && t.props.some(p=>p.key===t.render.resize.prop)
+    /* `size` is always a marker radius in px — the thing is drawn to be
+     * tappable, not to scale. Any other prop name (`len`, `w`, …) names a
+     * real physical dimension, so it resizes in feet — true for a line
+     * fixture's length and just as true for a family-drawn sign's width. */
+    && t.render.resize.unit===(t.render.resize.prop==='size'?'px':'ft')));
+
+/* Having a handle is not the same as the handle doing anything: `markerRadius`
+ * is the shared answer to "how big is this right now", but the plain-disc
+ * branch of `markerNodes` (most fixtures with no marker `family` — bulb,
+ * flood, step light, string light, emergency, pool light, fan light, and the
+ * `camera` device) used to draw a fixed `render.size` regardless. Dragging the
+ * handle moved the handle and wrote `item.props.size`; the light itself never
+ * grew or shrank. This drives the real `build()` pipeline, not `markerRadius`
+ * directly, so it would have caught that gap. */
+ok('resizing a family-less fixture actually redraws it bigger, not just its handle', (() => {
+  const discTypes = Object.entries(lib.types).filter(([, t]) =>
+    t.kind === 'fixture' && !(t.render || {}).family
+    && !['line', 'perimeter', 'fan', 'label', 'channelBox'].includes((t.render || {}).shape)
+    && (t.render || {}).resize && t.render.resize.unit === 'px');
+  if (!discTypes.length) return false;
+  const floorWith = (type, size) => ({
+    id: 'f', name: 'F', extent: { w: 20, h: 20 },
+    rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20] }],
+    openings: [], items: [{ id: 'x1', kind: 'fixture', type, entity: 'x.a', at: [10, 10], props: { size } }],
+  });
+  return discTypes.every(([type]) => {
+    const draw = (size) => scene.build({ name: 'c', ppf: 20, floors: [floorWith(type, size)] }, floorWith(type, size),
+      lib, themes.themes.frosted.plan, { states: { 'x.a': { state: 'off' } }, boundaries, flooring });
+    const small = draw(3).layers.markers.find((n) => n.tag === 'circle').attrs.r;
+    const big = draw(40).layers.markers.find((n) => n.tag === 'circle').attrs.r;
+    return big > small * 5;
+  });
+})());
+
 ok('every room gets a hit shape, and rooms come before markers', (() => {
   /* SVG resolves a click to the topmost sibling, so rooms must be appended
    * FIRST — "tap the lamp, not the room it stands in". */
@@ -4953,6 +5203,27 @@ ok('a wide interior edge is not mistaken for an exterior wall', (() => {
    * edge (y=0, genuinely on the extent) is still a thick exterior wall. */
   return south.every((n) => Number(n.attrs['stroke-width']) < 2)
     && north.every((n) => Number(n.attrs['stroke-width']) > 2);
+})());
+
+/* A compound wall plus a setback drawn around the house — a real, common
+ * plot layout, and the one that motivated this — nests the building's own
+ * envelope short of the floor's recorded extent. A wall there facing an
+ * OUTDOOR room is this room's exterior wall even though nothing here is at
+ * the extent; a wall facing an ordinary indoor neighbour stays a partition
+ * exactly as it always has — only `outdoor: true` upgrades it. */
+ok('an indoor wall facing an outdoor room is exterior even off the floor extent', (() => {
+  const house = { id: 'house', shape: 'rect', rect: [5, 5, 10, 6] };
+  const setback = { id: 'setback', shape: 'rect', rect: [5, 0, 10, 5], outdoor: true };
+  const plainNeighbour = { id: 'plain', shape: 'rect', rect: [5, 11, 10, 5] };
+  const p = { name: 't', ppf: 20, origin: [0, 0], floors: [{
+    id: 'f', name: 'F', extent: { w: 20, h: 20 }, rooms: [house, setback, plainNeighbour],
+    openings: [], boundaries: [], items: [] }] };
+  const out = scene.build(p, p.floors[0], lib, themes.themes.frosted.plan, { states: {}, boundaries, flooring });
+  const houseNorth = out.layers.boundaries.filter((n) => n.roomId === 'house' && n.wall === 'n' && n.tag === 'line');
+  const houseSouth = out.layers.boundaries.filter((n) => n.roomId === 'house' && n.wall === 's' && n.tag === 'line');
+  if (!houseNorth.length || !houseSouth.length) return false;
+  return houseNorth.every((n) => Number(n.attrs['stroke-width']) > 2)
+    && houseSouth.every((n) => Number(n.attrs['stroke-width']) < 2);
 })());
 
 

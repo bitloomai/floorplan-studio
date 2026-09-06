@@ -4,6 +4,14 @@
   "private": true,
   "license": "Apache-2.0",
   "description": "Open Home Assistant floor-plan editor and dashboard generator",
+  "homepage": "https://bitloomai.github.io/floorplan-studio/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitloomai/floorplan-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bitloomai/floorplan-studio/issues"
+  },
   "engines": {
     "node": "24.x"
   },

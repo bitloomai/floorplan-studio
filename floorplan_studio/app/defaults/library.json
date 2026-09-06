@@ -239,6 +239,7 @@
     "pool_light": "fixture.pool_light",
     "garden_spike": "fixture.garden_spike",
     "bollard": "fixture.bollard",
+    "signage": "fixture.signage",
     "wall_washer": "fixture.wall_washer",
     "chandelier": "fixture.chandelier",
     "pendant": "fixture.pendant",
@@ -316,6 +317,12 @@
         "glow": {
           "enabled": true,
           "spread": 2.4
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -342,7 +349,8 @@
         "efficacy": 95,
         "beam": 2.4,
         "kelvin": 3000,
-        "variant": "recessed"
+        "variant": "recessed",
+        "size": 7
       },
       "props": [
         {
@@ -395,6 +403,14 @@
             "cob"
           ],
           "variantFamily": "spot"
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -411,6 +427,12 @@
         "glow": {
           "enabled": true,
           "spread": 2.4
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -436,7 +458,8 @@
         "count": 1,
         "efficacy": 90,
         "beam": 3.2,
-        "kelvin": 2700
+        "kelvin": 2700,
+        "size": 8.5
       },
       "props": [
         {
@@ -477,6 +500,14 @@
           "min": 1800,
           "max": 7000,
           "step": 50
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -493,6 +524,12 @@
         "glow": {
           "enabled": true,
           "spread": 2.4
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -517,7 +554,8 @@
         "count": 1,
         "efficacy": 85,
         "beam": 3.4,
-        "kelvin": 3000
+        "kelvin": 3000,
+        "size": 8.5
       },
       "props": [
         {
@@ -558,6 +596,14 @@
           "min": 1800,
           "max": 7000,
           "step": 50
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -573,6 +619,12 @@
         "glow": {
           "enabled": true,
           "spread": 2.4
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -599,7 +651,8 @@
         "efficacy": 85,
         "beam": 2.8,
         "kelvin": 2700,
-        "variant": "torchiere"
+        "variant": "torchiere",
+        "size": 8.5
       },
       "props": [
         {
@@ -650,6 +703,14 @@
           "min": 1800,
           "max": 7000,
           "step": 50
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -666,6 +727,12 @@
         "glow": {
           "enabled": true,
           "spread": 3.2
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -691,7 +758,8 @@
         "count": 1,
         "efficacy": 60,
         "beam": 4.5,
-        "kelvin": 2200
+        "kelvin": 2200,
+        "size": 8.5
       },
       "props": [
         {
@@ -732,6 +800,14 @@
           "min": 1800,
           "max": 7000,
           "step": 50
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -748,6 +824,12 @@
         "glow": {
           "enabled": true,
           "spread": 1.4
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -773,7 +855,8 @@
         "count": 1,
         "efficacy": 70,
         "beam": 1.2,
-        "kelvin": 2700
+        "kelvin": 2700,
+        "size": 6
       },
       "props": [
         {
@@ -814,6 +897,14 @@
           "min": 1800,
           "max": 7000,
           "step": 50
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -834,6 +925,12 @@
         "cone": {
           "style": "vision",
           "opacity": 0.14
+        },
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
         }
       },
       "states": {
@@ -863,7 +960,8 @@
         "efficacy": 100,
         "beam": 6.5,
         "kelvin": 5000,
-        "cone": false
+        "cone": false,
+        "size": 9.5
       },
       "props": [
         {
@@ -934,6 +1032,14 @@
           "min": 0,
           "max": 359,
           "step": 5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ]
     },
@@ -1017,6 +1123,12 @@
         "glow": {
           "enabled": true,
           "spread": 3.2
+        },
+        "resize": {
+          "prop": "len",
+          "unit": "ft",
+          "min": 0.25,
+          "max": 40
         }
       },
       "states": {
@@ -1111,6 +1223,12 @@
         "glow": {
           "enabled": true,
           "spread": 2
+        },
+        "resize": {
+          "prop": "len",
+          "unit": "ft",
+          "min": 0.25,
+          "max": 40
         }
       },
       "states": {
@@ -1205,6 +1323,12 @@
         "glow": {
           "enabled": true,
           "spread": 2.6
+        },
+        "resize": {
+          "prop": "len",
+          "unit": "ft",
+          "min": 0.25,
+          "max": 40
         }
       },
       "states": {
@@ -8294,7 +8418,9 @@
         "newel": 0.22,
         "sweep": 330,
         "continues": "cut",
-        "cutAt": 0.6
+        "cutAt": 0.6,
+        "indicators": false,
+        "well": 0
       },
       "aboveDaylight": false,
       "props": [
@@ -8360,6 +8486,22 @@
             "spiral"
           ],
           "variantFamily": "stairs"
+        },
+        {
+          "key": "well",
+          "label": "Open well gap between flights (ft)",
+          "type": "number",
+          "min": 0,
+          "max": 4,
+          "step": 0.25,
+          "hint": "Only affects the U-shaped switchback look: widens the gap between the two flights into an open well with a rail on each side, instead of a solid divider between them.",
+          "advanced": true
+        },
+        {
+          "key": "indicators",
+          "label": "Show direction arrow & floor-cut lines",
+          "type": "boolean",
+          "hint": "The UP/DN text is always drawn. This adds the arrow and the diagonal floor-cut lines on top of it — useful when several flights sit close together and the plain text reads ambiguously."
         },
         {
           "key": "continues",
@@ -15043,7 +15185,13 @@
         "size": 8.5,
         "tap": 17,
         "icon": "bulb",
-        "iconScale": 0.8
+        "iconScale": 0.8,
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
+        }
       },
       "states": {
         "on": {
@@ -15104,6 +15252,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15111,7 +15267,8 @@
         "count": 1,
         "efficacy": 90,
         "kelvin": 5000,
-        "spread": 10
+        "spread": 10,
+        "size": 8.5
       }
     },
     "fixture.garden_spike": {
@@ -15122,7 +15279,13 @@
         "family": "garden_spike",
         "variant": "spot",
         "size": 8.5,
-        "tap": 17
+        "tap": 17,
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
+        }
       },
       "states": {
         "on": {
@@ -15193,6 +15356,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15201,7 +15372,8 @@
         "efficacy": 90,
         "kelvin": 2700,
         "spread": 5,
-        "variant": "spot"
+        "variant": "spot",
+        "size": 8.5
       }
     },
     "fixture.bollard": {
@@ -15212,7 +15384,13 @@
         "family": "bollard",
         "variant": "cylinder",
         "size": 8.5,
-        "tap": 17
+        "tap": 17,
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
+        }
       },
       "states": {
         "on": {
@@ -15283,6 +15461,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15291,7 +15477,121 @@
         "efficacy": 90,
         "kelvin": 3000,
         "spread": 7,
-        "variant": "cylinder"
+        "variant": "cylinder",
+        "size": 8.5
+      }
+    },
+    "fixture.signage": {
+      "label": "Signage light",
+      "category": "lighting",
+      "kind": "fixture",
+      "render": {
+        "family": "signage",
+        "variant": "plate",
+        "size": 8.5,
+        "tap": 17,
+        "resize": {
+          "prop": "w",
+          "unit": "ft",
+          "min": 0.3,
+          "max": 15
+        }
+      },
+      "states": {
+        "on": {
+          "fill": "@lampWarm",
+          "stroke": "@lampRim",
+          "glyph": "@lampRim"
+        },
+        "off": {
+          "fill": "@offFill",
+          "stroke": "@offRim",
+          "glyph": "@glyphOff"
+        },
+        "unavailable": {
+          "fill": "@deadFill",
+          "stroke": "@deadRim",
+          "glyph": "@deadRim"
+        }
+      },
+      "domains": [
+        "light",
+        "switch"
+      ],
+      "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "plate",
+            "board"
+          ],
+          "variantFamily": "signage"
+        },
+        {
+          "key": "w",
+          "label": "Width (ft)",
+          "type": "number",
+          "min": 0.3,
+          "max": 15,
+          "step": 0.1
+        },
+        {
+          "key": "rot",
+          "label": "Rotation (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359
+        },
+        {
+          "key": "watt",
+          "label": "Watts each",
+          "type": "number",
+          "min": 1,
+          "max": 2000
+        },
+        {
+          "key": "count",
+          "label": "Lamps here",
+          "type": "number",
+          "min": 1,
+          "max": 64,
+          "step": 1
+        },
+        {
+          "key": "efficacy",
+          "label": "Lumens per watt",
+          "type": "number",
+          "min": 5,
+          "max": 200
+        },
+        {
+          "key": "kelvin",
+          "label": "Colour (K)",
+          "type": "number",
+          "min": 1800,
+          "max": 6500,
+          "step": 50
+        },
+        {
+          "key": "spread",
+          "label": "Pool spread (ft)",
+          "type": "number",
+          "min": 0.5,
+          "max": 40,
+          "step": 0.5
+        }
+      ],
+      "defaults": {
+        "watt": 12,
+        "count": 1,
+        "efficacy": 90,
+        "kelvin": 3000,
+        "spread": 3,
+        "variant": "plate",
+        "w": 0.8,
+        "rot": 0
       }
     },
     "fixture.wall_washer": {
@@ -15304,7 +15604,13 @@
         "tap": 17,
         "icon": "bulb",
         "iconScale": 0.8,
-        "thickness": 3
+        "thickness": 3,
+        "resize": {
+          "prop": "len",
+          "unit": "ft",
+          "min": 0.25,
+          "max": 40
+        }
       },
       "states": {
         "on": {
@@ -15373,6 +15679,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "len",
+          "label": "Length (ft)",
+          "type": "number",
+          "min": 0.25,
+          "max": 40,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15392,7 +15706,13 @@
         "family": "chandelier",
         "variant": "classic",
         "size": 8.5,
-        "tap": 17
+        "tap": 17,
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
+        }
       },
       "states": {
         "on": {
@@ -15463,6 +15783,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15471,7 +15799,8 @@
         "efficacy": 90,
         "kelvin": 2700,
         "spread": 12,
-        "variant": "classic"
+        "variant": "classic",
+        "size": 8.5
       }
     },
     "fixture.pendant": {
@@ -15482,7 +15811,13 @@
         "family": "pendant",
         "variant": "dome",
         "size": 8.5,
-        "tap": 17
+        "tap": 17,
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
+        }
       },
       "states": {
         "on": {
@@ -15555,6 +15890,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15563,7 +15906,8 @@
         "efficacy": 90,
         "kelvin": 2700,
         "spread": 6,
-        "variant": "dome"
+        "variant": "dome",
+        "size": 8.5
       }
     },
     "fixture.mirror_light": {
@@ -15576,7 +15920,13 @@
         "tap": 17,
         "icon": "bulb",
         "iconScale": 0.8,
-        "thickness": 2.5
+        "thickness": 2.5,
+        "resize": {
+          "prop": "len",
+          "unit": "ft",
+          "min": 0.25,
+          "max": 40
+        }
       },
       "states": {
         "on": {
@@ -15645,6 +15995,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "len",
+          "label": "Length (ft)",
+          "type": "number",
+          "min": 0.25,
+          "max": 40,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15665,7 +16023,13 @@
         "size": 8.5,
         "tap": 17,
         "icon": "bulb",
-        "iconScale": 0.8
+        "iconScale": 0.8,
+        "resize": {
+          "prop": "size",
+          "unit": "px",
+          "min": 3,
+          "max": 60
+        }
       },
       "states": {
         "on": {
@@ -15726,6 +16090,14 @@
           "min": 0.5,
           "max": 40,
           "step": 0.5
+        },
+        {
+          "key": "size",
+          "label": "Marker radius (px)",
+          "type": "number",
+          "min": 3,
+          "max": 60,
+          "step": 0.25
         }
       ],
       "defaults": {
@@ -15733,7 +16105,8 @@
         "count": 1,
         "efficacy": 90,
         "kelvin": 6000,
-        "spread": 8
+        "spread": 8,
+        "size": 8.5
       }
     },
     "furniture.pool": {

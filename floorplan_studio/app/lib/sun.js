@@ -331,6 +331,22 @@
     return { ambient, exposure, beams };
   }
 
+  /* The compass words a wall/edge label prints (`panels-extra.js`'s
+   * `wallLabel()`) are a pure function of `screenUpBearing` — the same number
+   * that already rotates the needle and turns the daylight beams. That used
+   * to be two facts that could disagree: `project.compass.{up,right,down,
+   * left}` was a separately-stored default of N/E/S/W that nothing ever
+   * updated when the bearing changed, so the needle rotated correctly and the
+   * wall labels quietly stayed put. Deriving the words here, at read time,
+   * removes the second fact entirely — there is nothing left to fall out of
+   * sync with. */
+  const COMPASS_WORDS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  function compassLetters(bearingDeg) {
+    const word = (deg) => COMPASS_WORDS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+    const up = num(bearingDeg, 0);
+    return { up: word(up), right: word(up + 90), down: word(up + 180), left: word(up + 270) };
+  }
+
   function roomArea(room) {
     const pts = (room.shape === 'poly' && room.points && room.points.length > 2)
       ? room.points
@@ -343,5 +359,5 @@
     return Math.abs(a / 2);
   }
 
-  return { DEFAULTS, position, dayEvents, mergeConfig, scene, skyStrength, roomDaylight, roomArea };
+  return { DEFAULTS, position, dayEvents, mergeConfig, scene, skyStrength, roomDaylight, roomArea, compassLetters };
 }));

@@ -586,6 +586,11 @@
       const variant = c.p.variant || 'straight';
       const steps = Math.max(2, Math.round(num(c.p.steps, 9)));
       const up = c.p.dir !== 'down';
+      /* The travel arrow and the floor-cut break lines are drawing convention,
+       * not information the UP/DN text doesn't already carry — and on a plan
+       * with several flights close together they read as clutter rather than
+       * as help. Off by default; the text stays either way. */
+      const indicatorsOn = c.p.indicators === true;
       const lighting = c.p.lighting || 'none';
       const every = Math.max(1, Math.round(num(c.p.lightEvery, 1)));
       /* Two things step lighting can do when it comes on, and they are
@@ -670,8 +675,10 @@
       const arrow = (x0, y0, x1, y1, text) => {
         const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1;
         const ux = dx / len, uy = dy / len, px = -uy, py = ux;
-        n.push({ tag: 'line', attrs: { x1: x0, y1: y0, x2: x1, y2: y1, stroke: c.line, 'stroke-width': 1.6 } });
-        n.push({ tag: 'path', attrs: { d: `M ${x1 - ux * 6 - px * 4} ${y1 - uy * 6 - py * 4} L ${x1} ${y1} L ${x1 - ux * 6 + px * 4} ${y1 - uy * 6 + py * 4}`, fill: 'none', stroke: c.line, 'stroke-width': 1.6 } });
+        if (indicatorsOn) {
+          n.push({ tag: 'line', attrs: { x1: x0, y1: y0, x2: x1, y2: y1, stroke: c.line, 'stroke-width': 1.6 } });
+          n.push({ tag: 'path', attrs: { d: `M ${x1 - ux * 6 - px * 4} ${y1 - uy * 6 - py * 4} L ${x1} ${y1} L ${x1 - ux * 6 + px * 4} ${y1 - uy * 6 + py * 4}`, fill: 'none', stroke: c.line, 'stroke-width': 1.6 } });
+        }
         label(x0 + ux * 7, y0 + uy * 7, text);
       };
 
@@ -690,7 +697,7 @@
        * lines leaning across the run. Two rather than one, because a single
        * diagonal across a flight of treads reads as another tread. */
       const breakMark = (x, y, w, h, axis, t) => {
-        if (continues === 'none') return;
+        if (continues === 'none' || !indicatorsOn) return;
         /* Both numbers come from the flight's WIDTH, not its length: the mark
          * leans across the treads at a fixed angle, so it reads the same on a
          * six-step stoop and an eighteen-step run. Taken off the length
@@ -822,7 +829,7 @@
         const midA = c.Y + armW / 2, midB = c.X + c.W - armW / 2;
         const tail = up ? [c.X + 6, midA] : [midB, c.Y + c.H - 6];
         const head = up ? [midB, c.Y + c.H - 6] : [c.X + 6, midA];
-        n.push({ tag: 'line', attrs: { x1: tail[0], y1: tail[1], x2: midB, y2: midA, stroke: c.line, 'stroke-width': 1.6 } });
+        if (indicatorsOn) n.push({ tag: 'line', attrs: { x1: tail[0], y1: tail[1], x2: midB, y2: midA, stroke: c.line, 'stroke-width': 1.6 } });
         arrow(midB, midA, head[0], head[1], null);
         label(tail[0] + (up ? 7 : 0), tail[1] + (up ? 0 : -7), travelLabel);
         return n;
@@ -853,27 +860,50 @@
          * second arrow doubles back only when the two runs are halves of one
          * climb, which is what `none` and `cut` mean. */
         const bothWays = continues === 'both';
+        /* `well` widens the gap between the two flights into an open well —
+         * the shape a dog-leg stair takes when the two runs are not butted
+         * against a shared partition but separated by a void you can see
+         * down through, railed on both edges. 0 (the default) keeps today's
+         * look: a bare divider line 4px off, unaffected by this prop. Past a
+         * few inches the divider stops reading as one line and becomes two
+         * rails bounding the opening — a single line drawn that far apart
+         * would look like a stray wall, not a gap. */
+        const wellFt = Math.max(0, num(c.p.well, 0));
+        // A saved well can outgrow the footprint when a flight is resized.
+        // Keep room for both flights rather than emitting negative SVG sizes.
+        const gapPx = Math.min(Math.max(4, c.P.S(wellFt)), (ew ? c.H : c.W) * .8);
+        const hasWell = wellFt > 0.4;
         if (ew) {
-          const half = (c.H - 4) / 2;
+          const half = (c.H - gapPx) / 2;
           const landing = Math.min(c.W * 0.22, half);
           const run = c.W - landing;
           flight(c.X, c.Y, run, half, first, 'ew', 0, up);
-          flight(c.X, c.Y + half + 4, run, half, second, 'ew', first, !up);
+          flight(c.X, c.Y + half + gapPx, run, half, second, 'ew', first, !up);
           n.push({ tag: 'rect', attrs: { x: c.X + run, y: c.Y, width: landing, height: c.H, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
-          n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half + 2, x2: c.X + run, y2: c.Y + half + 2, stroke: c.line, 'stroke-width': 1.4 } });
+          if (hasWell) {
+            n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half, x2: c.X + run, y2: c.Y + half, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half + gapPx, x2: c.X + run, y2: c.Y + half + gapPx, stroke: c.line, 'stroke-width': 1.4 } });
+          } else {
+            n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half + gapPx / 2, x2: c.X + run, y2: c.Y + half + gapPx / 2, stroke: c.line, 'stroke-width': 1.4 } });
+          }
           arrow(c.X + 6, c.Y + half / 2, c.X + run - 6, c.Y + half / 2, travelLabel);
-          const backY = c.Y + half + 4 + half / 2;
+          const backY = c.Y + half + gapPx + half / 2;
           arrow(bothWays ? c.X + 6 : c.X + run - 6, backY, bothWays ? c.X + run - 6 : c.X + 6, backY,
             bothWays ? downWord : null);
         } else {
-          const half = (c.W - 4) / 2;
+          const half = (c.W - gapPx) / 2;
           const landing = Math.min(c.H * 0.22, half);
           flight(c.X, c.Y + landing, half, c.H - landing, first, 'ns', 0, up);
-          flight(c.X + half + 4, c.Y + landing, half, c.H - landing, second, 'ns', first, !up);
+          flight(c.X + half + gapPx, c.Y + landing, half, c.H - landing, second, 'ns', first, !up);
           n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: landing, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
-          n.push({ tag: 'line', attrs: { x1: c.X + half + 2, y1: c.Y + landing, x2: c.X + half + 2, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+          if (hasWell) {
+            n.push({ tag: 'line', attrs: { x1: c.X + half, y1: c.Y + landing, x2: c.X + half, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: c.X + half + gapPx, y1: c.Y + landing, x2: c.X + half + gapPx, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+          } else {
+            n.push({ tag: 'line', attrs: { x1: c.X + half + gapPx / 2, y1: c.Y + landing, x2: c.X + half + gapPx / 2, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+          }
           arrow(c.X + half / 2, c.Y + c.H - 6, c.X + half / 2, c.Y + landing + 6, travelLabel);
-          const backX = c.X + half + 4 + half / 2;
+          const backX = c.X + half + gapPx + half / 2;
           arrow(backX, bothWays ? c.Y + c.H - 6 : c.Y + landing + 6, backX, bothWays ? c.Y + landing + 6 : c.Y + c.H - 6,
             bothWays ? downWord : null);
         }
@@ -3130,6 +3160,42 @@
     ],
   };
 
+  /* ---- signage ---- an illuminated plaque or board mounted flush on a
+   * wall: a house number plate, a name board — anything backlit that
+   * identifies the place rather than lighting a room. Unlike every other
+   * fixture above, `R` here is HALF the sign's own WIDTH (`render.resize`
+   * is in feet, the same "a real footprint resizes to scale" convention a
+   * line fixture already uses), so a wider board draws as a wider plaque
+   * rather than a bigger dot. The two variants differ only in proportion —
+   * a number plate reads roughly square, a name board reads as a wide strip
+   * — because that is genuinely most of how the two are told apart on a
+   * plan; neither draws the actual text, which lives in the item's own
+   * "Label on the plan" name instead of a glyph nobody could read at scale. */
+  MARKERS.signage = {
+    plate: (c) => {
+      const u = c.R / 10;
+      return face(c, [
+        ...(c.on ? [mk('rect', { x: c.cx - u * 13, y: c.cy - u * 7.5, width: u * 26, height: u * 15, rx: u * 2, fill: c.accent, opacity: 0.12 + 0.2 * num(c.bright, 1) })] : []),
+        boxBody(c, u * 20, u * 9, u * 1.6),
+        ln(c, c.cx - u * 5.5, c.cy, c.cx - u * 1.2, c.cy, 1.6),
+        ln(c, c.cx + u * 1.2, c.cy, c.cx + u * 5.5, c.cy, 1.6),
+      ]);
+    },
+    /* Wider and flatter than a plate, with a second text line — the wash of
+     * light above a name board is drawn as one soft halo rather than the
+     * discrete spotlights that actually throw it, the same simplification
+     * `glow` already makes for every other lit fixture on the plan. */
+    board: (c) => {
+      const u = c.R / 10;
+      return face(c, [
+        ...(c.on ? [mk('rect', { x: c.cx - u * 11.5, y: c.cy - u * 6, width: u * 23, height: u * 12, rx: u * 1.2, fill: c.accent, opacity: 0.1 + 0.2 * num(c.bright, 1) })] : []),
+        boxBody(c, u * 20, u * 7, u * 0.8),
+        ln(c, c.cx - u * 7, c.cy - u * 1.6, c.cx + u * 7, c.cy - u * 1.6, 1.3),
+        ln(c, c.cx - u * 4.5, c.cy + u * 2, c.cx + u * 4.5, c.cy + u * 2, 1),
+      ]);
+    },
+  };
+
   /* Which variant a family falls back to when a type or item names none. The
    * first key would do, but object order is a fragile thing to hang a
    * drawing on. */
@@ -3140,7 +3206,7 @@
     laundry: 'frontload', robot: 'round', thermostat: 'dial', energy: 'bolt',
     valve: 'gate', solar: 'panel', sense: 'disc', switch: 'rocker',
     chandelier: 'classic', pendant: 'dome', floor_lamp: 'torchiere',
-    bollard: 'cylinder', garden_spike: 'spot', spot: 'recessed',
+    bollard: 'cylinder', garden_spike: 'spot', spot: 'recessed', signage: 'plate',
   };
 
   /* The variants a family offers, for the editor's picker. */
@@ -3416,10 +3482,18 @@
     return (m && m[variant]) || null;
   }
 
+  /* The editor's rotation grip follows the drawing's front without rotating
+     existing projects to compensate for a symbol's native orientation. */
+  function furnitureFront(shape, variant) {
+    if (shape === 'lift' && (variant === 'vacuum' || variant === 'platform')) return 90;
+    if (shape === 'screen') return 180;
+    return 0;
+  }
+
   return {
     FURNITURE, ICONS, MARKERS, MARKER_DEFAULT, FURNITURE_VARIANTS,
     FURNITURE_VARIANT_SIZES, SWITCH_MAX_GANGS,
-    furniture, icon, marker, variantsOf, furnitureVariantsOf, furnitureVariantSize,
+    furniture, icon, marker, variantsOf, furnitureVariantsOf, furnitureVariantSize, furnitureFront,
     names: {
       furniture: Object.keys(FURNITURE),
       icons: Object.keys(ICONS),

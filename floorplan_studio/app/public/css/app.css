@@ -30,6 +30,7 @@ html, body {
 }
 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+body { display: flex; flex-direction: column; }
 .spacer { flex: 1; }
 .hint { color: var(--inkSoft); font-size: 12px; margin: 8px 4px 0; }
 /* "N more settings here" — the panel saying what it is not showing you. It has
@@ -46,7 +47,7 @@ input.bad, textarea.bad { border-color: var(--danger, #d9534f); outline-color: v
   display: flex; align-items: center; gap: 14px;
   padding: 8px 12px; background: var(--panelBg);
   border-bottom: 1px solid var(--panelBorder);
-  height: 52px;
+  min-height: 52px; flex: 0 0 auto; flex-wrap: wrap;
 }
 .brand { display: flex; align-items: center; gap: 8px; color: var(--accent); flex: 0 0 auto; }
 .brand .app-icon { display: block; flex: 0 0 auto; object-fit: contain; }
@@ -66,7 +67,7 @@ input.bad, textarea.bad { border-color: var(--danger, #d9534f); outline-color: v
 .floors { display: flex; gap: 6px; align-items: center; flex: 1; min-width: 0; }
 #floorSelect { max-width: 160px; }
 
-.topbar-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; flex-wrap: wrap; }
 .save-state { font-size: 12px; color: var(--inkSoft); min-width: 74px; text-align: right; }
 .save-state.dirty { color: var(--danger); }
 
@@ -87,7 +88,7 @@ select, input[type=text], input[type=number], input[type=search] {
 
 /* ---------- workspace ---------- */
 
-.workspace { display: grid; grid-template-columns: var(--rail-w) 1fr var(--insp-w); height: calc(100% - 52px); }
+.workspace { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--insp-w); flex: 1; min-height: 0; }
 
 .rail, .inspector {
   background: var(--railBg); border-right: 1px solid var(--panelBorder);
@@ -135,7 +136,7 @@ select, input[type=text], input[type=number], input[type=search] {
 /* ---------- canvas ---------- */
 
 .canvas-wrap { display: flex; flex-direction: column; min-width: 0; background: var(--appBg); }
-.canvas-scroll { flex: 1; overflow: auto; position: relative; display: grid; place-items: center; padding: 18px; }
+.canvas-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; display: grid; place-items: center; padding: 18px; }
 /* A library button dragged over the plan — the same visual language as a
    focused input, so it reads as "drop is welcome here" without a new colour. */
 .canvas-scroll.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
@@ -175,8 +176,18 @@ select, input[type=text], input[type=number], input[type=search] {
    feature borrows from every design tool that has it. */
 .align-guide { stroke: #ff3fb0; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
 
+/* The resize-time size readout and the hover distance pills — an optional
+   editing aid (project.guides), so it stays visually quiet: a small pill in
+   the panel's own colours rather than anything accent-coloured, which is
+   reserved for selection state. */
+.dim-label { pointer-events: none; }
+.dim-label rect { fill: var(--panelBg); stroke: var(--panelBorder); stroke-width: 1; opacity: 0.92; }
+.dim-label text { fill: var(--ink); font-size: 10px; font-weight: 600; }
+.dim-label.measure-hover rect { opacity: 0.85; }
+.dim-label.measure-hover text { font-weight: 500; fill: var(--inkSoft); }
+
 .statusbar {
-  display: flex; align-items: center; gap: 12px; padding: 6px 12px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 6px 12px;
   border-top: 1px solid var(--panelBorder); background: var(--panelBg); font-size: 12px; color: var(--inkSoft);
 }
 .zoombox { display: inline-flex; align-items: center; gap: 5px; }
@@ -187,11 +198,51 @@ select, input[type=text], input[type=number], input[type=search] {
 
 /* ---------- inspector ---------- */
 
-.field { margin-bottom: 9px; }
-.field > label { display: block; font-size: 11px; color: var(--inkSoft); margin-bottom: 3px; }
-.field input, .field select, .field textarea { width: 100%; }
-.field.row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.field { margin: 0 0 12px; min-width: 0; }
+.field > label, .field.row > div > label { display: block; font-size: 12px; font-weight: 500; color: var(--inkSoft); margin-bottom: 5px; }
+.field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea { width: 100%; min-width: 0; }
+.field.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .field.row > div { min-width: 0; }
+/* Boolean controls keep their native box beside a wrapping, clickable label.
+   Text-field sizing must never turn a checkbox into a full-width row. */
+label.inline:has(> input[type=checkbox]), label.inline:has(> input[type=radio]) {
+  display: flex; align-items: flex-start; gap: 9px; line-height: 1.5;
+  font-size: 12px; font-weight: 400; margin-bottom: 0; cursor: pointer;
+}
+input[type=checkbox], input[type=radio] {
+  flex: 0 0 auto; width: 16px; height: 16px; margin: 1px 0 0; accent-color: var(--accent);
+}
+:is(.inspector, #modalBody) label.inline:has(> input[type=checkbox]) {
+  padding: 9px 10px; border: 1px solid var(--panelBorder); border-radius: 7px;
+  background: var(--panelBg); color: var(--ink); min-height: 38px;
+}
+:is(.inspector, #modalBody) label.inline:has(> input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--panelBorder));
+  background: color-mix(in srgb, var(--accent) 5%, var(--panelBg));
+}
+:is(.inspector, #modalBody) label.inline:has(> input:disabled) { opacity: .6; cursor: default; }
+:is(.inspector, #modalBody) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select) { min-height: 32px; }
+:is(input, select, textarea, button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.inspector .hint, #modalBody .hint { line-height: 1.55; margin: 6px 0 12px; }
+.setting-help { margin: 6px 0 14px; padding: 9px 11px; border-left: 2px solid var(--panelBorder); font-size: 12px; color: var(--inkSoft); }
+.setting-help > p { margin: 0; line-height: 1.5; }
+.setting-help details { margin-top: 6px; }
+.setting-help summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.setting-help ul { margin: 8px 0 0; padding-left: 17px; line-height: 1.55; }
+.setting-help li + li { margin-top: 5px; }
+.settings-group { margin: 12px 0; padding: 12px; border: 1px solid var(--panelBorder); border-radius: 9px; background: var(--panelBg); }
+.settings-group > :last-child { margin-bottom: 0; }
+.settings-group > h3 { margin: 0 0 12px; font-size: 12px; color: var(--ink); }
+.option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.control-section { border: 1px solid var(--panelBorder); border-radius: 8px; background: var(--panelBg); margin-bottom: 8px; overflow: hidden; }
+.inspector .control-section > label.inline { border: 0; border-radius: 0; }
+.control-section > .link { margin: 0 10px 10px; }
+.filter-details { padding: 0 10px 8px; font-size: 12px; color: var(--inkSoft); }
+.filter-details summary { cursor: pointer; }
+.boundary-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 9px; margin: 0 0 8px; border: 1px solid var(--panelBorder); border-radius: 7px; background: var(--panelBg); }
+.boundary-row select { grid-row: 2; grid-column: 1 / -1; width: 100%; min-width: 0; }
+.boundary-row > :last-child { grid-column: 2; grid-row: 1; }
 .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--inkSoft); margin: 14px 0 6px; border-top: 1px solid var(--panelBorder); padding-top: 10px; }
 .entity-pick { display: flex; gap: 6px; align-items: center; }
 .entity-pick .cur { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

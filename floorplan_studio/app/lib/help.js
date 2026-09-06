@@ -350,12 +350,29 @@ function navigationMarkdown(topic) {
 
 function topicBody(topic) { return navigationMarkdown(topic) + topic.body; }
 
+function openingReference(boundaries) {
+  return Object.entries(boundaries.openingTypes || {}).map(([key, type]) => {
+    const p = type.props || {};
+    return '### ' + type.label + '\n\n' + (type.hint || '') + '\n\n'
+      + '**Find it:** ' + navigation.label('tool:opening') + ' → ' + type.label + ' → click a wall. Select it → '
+      + navigation.label('panel:opening') + '.\n\n'
+      + 'Type `' + key + '`. Default width **' + p.w + ' ft**, height **' + p.h + ' ft**. '
+      + (p.leaves ? 'Leaves: **' + p.leaves + '**. ' : '')
+      + (p.swing ? 'Swing: **' + p.swing + '**. ' : '')
+      + (p.slideTo ? 'Slide toward: **' + p.slideTo + '**. ' : '')
+      + (type.group ? 'Select the opening → **' + navigation.label('section:opening.mechanism')
+        + '** for the contact sensor, motor/cover entity and preview position. ' : '');
+  }).join('\n\n');
+}
+
 /* -------------------------------------------------------------- the API */
 
 function corpus(library, opts) {
   const loaded = authored((opts || {}).reload);
   const errors = loaded.errors.slice();
   const topics = loaded.topics.map((t) => Object.assign({}, t, { navigation: navigation.forSelectors(t.applies) }));
+  const openings = topics.find(t => t.id === 'walls-openings');
+  if (openings) openings.body += '\n\n## Opening catalogue\n\n' + openingReference(opts?.boundaries || require('../defaults/boundaries.json'));
   const all = topics.slice();
 
   /* Conceptual prose supplements the generated reference. Replacing it erased
@@ -401,10 +418,10 @@ function sheet(selectors, library, opts) {
   return { selectors: wanted, topics: list, errors };
 }
 
-function search(q, library) {
+function search(q, library, opts) {
   const needle = String(q || '').trim().toLowerCase();
   if (!needle) return [];
-  const { all } = corpus(library);
+  const { all } = corpus(library, opts);
   const score = (t) => {
     const haystack = [t.title, t.id, t.summary, ...t.tags, t.body, navigationMarkdown(t)].join(' ').toLowerCase();
     if (!needle.split(/\s+/).every((word) => haystack.includes(word))) return 0;
@@ -520,7 +537,7 @@ module.exports = {
   parseFrontMatter, loadDir, corpus, sheet, search, deriveType, toHtml, topicBody, navigationMarkdown,
   /* The editor asks for these two together on every "?" click. */
   sheetHtml(selectors, library, opts) {
-    const s = opts?.id ? { selectors: [], topics: [corpus(library).byId.get(opts.id)].filter(Boolean) } : sheet(selectors, library, opts);
+    const s = opts?.id ? { selectors: [], topics: [corpus(library, opts).byId.get(opts.id)].filter(Boolean) } : sheet(selectors, library, opts);
     return {
       selectors: s.selectors,
       topics: s.topics.map((t) => ({

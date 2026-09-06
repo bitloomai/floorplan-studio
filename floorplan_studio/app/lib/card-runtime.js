@@ -96,7 +96,10 @@ class FpsFloorplanCard extends HTMLElement {
       for (const k of ['presence', 'remote', 'sensor']) if (p[k]) ids.add(p[k]);
       for (const c of p.channels || []) if (c.entity) ids.add(c.entity);
     }
-    for (const op of this._floor.openings || []) if (op.sensor) ids.add(op.sensor);
+    for (const op of this._floor.openings || []) {
+      if (op.sensor) ids.add(op.sensor);
+      if (op.cover) ids.add(op.cover);
+    }
     /* The user's shortcuts too: a button that does not light up when you press
      * it is indistinguishable from one that did nothing. Only the EXPLICIT
      * shortcuts are watched — entities matched from the catalogue are found
@@ -177,9 +180,9 @@ class FpsFloorplanCard extends HTMLElement {
     if (!op) return null;
     const t = (FPS_DATA.boundaries.openingTypes || {})[op.type] || {};
     const bits = [t.label || op.type];
-    if (op.sensor) {
-      const st = this._hass.states[op.sensor];
-      bits.push(st ? (st.state === 'off' ? 'closed' : 'open') : 'no reading');
+    if (op.sensor || op.cover) {
+      const status = PlanScene.openingState(op, t, this._hass.states);
+      bits.push(status.known ? `${status.state} · ${Math.round(status.position * 100)}% open` : 'unknown — default drawing');
     }
     if (op.covering && op.covering.type && op.covering.type !== 'none') {
       const cov = (FPS_DATA.boundaries.coverings || {})[op.covering.type] || {};
@@ -795,7 +798,7 @@ class FpsFloorplanCard extends HTMLElement {
 
   moreInfoForOpening(id) {
     const op = (this._floor.openings || []).find((o) => o.id === id);
-    if (op && op.sensor) this.moreInfo(op.sensor);
+    if (op && (op.sensor || op.cover)) this.moreInfo(op.sensor || op.cover);
   }
 
   roomIdOf(item) {

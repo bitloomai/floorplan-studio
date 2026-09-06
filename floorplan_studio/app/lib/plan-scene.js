@@ -664,12 +664,26 @@
    * dead sensor should degrade to the drawn default rather than claim a door is
    * shut when nothing knows. Unsensored openings use the type's defaultOpen. */
   function openingIsOpen(op, typeDef, states) {
-    if (op.sensor && states) {
-      const st = states[op.sensor];
-      if (st) return st.state !== 'off';
+    return openingState(op, typeDef, states).position > 0;
+  }
+
+  function openingState(op, typeDef, states) {
+    const fallback = typeDef.defaultOpen !== false ? 1 : 0;
+    const bound = op.sensor || op.cover;
+    const st = bound && states && states[bound];
+    if (bound) {
+      if (op.sensor && st && ['on', 'off'].includes(st.state))
+        return { position: st.state === 'on' ? 1 : 0, known: true, state: st.state === 'on' ? 'open' : 'closed' };
+      if (!op.sensor && st && ['open', 'closed', 'opening', 'closing'].includes(st.state)) {
+        const pos = st.attributes && st.attributes.current_position;
+        const position = st.state === 'closed' ? 0 : typeof pos === 'number' && Number.isFinite(pos) ? clamp(pos / 100, 0, 1) : 1;
+        return { position, known: true, state: st.state };
+      }
+      return { position: fallback, known: false, state: 'unknown' };
     }
-    if (op.open !== undefined) return !!op.open;
-    return typeDef.defaultOpen !== false;
+    const position = op.position !== undefined ? clamp(num(op.position, fallback * 100) / 100, 0, 1)
+      : op.open !== undefined ? (op.open ? 1 : 0) : fallback;
+    return { position, known: true, state: position > 0 ? 'open' : 'closed' };
   }
 
   function openingNodes(op, room, floor, bDoc, theme, P, states, arcDefault) {
@@ -677,6 +691,7 @@
     const edge = openingEdgeOf(room, op);
     if (!edge) return [];
     const typeDef = (bDoc.openingTypes || {})[op.type] || {};
+    op = Object.assign({}, typeDef.props || {}, op);
     const style = (typeDef.render && typeDef.render.style) || 'cased';
     const w = num(op.w, (typeDef.props && typeDef.props.w) || 2.5);
     const at = num(op.at, edge.lo);
@@ -685,7 +700,8 @@
     const nodes = [];
     const glass = theme.apertureGlass;
     const line = theme.wallThin;
-    const open = openingIsOpen(op, typeDef, states);
+    const status = openingState(op, typeDef, states);
+    const open = status.position > 0;
 
     // The reveal: floor colour laid over where the wall would have run, so the
     // opening reads as a gap rather than a line drawn on top of a wall.
@@ -700,6 +716,17 @@
     const swingSign = op.swing === 'out' ? -1 : 1;
     const hingeAtStart = (op.hinge || 'start') === 'start';
     const swingArc = op.arc !== undefined ? op.arc !== false : arcDefault !== false;
+
+    // All mechanisms share this wall-local frame, so orientation works on all sides.
+    const pt = (u, v) => [x1 + ux * u + ix * v, y1 + uy * u + iy * v];
+    const segment = (u1, v1, u2, v2, width = 3, extra = {}) => {
+      const a = pt(u1, v1), b = pt(u2, v2);
+      nodes.push({ tag: 'line', attrs: { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: line, 'stroke-width': width, ...extra } });
+    };
+    const overhead = { 'stroke-dasharray': '4 3', opacity: 0.6 };
+    if ((typeDef.render || {}).gate) {
+      for (const u of [0, len]) { const p = pt(u, 0); nodes.push({ tag: 'circle', attrs: { cx: p[0], cy: p[1], r: 3.5, fill: line } }); }
+    }
 
     switch (style) {
       case 'glazed': {
@@ -737,47 +764,116 @@
       }
       case 'slide':
       case 'pocket': {
-        // Closed: leaf across the opening. Open: leaf parked beside it (pocket
-        // slides into the wall, so it simply disappears).
-        if (!open) {
-          nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: line, 'stroke-width': 3, 'stroke-linecap': 'butt' } });
-        } else if (style === 'slide') {
-          const px = x1 - ux * len, py = y1 - uy * len;
-          nodes.push({ tag: 'line', attrs: { x1: px + ix * 2, y1: py + iy * 2, x2: x1 + ix * 2, y2: y1 + iy * 2, stroke: line, 'stroke-width': 2.4, opacity: 0.75 } });
+        const paired = op.slideTo === 'both';
+        const leafLen = paired ? len / 2 : len;
+        const ends = paired ? [0, 1] : [op.slideTo === 'end' ? 1 : 0];
+        for (const end of ends) {
+          const shift = (end ? 1 : -1) * leafLen * status.position;
+          const base = paired && end ? len / 2 : 0;
+          if (style === 'pocket') {
+            // Only the part inside the pocket disappears during partial travel.
+            const start = Math.max(0, base + shift), finish = Math.min(len, base + leafLen + shift);
+            if (finish > start) segment(start, 0, finish, 0, 3.5);
+          } else segment(base + shift, open ? 3 : 0, base + leafLen + shift, open ? 3 : 0, 3.5);
+          if ((typeDef.render || {}).cantilever) segment(base + shift + (end ? leafLen : 0), 3, base + shift + (end ? leafLen * 1.35 : -leafLen * .35), 3, 1.5);
         }
-        nodes.push({ tag: 'line', attrs: { x1: x1 + ix * 5, y1: y1 + iy * 5, x2: x2 + ix * 5, y2: y2 + iy * 5, stroke: line, 'stroke-width': 0.9, 'stroke-dasharray': '4 3', opacity: 0.5 } });
+        if (!(typeDef.render || {}).cantilever) segment(0, 6, len, 6, 1, overhead);
+        break;
+      }
+      case 'telescopic': {
+        const count = Math.max(2, Math.min(6, Math.round(num(op.leaves, 3))));
+        const width = len / count;
+        const end = op.slideTo === 'end';
+        for (let i = 0; i < count; i++) {
+          const closed = i * width;
+          const parked = end ? len : -width;
+          const x = closed + (parked - closed) * status.position;
+          segment(x, i * 3, x + width, i * 3, 2.5);
+        }
+        segment(0, -4, len, -4, 1, overhead);
         break;
       }
       case 'fold': {
-        const leaves = Math.max(2, num(op.leaves, 4));
-        if (!open) {
-          nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: line, 'stroke-width': 2.6 } });
-        } else {
-          const seg = len / leaves;
-          let px = x1, py = y1;
-          for (let i = 0; i < leaves; i++) {
-            const dir = i % 2 ? -1 : 1;
-            const nx2 = px + ux * seg * 0.5 + ix * seg * 0.5 * dir * swingSign;
-            const ny2 = py + uy * seg * 0.5 + iy * seg * 0.5 * dir * swingSign;
-            nodes.push({ tag: 'line', attrs: { x1: px, y1: py, x2: nx2, y2: ny2, stroke: line, 'stroke-width': 2 } });
-            px = nx2; py = ny2;
+        const split = !!(typeDef.render || {}).split;
+        const count = Math.max(2, Math.min(12, Math.round(num(op.leaves, 4) / 2) * 2));
+        const panels = split ? Math.max(2, Math.round(count / 4) * 2) : count;
+        const bankLen = split ? len / 2 : len;
+        const seg = bankLen / panels;
+        const angle = status.position * Math.PI * .47;
+        const ends = split ? [0, 1] : [hingeAtStart ? 0 : 1];
+        for (const end of ends) {
+          let u = end ? len : 0, v = 0;
+          for (let i = 0; i < panels; i++) {
+            const nextU = u + (end ? -1 : 1) * seg * Math.cos(angle);
+            const nextV = v + (i % 2 ? -1 : 1) * seg * Math.sin(angle) * swingSign;
+            segment(u, v, nextU, nextV, 2.8);
+            const joint = pt(nextU, nextV);
+            nodes.push({tag:'circle',attrs:{cx:joint[0],cy:joint[1],r:1.6,fill:line}});
+            u = nextU; v = nextV;
           }
         }
         break;
       }
+      case 'scissor': {
+        const count = Math.max(3, Math.min(12, Math.round(num(op.leaves, 6))));
+        const span = len * (1 - .9 * status.position), step = span / count;
+        const base = op.slideTo === 'end' ? len - span : 0;
+        for (let i = 0; i < count; i++) {
+          segment(base + i * step, -3, base + (i + 1) * step, 3, 1.3);
+          segment(base + i * step, 3, base + (i + 1) * step, -3, 1.3);
+        }
+        segment(0, 6, len, 6, 1, overhead);
+        break;
+      }
+      case 'roll': {
+        // The curtain moves vertically: never draw it as a sideways sliding leaf.
+        const remaining = 1 - status.position;
+        if (remaining > 0) segment(0, 0, len, 0, 2 + remaining * 4);
+        segment(0, 7, len, 7, 5, overhead);
+        for (const u of [0, len]) segment(u, -3, u, 10, 2);
+        break;
+      }
+      case 'sectional':
+      case 'tilt': {
+        const depth = P.S(Math.max(1, num(op.depth, num(op.h, 7))));
+        const raised = depth * status.position;
+        if (status.position < 1) segment(0, 0, len, 0, 2 + (1 - status.position) * 3);
+        for (const u of [0, len]) segment(u, 0, u, depth, 1, overhead);
+        if (open) {
+          const front = style === 'tilt' ? -raised * .3 : 0;
+          const rear = style === 'tilt' ? raised * .7 : raised;
+          segment(0, front, len, front, 1.5, overhead);
+          segment(0, rear, len, rear, 1.5, overhead);
+          for (const u of [0, len]) segment(u, front, u, rear, 1.5, overhead);
+          if (style === 'sectional') for (let i = 1; i < 5; i++) segment(0, raised * i / 5, len, raised * i / 5, 1, overhead);
+          else segment(0, front, len, rear, 1, overhead);
+        }
+        break;
+      }
+      case 'side_sectional': {
+        const end = op.slideTo === 'end', u = end ? len : 0;
+        const depth = P.S(Math.max(1, num(op.depth, num(op.w, 9))));
+        const remaining = len * (1 - status.position);
+        segment(end ? 0 : len - remaining, 0, end ? remaining : len, 0, 3);
+        if (open) segment(u, 0, u, depth * status.position, 3);
+        segment(u + (end ? -4 : 4), 0, u + (end ? -4 : 4), depth, 1, overhead);
+        break;
+      }
       case 'swing':
       default: {
-        const leaves = Math.max(1, num(op.leaves, 1));
-        const leafLen = len / leaves;
+        const leaves = Math.max(1, Math.min(2, Math.round(num(op.leaves, 1))));
+        const ratio = clamp(num(op.leafRatio, 0.5), 0.1, 0.9);
         for (let i = 0; i < leaves; i++) {
           // Hinge at the outer end of each leaf, so a double door opens from
           // the middle outward the way real ones do.
-          const flip = leaves > 1 && i === leaves - 1;
-          const hingeT = (flip || !hingeAtStart) ? (i + 1) * leafLen : i * leafLen;
+          const leafLen = leaves === 1 ? len : len * (i === 0 ? ratio : 1 - ratio);
+          const hingeT = leaves > 1 ? (i === 0 ? 0 : len) : (hingeAtStart ? 0 : len);
           const hx = x1 + ux * hingeT, hy = y1 + uy * hingeT;
-          const dirAlong = (flip || !hingeAtStart) ? -1 : 1;
+          const dirAlong = leaves > 1 ? (i === 0 ? 1 : -1) : (hingeAtStart ? 1 : -1);
           if (open) {
-            const ex = hx + ix * leafLen * swingSign, ey = hy + iy * leafLen * swingSign;
+            const angle = status.position * Math.PI / 2;
+            const ex = hx + leafLen * (ux * dirAlong * Math.cos(angle) + ix * swingSign * Math.sin(angle));
+            const ey = hy + leafLen * (uy * dirAlong * Math.cos(angle) + iy * swingSign * Math.sin(angle));
             nodes.push({ tag: 'line', attrs: { x1: hx, y1: hy, x2: ex, y2: ey, stroke: line, 'stroke-width': 2 } });
             /* The dashed quarter-circle the leaf sweeps through. It is the
              * drawing convention rather than information — the leaf already
@@ -828,9 +924,9 @@
 
     // A sensored opening gets a small state pip, so you can see at a glance
     // which doors are actually being tracked.
-    if (op.sensor) {
+    if (op.sensor || op.cover) {
       const mx = (x1 + x2) / 2 + ix * 7, my = (y1 + y2) / 2 + iy * 7;
-      nodes.push({ tag: 'circle', attrs: { cx: mx, cy: my, r: 2.6, fill: open ? theme.alertRim : theme.powerRim, opacity: 0.9 } });
+      nodes.push({ tag: 'circle', attrs: { cx: mx, cy: my, r: 2.6, fill: !status.known ? 'none' : open ? theme.alertRim : theme.powerRim, stroke: !status.known ? theme.alertRim : 'none', 'stroke-dasharray': !status.known ? '2 1' : undefined, opacity: 0.9 } });
     }
     return nodes;
   }
@@ -877,7 +973,9 @@
   function openingTransmission(op, bDoc, boundaryType, states) {
     const t = (bDoc.openingTypes || {})[op.type] || {};
     const b = (bDoc.types || {})[boundaryType] || {};
-    const own = num(op.transmission, num(t.transmission, 1));
+    const closed = num(op.transmission, num(t.transmission, 1));
+    const position = t.openTransmission !== undefined ? openingState(op, t, states).position : 0;
+    const own = closed + (num(t.openTransmission, closed) - closed) * position;
     /* `curtain` is the flat factor this predates coverings with. Both apply:
      * a document that set one keeps working, and a covering is the richer way
      * to say the same thing. */
@@ -1420,8 +1518,8 @@
         },
       });
     } else if (shape === 'line') {
-      const len = num(item.props && item.props.len, num(r.len, 4));
-      const rot = num(item.props && item.props.rot, 0) * RAD;
+      const len = num(item.props && item.props.len, num(type.defaults && type.defaults.len, num(r.len, 4)));
+      const rot = num(item.props && item.props.rot, num(type.defaults && type.defaults.rot, 0)) * RAD;
       const hx = (Math.cos(rot) * len) / 2, hy = (Math.sin(rot) * len) / 2;
       nodes.push({ tag: 'line', attrs: { x1: P.X(fx - hx), y1: P.Y(fy - hy), x2: P.X(fx + hx), y2: P.Y(fy + hy), stroke: litColour || stroke, 'stroke-width': num(r.thickness, 4), 'stroke-linecap': 'round' } });
     } else if (shape === 'fan') {
@@ -1506,10 +1604,18 @@
        * cone off the item's own fov and range now, emitted above with every
        * other device's coverage, so "point the camera at the gate" is the same
        * gesture and the same numbers as pointing anything else. */
-      nodes.push({ tag: 'circle', attrs: { cx, cy, r: num(r.size, 8.5), fill, stroke, 'stroke-width': 1.4 } });
+      nodes.push({ tag: 'circle', attrs: { cx, cy, r: markerRadius(item, type, P), fill, stroke, 'stroke-width': 1.4 } });
       nodes.push(...rotated(Shapes().icon('camera', cx, cy, colour(sty.glyph, theme, theme.glyphOff), 0.72), facing, cx, cy));
     } else {
-      nodes.push({ tag: 'circle', attrs: { cx, cy, r: num(r.size, 8.5), fill, stroke, 'stroke-width': sk.on ? 1.6 : 1.2 } });
+      /* `markerRadius` is the single answer to "how big is this right now" —
+       * it already falls back to `r.size` when the type has no resize prop
+       * (or the item hasn't set one), so this is a superset of the old
+       * `num(r.size, 8.5)`, not a behaviour change for anything that isn't
+       * resizable. A type WITH `render.resize` but drawn through this plain
+       * branch (most fixtures with no marker `family`) needs this: the drag
+       * handle already writes `item.props[resize.prop]`, and a disc that
+       * never reads it back would move the handle without moving the disc. */
+      nodes.push({ tag: 'circle', attrs: { cx, cy, r: markerRadius(item, type, P), fill, stroke, 'stroke-width': sk.on ? 1.6 : 1.2 } });
       /* A disc is round, so the disc itself never needs turning — but the glyph
        * inside it does when the type says the icon has a front (a TV, a
        * doorbell, a sensor with a lens). `render.rotateIcon` opts in. */
@@ -1540,13 +1646,37 @@
 
   function build(project, floor, library, theme, opts) {
     opts = opts || {};
-    const P = makeProjector(project);
+    let P = makeProjector(project);
     const states = opts.states || {};
     const bDoc = opts.boundaries || { types: {}, openingTypes: {}, defaults: {} };
     const flDoc = opts.flooring || { types: {} };
     const ext = floor.extent || { w: 40, h: 40 };
-    const width = P.X(ext.w) + ((project.origin && project.origin[0]) || 0);
-    const height = P.Y(ext.h) + ((project.origin && project.origin[1]) || 0);
+    let width = P.X(ext.w) + ((project.origin && project.origin[0]) || 0);
+    let height = P.Y(ext.h) + ((project.origin && project.origin[1]) || 0);
+    // Reserve the full travel envelope once, so an outward gate at the site
+    // edge is not clipped and live state changes do not resize the canvas.
+    let minX = 0, minY = 0, maxX = width, maxY = height;
+    for (const op of floor.openings || []) {
+      const type = (bDoc.openingTypes || {})[op.type];
+      const room = (floor.rooms || []).find(r => r.id === op.room);
+      if (!type?.group || !room) continue;
+      for (const position of [0, 100]) {
+        const preview = {...op, sensor:undefined, cover:undefined, position};
+        for (const node of openingNodes(preview, room, floor, bDoc, theme, P, {}, false)) {
+          const a = node.attrs || {}, radius = num(a.r, 0) + num(a['stroke-width'], 0) / 2 + 4;
+          // Swing arcs stay inside the bounds of the closed/open leaf endpoints.
+          for (const [x,y] of [[a.x1,a.y1],[a.x2,a.y2],[a.cx,a.cy]]) {
+            if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+            minX=Math.min(minX,x-radius);minY=Math.min(minY,y-radius);
+            maxX=Math.max(maxX,x+radius);maxY=Math.max(maxY,y+radius);
+          }
+        }
+      }
+    }
+    if (minX < 0 || minY < 0 || maxX > width || maxY > height) {
+      P = makeProjector({...project, origin:[P.X(0)-minX,P.Y(0)-minY]});
+      width=maxX-minX;height=maxY-minY;
+    }
     const warnings = [];
 
     const layers = {
@@ -1620,11 +1750,32 @@
      * wall in the middle of the plan, stacked on top of the room's own
      * (correctly thin) wall at the same seam. Diagonal edges have no single
      * fixed coordinate, so they keep the old two-point test. */
-    const edgeIsExterior = (edge) => edge.diagonal
-      ? onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1])
-      : (edge.horizontal
+    const edgeIsExterior = (edge) => {
+      if (edge.diagonal) return onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
+      const atExtent = edge.horizontal
         ? (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.h) < 1e-6)
-        : (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.w) < 1e-6));
+        : (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.w) < 1e-6);
+      if (atExtent) return true;
+      /* A compound wall plus a setback drawn around the house — not unusual
+       * for a real plot — puts the BUILDING's own outer wall short of the
+       * floor's recorded extent, and the test above alone called every one of
+       * those walls a mere partition. A wall that faces an actual OUTDOOR
+       * ROOM (the setback, a car park, a terrace) is this room's own
+       * exterior wall regardless of where the floor extent happens to land —
+       * the same probe the same-primary-room skip below already uses.
+       *
+       * Deliberately narrower than "no neighbour at all": undrawn space past
+       * an edge stays a partition, exactly as it did before this — see "a
+       * wide interior edge is not mistaken for an exterior wall", pinned
+       * from the same real house. Only a room that says `outdoor: true`
+       * upgrades the wall; empty space one edge does not name is not a
+       * claim that a wall there is this room's exterior. */
+      const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
+      const nrm = WALL_NORMAL[edge.wall] * RAD;
+      const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
+      const neighbour = roomAt(floor, probe[0], probe[1]);
+      return !!(neighbour && neighbour.outdoor);
+    };
     const defaults = Object.assign({ exterior: 'wall_exterior', interior: 'wall_partition' }, bDoc.defaults || {});
 
     const zonePathOf = (room) => {
@@ -1753,6 +1904,15 @@
     const swingArcDefault = Object.assign(
       { swingArc: true }, project.doors || {}, floor.doors || {},
     ).swingArc !== false;
+
+    /* A stair's travel arrow and floor-cut lines are drawing convention, not
+     * information the UP/DN text doesn't already carry, and off by default —
+     * see shapes.js's `stairs()`. House → floor cascades the same way the
+     * door swing arc above does, so a house that wants them back everywhere
+     * says so once instead of on every flight. */
+    const stairIndicatorsDefault = Object.assign(
+      { indicators: false }, project.stairs || {}, floor.stairs || {},
+    ).indicators === true;
 
     for (const op of floor.openings || []) {
       const room = (floor.rooms || []).find((r) => r.id === op.room);
@@ -1995,6 +2155,13 @@
       const kind = item.kind || type.kind;
       if (kind === 'furniture') {
         const p = Object.assign({}, type.defaults || {}, item.props || {});
+        /* The item's own choice always wins; absent that, the house/floor
+         * cascade decides — `type.defaults.indicators` merged in above is
+         * the type's fallback-fallback, not a per-item decision, so it does
+         * not count as the item having set one. */
+        if ((type.render || {}).shape === 'stairs' && (!item.props || item.props.indicators === undefined)) {
+          p.indicators = stairIndicatorsDefault;
+        }
         const w = num(p.w, 3), h = num(p.h, 3);
         /* Furniture is mostly inert, but some of it is a real thing with a
          * switch on it — a flight of stairs whose risers are lit, a tank with a
@@ -2410,7 +2577,7 @@
   return {
     build, toSvg, nodeToSvg, resolveType, specLine, hitTargets,
     makeProjector, roomPoints, roomBBox, roomCentroid, pointInRoom, roomAt, roomEdges,
-    primaryRoom, colour, stateOf, lampColour, openingIsOpen, openingTransmission, coneNodes, MOTION_CSS,
+    primaryRoom, colour, stateOf, lampColour, openingIsOpen, openingState, openingTransmission, coneNodes, MOTION_CSS,
     variantOf, markerRadius, labelText, thresholdColour, labelMetrics,
     coveringOpenness, coveringTransmission, insetPolygon, polygonArea,
     WALL_NORMAL,

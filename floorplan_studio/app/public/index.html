@@ -105,6 +105,13 @@
         </select>
       </label>
       <label class="inline" title="Show the grid lines"><input type="checkbox" id="gridToggle" checked> Show grid</label>
+      <label class="inline" title="Distance-to-boundary tooltips while hovering, and a live size readout while resizing. Saved with the project."><input type="checkbox" id="guidesToggle" checked> Guides</label>
+      <label class="inline" title="Units the guides are shown in — the project itself always stores feet">
+        <select id="guidesUnits">
+          <option value="ft" selected>ft</option>
+          <option value="m">m</option>
+        </select>
+      </label>
       <span class="sunbox" id="sunBox" hidden>
         <label class="inline">Time
           <input type="range" id="timeSlider" min="0" max="1439" step="5" value="720" aria-label="Time of day" title="Preview daylight at any hour">

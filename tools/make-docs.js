@@ -431,6 +431,13 @@ footer{margin-top:4rem;padding:1.2rem 0 0;border-top:1px solid var(--line2);colo
 .side-head .side-brand{display:flex;align-items:center;gap:.6rem;padding:0;min-height:44px;color:var(--ink);text-decoration:none;font-size:.88rem}
 .side-brand .app-icon{flex:0 0 auto}
 .side-brand small{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
+.opening-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:1rem;margin:1rem 0}
+.opening-previews figure{margin:0;padding:.8rem;border:1px solid var(--line2);border-radius:12px;min-width:0}
+.opening-previews figcaption{font-size:.85rem;font-weight:600;margin-bottom:.5rem}
+.opening-previews p{margin:.6rem 0 0;font-size:.78rem;color:var(--muted)}
+.preview-state{display:flex;align-items:center;gap:.6rem;min-width:0}
+.preview-state span{flex:0 0 3.2rem;font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.preview-state svg{display:block;flex:1 1 auto;min-width:0;width:100%;height:auto;max-height:5.5rem;color:var(--ink)}
 @media(min-width:861px){#sideClose{display:none}.side-head{padding-top:.2rem}.side{border-right:1px solid var(--line2)}:root[data-side=open] .side{box-shadow:none}}
 .drawer-open{overflow:hidden}
 [hidden]{display:none!important}
@@ -532,6 +539,8 @@ ${THEME_BOOT}
     <a href="index.html"${current === null || current === undefined ? ' aria-current="page"' : ''}>Contents</a>
     ${nav}
     <hr>
+    <a href="https://github.com/bitloomai/floorplan-studio" aria-label="Floorplan Studio source on GitHub"><span aria-hidden="true">↗</span><span>Source on GitHub</span></a>
+    <hr>
     <div class="lbl">Browse</div>
     <a href="navigation.html"${current === 'navigation' ? ' aria-current="page"' : ''}>${categoryGlyph('plan')}<span>Find a control</span></a>
     <a href="library.html"${current === 'library-ref' ? ' aria-current="page"' : ''}>${categoryGlyph("library")}<span>Every type you can place</span></a>
@@ -545,10 +554,69 @@ ${bodyHtml}
 Generated from help topics, library records and shared UI navigation by <code>tools/make-docs.js</code> — the same text the editor
 shows behind its <strong>?</strong> buttons and the MCP server returns from <code>get_help</code>.
 Every glyph is drawn by the app's own <code>shapes.js</code>. Version ${esc(pkg.version || 'dev')}.
+<br>Source, issues and releases: <a href="https://github.com/bitloomai/floorplan-studio">github.com/bitloomai/floorplan-studio</a>.
 </footer></div>
 <script src="help.js"></script>
 </body></html>
 `;
+}
+
+/* One synthetic yard per gate or garage type, drawn shut and wide open by the
+ * renderer itself, so a picture on this page cannot disagree with what a plan
+ * draws. Two details are deliberate:
+ *
+ *   - Both states share ONE viewBox, measured from the union of their own
+ *     nodes. Measured, so nothing is clipped whichever way a leaf travels;
+ *     shared, so the pair reads side by side at one scale. A gate that looked
+ *     bigger open would be a picture that lies.
+ *   - The Closed/Open caption is HTML, not an SVG <text>. A font-size in
+ *     viewBox units gets multiplied by whatever scale the grid column gives
+ *     the figure, so a narrow pedestrian gate rendered its label about four
+ *     times the size of a garage door's.
+ */
+function openingPreviews() {
+  const theme = Object.assign({}, require(path.join(APP, 'defaults', 'themes.json')).themes.frosted.plan,
+    { wallThin: 'currentColor', aperture: 'none', alertRim: 'currentColor', powerRim: 'currentColor' });
+
+  const figures = Object.entries(boundaries.openingTypes).filter(([, type]) => type.group).map(([key, type]) => {
+    const states = [false, true].map((open) => {
+      const floor = {
+        id: 'preview', extent: { w: 64, h: 32 }, items: [],
+        rooms: [{ id: 'yard', shape: 'rect', rect: [0, 0, 64, 32] }],
+        openings: [{ id: 'preview', type: key, room: 'yard', wall: 'n', at: 24, w: type.props.w, open }],
+      };
+      const drawing = scene.build({ ppf: 6, origin: [0, 48] }, floor, library, theme, { boundaries, states: {}, flooring });
+      return { open, nodes: drawing.layers.openings };
+    });
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const state of states) for (const node of state.nodes) {
+      const a = node.attrs || {};
+      const pad = (Number(a.r) || 0) + (Number(a['stroke-width']) || 0) / 2;
+      for (const point of [[a.x1, a.y1], [a.x2, a.y2], [a.cx, a.cy]]) {
+        if (!Number.isFinite(point[0]) || !Number.isFinite(point[1])) continue;
+        minX = Math.min(minX, point[0] - pad); minY = Math.min(minY, point[1] - pad);
+        maxX = Math.max(maxX, point[0] + pad); maxY = Math.max(maxY, point[1] + pad);
+      }
+    }
+    if (!Number.isFinite(minX)) return '';
+    const m = 10;
+    const box = [minX - m, minY - m, (maxX - minX) + m * 2, (maxY - minY) + m * 2]
+      .map((n) => Math.round(n)).join(' ');
+
+    const rows = states.map((state) => '<div class="preview-state"><span>' + (state.open ? 'Open' : 'Closed') + '</span>'
+      + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + box + '" preserveAspectRatio="xMidYMid meet"'
+      + ' role="img" aria-label="' + esc(type.label + (state.open ? ', open' : ', closed')) + '">'
+      + state.nodes.map(scene.nodeToSvg).join('') + '</svg></div>').join('');
+
+    return '<figure><figcaption>' + esc(type.label) + '</figcaption>' + rows
+      + (type.hint ? '<p>' + esc(type.hint) + '</p>' : '') + '</figure>';
+  }).join('');
+
+  return '<h3>Gate and garage mechanisms — closed and open</h3>'
+    + '<p>Drawn by the same renderer the editor and the dashboard card use. Dashed lines are overhead —'
+    + ' the track a leaf runs on, or the ceiling a garage door parks against.</p>'
+    + '<div class="opening-previews">' + figures + '</div>';
 }
 
 function topicHtml(t) {
@@ -556,6 +624,7 @@ function topicHtml(t) {
   return `<article class="topic glass" id="${esc(t.id)}">
 <h2><a class="heading-link" href="#${esc(t.id)}">${esc(t.title)}</a></h2>
 <p class="summary">${esc(t.summary)}</p>
+${t.id === 'walls-openings' ? openingPreviews() : ''}
 <div class="body">${help.toHtml(help.topicBody(t))}</div>
 ${related.length ? '<div class="related">Read next: ' + related.map((r) => '<a href="' + topicUrl(r) + '">' + esc(r.title) + '</a>').join(' · ') + '</div>' : ''}
 </article>`;

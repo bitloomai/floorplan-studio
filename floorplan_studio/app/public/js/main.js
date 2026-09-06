@@ -112,6 +112,17 @@
     $('gridToggle').addEventListener('change', (e) => { S.view.showGrid = e.target.checked; Canvas.paint(); });
     $('gridSize').addEventListener('change', (e) => { S.view.gridSize = Number(e.target.value); Canvas.paint(); });
 
+    /* Distance/dimension guides are a saved project setting (the "dashboard
+     * level" the user asked for), not a per-tab view flag like the grid
+     * above — so it goes through Store.mutate and travels with the project. */
+    const setGuides = (patch) => Store.mutate(() => {
+      S.project.guides = Object.assign({ enabled: true, units: 'ft' }, S.project.guides, patch);
+    }, 'guides');
+    $('guidesToggle').checked = (S.project.guides || {}).enabled !== false;
+    $('guidesUnits').value = (S.project.guides || {}).units || 'ft';
+    $('guidesToggle').addEventListener('change', (e) => setGuides({ enabled: e.target.checked }));
+    $('guidesUnits').addEventListener('change', (e) => setGuides({ units: e.target.value }));
+
     $('zoomIn').addEventListener('click', () => Canvas.zoomTo(S.view.zoom * 1.2));
     $('zoomOut').addEventListener('click', () => Canvas.zoomTo(S.view.zoom / 1.2));
     $('zoomFit').addEventListener('click', () => Canvas.fit());
@@ -264,6 +275,10 @@
     });
 
     Store.on((reason) => {
+      if (reason === 'project' || reason === 'remote') {
+        $('guidesToggle').checked = (S.project.guides || {}).enabled !== false;
+        $('guidesUnits').value = (S.project.guides || {}).units || 'ft';
+      }
       if (reason === 'project' || reason === 'floor' || reason === 'remote') { Canvas.paint(); Panels.renderInspector(); }
       if (reason === 'floor' || reason === 'remote') Panels.renderFloors();
       if (reason === 'selection') { Canvas.drawSelection(); Panels.renderInspector(); }

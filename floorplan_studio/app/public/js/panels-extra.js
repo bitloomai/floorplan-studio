@@ -19,12 +19,23 @@ window.PanelsExtra = (function () {
   const helpBtn = (...a) => P().helpBtn(...a);
   const toast = (...a) => P().toast(...a);
 
-  /* Screen edge -> the compass word the project says it means. Screen-relative
-   * everywhere, compass only for display: mixing the two is the classic way to
-   * put a window on the wrong side of a house. */
+  function settingHelp(summary, title, ...tips) {
+    return h('div', { class: 'setting-help' }, h('p', {}, summary),
+      h('details', {}, h('summary', {}, title), h('ul', {}, ...tips.map(tip => h('li', {}, tip)))));
+  }
+
+  /* Screen edge -> the compass word the project's bearing says it means.
+   * Screen-relative everywhere, compass only for display: mixing the two is
+   * the classic way to put a window on the wrong side of a house.
+   *
+   * Derived from `sun.screenUpBearing` rather than read from
+   * `project.compass` — that field used to be an independent default that
+   * nothing updated when the bearing changed, so the needle would rotate and
+   * this label would not. See `SunModel.compassLetters`. */
   const EDGE = { n: 'top', e: 'right', s: 'bottom', w: 'left' };
   function wallLabel(wall) {
-    const c = (S.project && S.project.compass) || { up: 'N', right: 'E', down: 'S', left: 'W' };
+    const bearing = (S.project && S.project.sun && S.project.sun.screenUpBearing) || 0;
+    const c = SunModel.compassLetters(bearing);
     const map = { n: c.up, e: c.right, s: c.down, w: c.left };
     return `${EDGE[wall]} (${map[wall] || '?'})`;
   }
@@ -32,6 +43,9 @@ window.PanelsExtra = (function () {
   /* ---------------------------------------------------------- flooring ---- */
 
   function flooringField(box, room) {
+    const group = h('section', { class: 'settings-group', 'aria-label': 'Floor finish' }, h('h3', {}, 'Floor finish'));
+    box.appendChild(group);
+    box = group;
     const types = Object.entries((S.flooring && S.flooring.types) || {});
     const groups = [...new Set(types.map(([, t]) => t.group || 'Other'))];
     const cur = room.flooring || 'plain';
@@ -88,14 +102,15 @@ window.PanelsExtra = (function () {
     const curR = o.reflectance ?? typeR;
     box.appendChild(field(`Reflection — ${Math.round(curR * 100)}%`, h('input', {
       type: 'range', min: 0, max: 100, step: 1, value: Math.round(curR * 100),
-      oninput: (e) => Store.mutate(() => {
+      onchange: (e) => Store.mutate(() => {
         room.flooringOptions = Object.assign({}, room.flooringOptions, { reflectance: Number(e.target.value) / 100 });
       }, 'floor reflection'),
     })));
-    box.appendChild(h('p', { class: 'hint' },
-      `${(def.label || cur)} reflects about ${Math.round(typeR * 100)}% by default. `
-      + 'Raise it for a gloss finish, drop it for matte or a dark stone — a brighter floor lifts the whole room, '
-      + 'a dark one leaves it needing more light. Set 0% for a flat colour that bounces nothing.'));
+    box.appendChild(settingHelp(
+      `${def.label || cur}: ${Math.round(typeR * 100)}% reflection by default.`, 'Choosing reflection',
+      'Raise it for a glossy finish; lower it for matte or dark stone.',
+      'More reflection makes the room brighter with the same lighting.',
+      'Use 0% for a flat colour that reflects no light.'));
 
     if (room.flooringOptions) {
       box.appendChild(h('button', { class: 'btn tiny', onclick: () => Store.mutate(() => { room.flooringOptions = null; }, 'reset flooring') }, 'Reset to the type’s own look'));
@@ -217,7 +232,7 @@ window.PanelsExtra = (function () {
         return h('div', { class: 'field' }, h('label', {}, `${spec.label || spec.key} — ${Math.round((val ?? 0) * 100)}%`),
           h('input', {
             type: 'range', min: 0, max: 100, step: 1, value: Math.round((val ?? 0) * 100),
-            oninput: (e) => set(Number(e.target.value) / 100),
+            onchange: (e) => set(Number(e.target.value) / 100),
           }));
       }
 
@@ -263,7 +278,7 @@ window.PanelsExtra = (function () {
          * only in the room panel's override. */
         field(`Reflection — ${Math.round((t.reflectance ?? 0) * 100)}%`, h('input', {
           type: 'range', min: 0, max: 100, step: 1, value: Math.round((t.reflectance ?? 0) * 100),
-          oninput: (e) => { t.reflectance = Number(e.target.value) / 100; flooringChanged(); drawForm(); },
+          onchange: (e) => { t.reflectance = Number(e.target.value) / 100; flooringChanged(); drawForm(); },
         })),
         h('p', { class: 'hint' }, 'How much light this surface throws back — polished white marble is about 65%, mid oak 25%, black granite 5%. Both light models read it, so it changes how bright a room lit by the same fittings actually looks.'),
         h('div', { class: 'subhead' }, 'Pattern options'),
@@ -421,9 +436,10 @@ window.PanelsExtra = (function () {
       const span = edge.len;
       const partial = !!(existing && (existing.from !== undefined || existing.to !== undefined));
 
-      box.appendChild(h('div', { class: 'chanrow' },
+      box.appendChild(h('div', { class: 'boundary-row' },
         h('span', { class: 'hint', style: 'margin:0;flex:1' }, `${wallLabel(edge.wall)}${suffix} · ${span.toFixed(1)} ft${edge.curved ? ' · curved' : ''}`),
         h('select', {
+          'aria-label': `${wallLabel(edge.wall)}${suffix} wall treatment`,
           onchange: (e) => writeBoundary(edge, { type: e.target.value }),
         }, h('option', { value: '', selected: !cur }, 'default wall'),
            ...bGroups.map((g) => h('optgroup', { label: g },
@@ -507,12 +523,14 @@ window.PanelsExtra = (function () {
 
       /* --- header buttons --- */
       box.appendChild(h('p', { class: 'hint', style: 'margin-top:10px' }, 'Header buttons'));
+      const headerButtons = h('div', { class: 'option-grid' });
+      box.appendChild(headerButtons);
       for (const b of ((S.controls && S.controls.default && S.controls.default.header && S.controls.default.header.buttons) || [])) {
         const on = (eff.header.buttons || []).some((x) => x.id === b.id);
         /* A button pointing at something this room has not got cannot be turned
          * on, and naming what is missing beats "unavailable". */
         const missing = !!b.hideWhenMissing && !Controls.resolveTarget(b.target, eff.shortcuts, room);
-        box.appendChild(h('label', { class: 'inline', style: 'display:flex', title: missing ? `nothing here answers to “${b.target}”` : '' },
+        headerButtons.appendChild(h('label', { class: 'inline', title: missing ? `nothing here answers to “${b.target}”` : '' },
           h('input', {
             type: 'checkbox', checked: on, disabled: missing,
             onchange: (e) => Store.mutate(() => {
@@ -551,7 +569,7 @@ window.PanelsExtra = (function () {
           count = String(Controls.groupsFor(items, merged.groupBy, ctx).length);
         }
 
-        const row = h('div', { style: 'margin-bottom:2px' });
+        const row = h('div', { class: 'control-section' });
         row.appendChild(h('label', { class: 'inline', style: 'display:flex' }, h('input', {
           type: 'checkbox', checked: on,
           onchange: (e) => Store.mutate(() => {
@@ -567,10 +585,11 @@ window.PanelsExtra = (function () {
            count !== '' ? h('span', { class: 'badge', style: 'margin-left:auto' }, count) : ''));
 
         if (on && merged.type === 'entities') {
-          row.appendChild(h('div', { style: 'padding-left:20px' },
-            h('p', { class: 'hint', style: 'margin:2px 0' },
-              `from ${Controls.describeSources(merged)} — ${Controls.describeFilter(merged.filter)}`),
-            h('button', { class: 'link', onclick: () => editFilter(floor, room, def.id, ctx) }, 'edit filter…')));
+          row.appendChild(h('details', { class: 'filter-details' },
+            h('summary', {}, 'Sources & filter'),
+            h('p', { class: 'hint' }, `Sources: ${Controls.describeSources(merged)}`),
+            h('p', { class: 'hint' }, `Filter: ${Controls.describeFilter(merged.filter)}`)));
+          row.appendChild(h('button', { class: 'link', onclick: () => editFilter(floor, room, def.id, ctx) }, 'Edit filter…'));
         }
         box.appendChild(row);
       }
@@ -583,8 +602,9 @@ window.PanelsExtra = (function () {
 
     /* --- which words this room answers to --- */
     box.appendChild(h('div', { class: 'subhead' }, 'Match keys'));
-    box.appendChild(h('p', { class: 'hint' },
-      'How sections that find their own entities recognise this room — a scene or an automation named after any of these joins its rows. Blank means the room’s id and name, which is usually right; set it when the entities are named after something else (a “Guest Room” whose scenes are all gr_…).'));
+    box.appendChild(settingHelp('Leave blank to match the room’s name and id.', 'When to add match keys',
+      'Matching scenes and automations join this room’s controls automatically.',
+      'Add a key when entity names use another name, such as gr_ for Guest Room.'));
     box.appendChild(field('Keys (comma separated)', h('input', {
       type: 'text', value: (room.keys || []).join(', '),
       placeholder: `${room.id}, ${room.name || ''}`.trim(),
@@ -1045,7 +1065,7 @@ window.PanelsExtra = (function () {
 
     box.appendChild(field(`Open — ${Math.round(pos)}%`, h('input', {
       type: 'range', min: 0, max: 100, step: 5, value: pos,
-      oninput: (e) => Store.mutate(() => { op.covering.position = Number(e.target.value); }, 'covering position'),
+      onchange: (e) => Store.mutate(() => { op.covering.position = Number(e.target.value); }, 'covering position'),
     })));
     box.appendChild(h('p', { class: 'hint' },
       `${spec.label || cov.type} passes ${Math.round((spec.open ?? 1) * 100)}% wide open and `
@@ -1064,7 +1084,8 @@ window.PanelsExtra = (function () {
       onchange: (e) => Store.mutate(() => {
         op.type = e.target.value;
         const p = (types[e.target.value] || {}).props || {};
-        for (const k of ['w', 'h', 'sill']) if (p[k] !== undefined && op[k] === undefined) op[k] = p[k];
+        for (const k of ['swing', 'hinge', 'leaves', 'leafRatio', 'slideTo', 'depth']) delete op[k];
+        for (const [k, value] of Object.entries(p)) if (op[k] === undefined && value !== null) op[k] = value;
       }, 'opening type'),
     }, ...Object.entries(types).map(([k, t]) => h('option', { value: k, selected: op.type === k }, t.label || k)))));
 
@@ -1080,38 +1101,49 @@ window.PanelsExtra = (function () {
     /* --- daylight --- */
     box.appendChild(h('div', { class: 'subhead' }, 'Daylight'));
     const trans = op.transmission ?? def.transmission ?? 1;
-    const curtain = op.curtain ?? 1;
     box.appendChild(field(`Transmission — ${Math.round(trans * 100)}%`, h('input', {
       type: 'range', min: 0, max: 1, step: 0.05, value: trans,
-      oninput: (e) => Store.mutate(() => { op.transmission = Number(e.target.value); }, 'transmission'),
+      onchange: (e) => Store.mutate(() => { op.transmission = Number(e.target.value); }, 'transmission'),
     })));
     coveringFields(box, op);
-    const covT = PlanScene.coveringTransmission(op, S.boundaries, S.states || {});
+    const effectiveTransmission = PlanScene.openingTransmission(op, S.boundaries, null, S.view.live ? S.states || {} : {});
     const area = (op.w ?? props.w ?? 0) * (op.h ?? props.h ?? 0);
-    box.appendChild(h('p', { class: 'hint' },
-      `Effective ${Math.round(trans * curtain * covT * 100)}% over ${area.toFixed(1)} sq ft of opening. `
-      + 'That single number is all the light model reads — for the sun coming in, and for how far a lamp inside spills out through it.'));
+    box.appendChild(settingHelp(
+      `Effective transmission: ${Math.round(effectiveTransmission * 100)}% · ${area.toFixed(1)} sq ft.`, 'How transmission works',
+      'Includes the opening position and any covering.',
+      'Affects both daylight coming in and lamplight spilling out.'));
 
     /* --- door behaviour --- */
     const style = (def.render && def.render.style) || '';
-    if (/swing|slide|pocket|fold/.test(style)) {
-      box.appendChild(h('div', { class: 'subhead' }, 'Door'));
+    if (/swing|slide|pocket|fold|telescopic|scissor|roll|sectional|tilt/.test(style)) {
+      box.appendChild(P().locationTitle('section:opening.mechanism'));
       if (/swing|fold/.test(style)) {
         box.appendChild(h('div', { class: 'field row' },
           h('div', {}, h('label', {}, 'Swing'), h('select', {
             onchange: (e) => Store.mutate(() => { op.swing = e.target.value; }, 'swing'),
-          }, ...['in', 'out'].map((v) => h('option', { value: v, selected: (op.swing || 'in') === v }, v)))),
+          }, ...['in', 'out'].map((v) => h('option', { value: v, selected: (op.swing || props.swing || 'in') === v }, v)))),
           h('div', {}, h('label', {}, 'Hinge'), h('select', {
+            disabled: !!(def.render || {}).split || (style === 'swing' && (op.leaves ?? props.leaves ?? 1) === 2),
             onchange: (e) => Store.mutate(() => { op.hinge = e.target.value; }, 'hinge'),
-          }, ...['start', 'end'].map((v) => h('option', { value: v, selected: (op.hinge || 'start') === v }, v)))),
+          }, ...['start', 'end'].map((v) => h('option', { value: v, selected: (op.hinge || props.hinge || 'start') === v }, v)))),
         ));
-        box.appendChild(field('Leaves', numInput(op.leaves ?? props.leaves ?? 1, (v) => Store.mutate(() => { op.leaves = v || 1; }, 'leaves'), 1)));
-        box.appendChild(h('p', { class: 'hint' }, 'Swing is drawn live — read the arc rather than trusting the word. Which side “in” lands on depends on whether the door sits on the room’s min or max edge, and “Hinge” flips which jamb it turns on.'));
+        const split = !!(def.render || {}).split;
+        const leafOptions = style === 'swing' ? [1, 2] : split ? [4, 8, 12] : [2, 4, 6, 8, 10, 12];
+        box.appendChild(field('Leaves', h('select', { onchange: (e) => Store.mutate(() => { op.leaves = Number(e.target.value); }, 'leaves') },
+          ...leafOptions.map(v => h('option', {value:v,selected:(op.leaves ?? props.leaves ?? 1) === v}, String(v))))));
+        if (style === 'swing' && (op.leaves ?? props.leaves ?? 1) === 2) box.appendChild(field('First leaf share', h('input', {
+          type:'range',min:.1,max:.9,step:.05,value:op.leafRatio ?? props.leafRatio ?? .5,
+          onchange:(e)=>Store.mutate(()=>{op.leafRatio=Number(e.target.value);},'leaf share'),
+        })));
+        box.appendChild(settingHelp('Swing direction is relative to this room.', 'Swing and hinge guide',
+          'In opens into this room; out opens away from it.',
+          'Start is left on a horizontal wall and top on a vertical wall.',
+          'Paired leaves hinge at both outer posts.'));
 
         /* The house sets whether arcs are drawn; this door can disagree. Blank
          * inherits, exactly like every other scoped setting here. */
         const houseArc = (S.project.doors || {}).swingArc !== false;
-        box.appendChild(field('Swing arc', h('select', {
+        if (style === 'swing') box.appendChild(field('Swing arc', h('select', {
           onchange: (e) => Store.mutate(() => {
             if (e.target.value === '') delete op.arc; else op.arc = e.target.value === 'on';
           }, 'swing arc'),
@@ -1121,18 +1153,31 @@ window.PanelsExtra = (function () {
         h('option', { value: 'off', selected: op.arc === false }, 'Always hide'))));
       }
 
+      if (/slide|pocket|telescopic|scissor|side_sectional/.test(style)) {
+        const directions = style === 'slide' ? ['start', 'end', 'both'] : ['start', 'end'];
+        box.appendChild(field('Slide toward', h('select', {onchange:(e)=>Store.mutate(()=>{op.slideTo=e.target.value;},'slide direction')},
+          ...directions.map(v=>h('option',{value:v,selected:(op.slideTo ?? props.slideTo ?? 'start')===v},v === 'both' ? 'Both ends' : v)))));
+      }
+      if (/telescopic|scissor/.test(style)) box.appendChild(field('Panels', h('select', {onchange:(e)=>Store.mutate(()=>{op.leaves=Number(e.target.value);},'panels')},
+        ...(style === 'scissor' ? [3,4,5,6] : [2,3,4,5,6]).map(v=>h('option',{value:v,selected:(op.leaves ?? props.leaves ?? 3)===v},String(v))))));
+      if (/sectional|tilt/.test(style)) box.appendChild(field('Parking depth (ft)', numInput(op.depth ?? props.depth ?? 7,
+        v=>Store.mutate(()=>{op.depth=Math.max(1,v ?? 7);},'parking depth'),.25)));
+      if (def.hint) box.appendChild(h('p',{class:'hint'},def.hint));
       box.appendChild(entityRow('Contact sensor', op.sensor, ['binary_sensor'],
-        (id) => Store.mutate(() => { op.sensor = id; }, 'door sensor')));
-      box.appendChild(h('p', { class: 'hint' },
-        '‘off’ is closed; everything else — unavailable, unknown, a flat battery, a deleted entity — draws OPEN. A dead sensor degrades to the default rather than claiming a door is shut when nothing knows.'));
-
-      if (!op.sensor) {
-        box.appendChild(field('Drawn as', h('select', {
-          onchange: (e) => Store.mutate(() => { op.open = e.target.value === 'open'; }, 'open'),
-        }, ...['open', 'closed'].map((v) => h('option', { value: v, selected: (op.open !== false) === (v === 'open') }, v)))));
+        (id) => Store.mutate(() => { op.sensor = id; }, 'opening sensor')));
+      box.appendChild(entityRow('Motor / cover entity', op.cover, ['cover'],
+        (id) => Store.mutate(() => { op.cover = id; }, 'opening cover')));
+      box.appendChild(settingHelp('Contact sensor takes priority over the motor.', 'Readings and unavailable devices',
+        'Contact sensor: off means closed; on means open.',
+        'Without a contact sensor, the motor reports its opening percentage.',
+        'Unknown or unavailable readings use the type default and a hollow status pip. They do not confirm closure.'));
+      if (!op.sensor && !op.cover) {
+        box.appendChild(field('Preview opening (%)', h('input', {type:'range',min:0,max:100,step:5,
+          value:op.position ?? ((op.open ?? def.defaultOpen ?? true) ? 100 : 0),
+          onchange:(e)=>Store.mutate(()=>{op.position=Number(e.target.value);},'opening preview')})));
       } else {
-        const st = S.states[op.sensor];
-        box.appendChild(h('p', { class: 'hint' }, st ? `Currently ${st.state} → drawn ${st.state === 'off' ? 'closed' : 'open'}.` : 'No state for that sensor in the snapshot.'));
+        const status = PlanScene.openingState(op, def, S.states || {});
+        box.appendChild(h('p', {class:'hint'}, status.known ? 'Currently ' + status.state + ' · ' + Math.round(status.position * 100) + '% open' : 'No reliable reading — preview uses the type default.'));
       }
     }
 
@@ -1173,8 +1218,9 @@ window.PanelsExtra = (function () {
     const out = h('div', {});
     const body = h('div', {});
 
-    body.appendChild(h('p', { class: 'hint' },
-      'Give the house a location and the plan models daylight: sky brightness from the real solar elevation, and a beam through every opening along the true azimuth, scaled by that opening’s transmission. Set it once for the house; any floor may override it.'));
+    body.appendChild(settingHelp('Set daylight for the house; individual floors can override it.', 'How daylight is modelled',
+      'Your location determines the sun’s height and direction.',
+      'Each opening’s transmission controls how much daylight enters.'));
 
     body.appendChild(h('div', { class: 'field' },
       h('label', { class: 'inline' }, h('input', {
@@ -1183,6 +1229,7 @@ window.PanelsExtra = (function () {
       }), ' Daylight enabled for the whole house')));
 
     const loc = proj.sun.location || (proj.sun.location = { lat: null, lon: null });
+    body.appendChild(h('h3', { class: 'subhead' }, 'Location & orientation'));
     body.appendChild(h('div', { class: 'field row' },
       h('div', {}, h('label', {}, 'Latitude'), h('input', {
         type: 'number', step: 0.0001, value: loc.lat ?? '',
@@ -1206,14 +1253,14 @@ window.PanelsExtra = (function () {
       },
     }, 'Try Home Assistant’s home location'));
     body.appendChild(h('p', { class: 'hint' },
-      'Location domains are stripped from the entity feed on purpose, so this often will not resolve — coordinates typed here are the reliable route.'));
+      'Enter coordinates manually if Home Assistant’s location is unavailable.'));
 
     body.appendChild(field('Which bearing points UP the screen', h('select', {
       onchange: (e) => { Store.mutate(() => { proj.sun.screenUpBearing = Number(e.target.value); }, 'bearing'); refresh(); },
     }, ...[[0, 'North'], [90, 'East'], [180, 'South'], [270, 'West']].map(([v, l]) =>
       h('option', { value: v, selected: Number(proj.sun.screenUpBearing || 0) === v }, l)))));
     body.appendChild(h('p', { class: 'hint' },
-      'The only place plan rotation lives. Everything else is screen-relative, so a plan drawn with north to the left is a setting rather than tribal knowledge.'));
+      'Sets the compass direction at the top of the plan.'));
 
     proj.compass = proj.compass || {};
     body.appendChild(h('label', { class: 'inline' },
@@ -1222,13 +1269,14 @@ window.PanelsExtra = (function () {
         onchange: (e) => { Store.mutate(() => { proj.compass.show = e.target.checked; }, 'compass'); refresh(); },
       }), ' Show a compass on the plan'));
     body.appendChild(h('p', { class: 'hint' },
-      'Drawn from the bearing above, so the needle and the sun beams can never disagree. On by default whenever daylight is modelled — a lit plan with no north mark asks the reader to take the lighting on trust.'));
+      'The compass follows the bearing above.'));
 
     /* Read merged, write on change. Materialising `sun.ambient` merely to show
      * its value put an empty object into the project the moment anybody opened
      * this dialog — harmless, but a document should record decisions, not the
      * fact that somebody once looked at a panel. */
-    body.appendChild(field('Glazing that counts as fully daylit (glazed ÷ floor area)', h('input', {
+    body.appendChild(h('h3', { class: 'subhead' }, 'Daylight brightness'));
+    body.appendChild(field('Glazing target (glazed area ÷ floor area)', h('input', {
       type: 'number', step: 0.01, min: 0.01, max: 1,
       value: (proj.sun.ambient || {}).referenceExposure ?? 0.16,
       onchange: (e) => {
@@ -1238,9 +1286,12 @@ window.PanelsExtra = (function () {
         refresh();
       },
     })));
-    body.appendChild(h('p', { class: 'hint' },
-      'A room glazed to this share of its own floor reads as fully lit by day; below it, proportionally less. Building practice puts usable daylight near 0.10 and good daylight near 0.20. Raise it if rooms look too bright by day, lower it if they look too dark. Any room can override it in its own panel.'));
+    body.appendChild(settingHelp('Glazing target is a share of the room’s floor area.', 'Adjusting daylight brightness',
+      'At this share, a room is modelled as fully daylit; below it, proportionally less.',
+      'Raise the target if rooms look too bright; lower it if they look too dark.',
+      'Each room can override this target in its inspector.'));
 
+    body.appendChild(h('h3', { class: 'subhead' }, 'Weather & solar sensors'));
     body.appendChild(entityRow('Weather entity (dims the sky)', (proj.sun.weather || {}).entity, ['weather'],
       (id) => { Store.mutate(() => { proj.sun.weather = Object.assign({}, proj.sun.weather, { entity: id }); }, 'weather'); refresh(); }));
 
@@ -1251,8 +1302,9 @@ window.PanelsExtra = (function () {
       type: 'number', value: ss.peakW ?? '',
       onchange: (e) => { Store.mutate(() => { ss.peakW = e.target.value === '' ? null : Number(e.target.value); }, 'peakW'); refresh(); },
     })));
-    body.appendChild(h('p', { class: 'hint' },
-      'The panels only ever pull the estimate down toward what is really happening — they cannot invent light the geometry says is not there. Ignored below 12° elevation, where a low sun makes almost no power even on a clear day.'));
+    body.appendChild(settingHelp('Solar output can reduce the daylight estimate.', 'How solar readings are used',
+      'Readings only dim the estimate; they cannot add light beyond the model.',
+      'Ignored when the sun is below 12° elevation, where power output is low even on a clear day.'));
 
     if (floor) {
       body.appendChild(h('div', { class: 'subhead' }, `This floor — ${floor.name}`));

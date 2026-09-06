@@ -2,6 +2,56 @@
 
 ## Unreleased
 
+### Configuration layout and working-tree audit
+
+- Align checkboxes with their labels throughout inspectors and dialogs. Group
+  floor finishes, wall treatments and room controls; reveal longer explanations
+  on demand. Improve field spacing, keyboard labels and narrow-window wrapping.
+- Commit flooring and opening slider changes after a drag, so repainting the
+  inspector cannot interrupt the gesture.
+- Keep guide controls synchronized after undo and project replacement, and
+  measure to the floor extent rather than the drawing's decorative padding.
+- Keep oversized stairwells within the stair footprint, and retain the visible
+  portion of partially open pocket doors.
+
+### Gates and garage doors, drawn in plan and driven by their own sensor
+
+- **A compound wall can now carry a gate, and a garage a shutter.** Fourteen
+  new opening types cover what an individual villa actually has on its
+  boundary: a pedestrian gate, single and paired swing gates, tracked,
+  cantilever, paired and telescopic sliding gates, single and paired folding
+  gates, a collapsible lattice gate, and rolling, sectional, tilt-up and
+  side-sliding garage doors. They are openings like any other, so they cut the
+  wall, take a covering, and appear in the opening inspector.
+- **A vehicle gate and the pedestrian gate beside it are two openings, not
+  one.** Placing them separately is what lets each carry its own contact
+  sensor and report independently, which is the whole point of drawing them.
+- **An opening can be bound to a `cover` entity, not only a contact.** A
+  contact still wins where both are set — `off` is closed, `on` is open,
+  other readings are unknown — but a motorised gate or shutter reports `current_position`, and the
+  drawing now follows it: a leaf part-way through its swing, a shutter half
+  down, a sectional door partly into the ceiling.
+- **An unreadable sensor no longer claims a gate is shut.** `unknown`,
+  `unavailable` and a deleted entity all fall back to the type’s drawn
+  default and mark the status pip hollow, so a dead battery reads as "nobody
+  knows" rather than as a closed gate.
+- **An open gate now lets the light through.** Types with an `openTransmission`
+  interpolate between their closed and open transmission with the position, so
+  an open gate stops shading the drive the way a shut one does.
+- **A sliding door ignored its own slide direction, and a folding door its
+  hinge.** Both settings existed in the data model and neither reached the
+  renderer; the parked leaf always went the same way. Fixed as part of this
+  work, which is why an existing sliding door may now park on the other side.
+- **A paired swing door hinged from the middle outward instead of from the
+  posts.** It now hinges at both outer jambs, with a first-leaf share slider
+  for the unequal vehicle/pedestrian pair every real driveway gate has.
+- **An outward-opening gate at the edge of the site is no longer clipped.**
+  The scene reserves the full travel envelope of every gate once, at both
+  extremes of its travel, so the canvas does not resize when a sensor changes
+  state.
+- **The help page shows every mechanism open and closed.** The previews are
+  drawn by the renderer itself, generated into `docs/walls.html`, so a picture
+  of a mechanism cannot disagree with what the plan draws.
 ### 0.0.1 development baseline
 
 - Reset the development version to `0.0.1` for user testing before the alpha

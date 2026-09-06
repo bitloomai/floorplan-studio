@@ -296,22 +296,23 @@ async function handleApi(req, res, pathname, query) {
   if (pathname === '/api/help' && method === 'GET') {
     const help = require('./lib/help');
     const library = await store.readLibrary();
+    const helpOptions = { boundaries: await store.readBoundaries() };
     const topicId = query.get('id');
     if (topicId) {
-      const result = help.sheetHtml([], library, { id: topicId });
+      const result = help.sheetHtml([], library, { ...helpOptions, id: topicId });
       return sendJson(res, result.topics.length ? 200 : 404, result);
     }
     const q = query.get('q');
     if (q) {
       return sendJson(res, 200, {
         query: q,
-        topics: help.search(q, library).slice(0, 40)
+        topics: help.search(q, library, helpOptions).slice(0, 40)
           .map((t) => ({ id: t.id, title: t.title, summary: t.summary, category: t.category, applies: t.applies })),
       });
     }
     const target = query.get('for');
-    if (target) return sendJson(res, 200, help.sheetHtml(target.split(',').map((s) => s.trim()).filter(Boolean), library));
-    const { all } = help.corpus(library);
+    if (target) return sendJson(res, 200, help.sheetHtml(target.split(',').map((s) => s.trim()).filter(Boolean), library, helpOptions));
+    const { all } = help.corpus(library, helpOptions);
     return sendJson(res, 200, {
       categories: help.categories(),
       topics: all.map((t) => ({

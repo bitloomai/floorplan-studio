@@ -142,6 +142,7 @@ window.Canvas = (function () {
         const h = (item.props && item.props.h) || (t.defaults && t.defaults.h) || 3;
         const e = el('rect', {
           x: P.X(item.at[0]), y: P.Y(item.at[1]), width: P.S(w), height: P.S(h),
+          transform: `rotate(${item.props?.rot ?? t.defaults?.rot ?? 0} ${P.X(item.at[0]) + P.S(w) / 2} ${P.Y(item.at[1]) + P.S(h) / 2})`,
           class: 'hit item-hit',
         });
         e.dataset.item = item.id;
@@ -193,6 +194,67 @@ window.Canvas = (function () {
     }
   }
 
+  /* The floating "12.0 ft x 8.5 ft" readout set by a room/item resize drag —
+   * same lifecycle as `alignGuides` above (set in move(), cleared in end()),
+   * drawn as a small pill so it reads over the plan at any theme. */
+  function drawDimLabel(ov) {
+    if (!dimLabel) return;
+    const g = el('g', { class: 'dim-label' });
+    const w = dimLabel.text.length * 6.2 + 12;
+    g.appendChild(el('rect', { x: dimLabel.x - w / 2, y: dimLabel.y - 10, width: w, height: 18, rx: 4 }));
+    const t = el('text', { x: dimLabel.x, y: dimLabel.y + 4, 'text-anchor': 'middle' });
+    t.textContent = dimLabel.text;
+    g.appendChild(t);
+    ov.appendChild(g);
+  }
+
+  /* Hover distance guides live in their own subgroup so a mousemove can
+   * refresh just this — via `updateMeasureHover()` below — without paint()'s
+   * full scene rebuild, the same reasoning `ghost()` follows for the poly/
+   * aperture tools. `drawSelection()` recreates it empty on every real
+   * repaint; the hover handler is the only thing that ever fills it in. */
+  function drawMeasureAnchor(ov) {
+    ov.appendChild(el('g', { id: 'fps-measure' }));
+  }
+
+  /* Four small pill labels, one per side of whichever boundary is in play —
+   * the selected room's own box, or the plan's own extent when nothing (or
+   * something that isn't a room) is selected — each showing the cursor's
+   * distance to that edge. This is a hover aid only: it never touches the
+   * project, and it draws nothing while a drag is in progress (the resize/
+   * vertex drags already show `dimLabel` instead). */
+  function updateMeasureHover(raw) {
+    const g = svg.querySelector('#fps-measure');
+    if (!g) return;
+    g.replaceChildren();
+    const cfg = guidesCfg();
+    if (!cfg.enabled || !scene) return;
+    const P = scene.projector;
+    const sel = Store.selected();
+    let left, top, right, bottom;
+    if (sel && S.selection && S.selection.kind === 'room') {
+      const [bx, by, bw, bh] = PlanScene.roomBBox(sel);
+      left = bx; top = by; right = bx + bw; bottom = by + bh;
+    } else {
+      const extent = Store.floor().extent || { w: 40, h: 40 };
+      left = 0; top = 0; right = extent.w; bottom = extent.h;
+    }
+    if (raw.x < left || raw.x > right || raw.y < top || raw.y > bottom) return;
+    const pill = (x, y, text) => {
+      const w = text.length * 6.2 + 10;
+      const node = el('g', { class: 'dim-label measure-hover' });
+      node.appendChild(el('rect', { x: x - w / 2, y: y - 9, width: w, height: 16, rx: 3 }));
+      const t = el('text', { x, y: y + 3.5, 'text-anchor': 'middle' });
+      t.textContent = text;
+      node.appendChild(t);
+      g.appendChild(node);
+    };
+    pill(P.X(raw.x), P.Y(top) + 10, fmtDist(raw.y - top, cfg.units));
+    pill(P.X(right) - 22, P.Y(raw.y), fmtDist(right - raw.x, cfg.units));
+    pill(P.X(raw.x), P.Y(bottom) - 10, fmtDist(bottom - raw.y, cfg.units));
+    pill(P.X(left) + 22, P.Y(raw.y), fmtDist(raw.x - left, cfg.units));
+  }
+
   /* A plain outline per member, deliberately with none of the single-
    * selection's handles: resize/rotate/reshape are all "one thing at a
    * time" operations by nature (what would resizing three different device
@@ -228,6 +290,7 @@ window.Canvas = (function () {
     ov.replaceChildren();
     if (!scene) return;
     const P = scene.projector;
+    drawMeasureAnchor(ov);
 
     if (S.multi.length > 1) {
       drawMultiOutline(ov, P);
@@ -269,8 +332,9 @@ window.Canvas = (function () {
     } else {
       const t = PlanScene.resolveType(S.library, sel) || {};
       if ((sel.kind || t.kind) === 'furniture') {
-        const w = (sel.props && sel.props.w) || 3, h = (sel.props && sel.props.h) || 3;
-        ov.appendChild(el('rect', { x: P.X(sel.at[0]) - 2, y: P.Y(sel.at[1]) - 2, width: P.S(w) + 4, height: P.S(h) + 4, class: 'sel-outline' }));
+        const b = furnitureBox(sel, t);
+        ov.appendChild(el('rect', { x: P.X(sel.at[0]) - 2, y: P.Y(sel.at[1]) - 2, width: P.S(b.w) + 4, height: P.S(b.h) + 4,
+          transform: `rotate(${b.rot} ${P.X(b.cx)} ${P.Y(b.cy)})`, class: 'sel-outline' }));
       } else {
         ov.appendChild(el('circle', { cx: P.X(sel.at[0]), cy: P.Y(sel.at[1]), r: ((t.render && t.render.tap) || 17) + 3, class: 'sel-outline' }));
       }
@@ -278,6 +342,7 @@ window.Canvas = (function () {
       drawResizeHandles(ov, sel, t, P);
     }
     drawAlignGuides(ov, P);
+    drawDimLabel(ov);
   }
 
   /* ---------- resize ----------
@@ -295,22 +360,75 @@ window.Canvas = (function () {
    * right now", shared with the renderer — a handle that sits anywhere other
    * than the edge it drags is worse than no handle at all. */
   function resizeSpec(type) {
+    if (type?.kind === 'furniture') return { box: true };
     const rz = type && type.render && type.render.resize;
     return rz && rz.prop ? rz : null;
+  }
+
+  function furnitureBox(item, type) {
+    const p = Object.assign({}, type.defaults, item.props);
+    const w = p.w ?? 3, h = p.h ?? 3;
+    return { w, h, cx: item.at[0] + w / 2, cy: item.at[1] + h / 2, rot: p.rot || 0 };
+  }
+
+  function turned(x, y, deg) {
+    const a = deg * Math.PI / 180;
+    return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+  }
+
+  /* Resize in the object's own axes. The opposite corner/edge remains fixed
+     even when the stored, unrotated top-left has to move to preserve it. */
+  function resizedBox(b, dx, dy, x, y, proportional) {
+    const [lx, ly] = turned(x - b.cx, y - b.cy, -b.rot);
+    let w = dx ? Math.max(.25, dx * lx + b.w / 2) : b.w;
+    let h = dy ? Math.max(.25, dy * ly + b.h / 2) : b.h;
+    if (proportional && dx && dy) {
+      const scale = Math.max(w / b.w, h / b.h);
+      w = b.w * scale; h = b.h * scale;
+    }
+    const [mx, my] = turned(dx * (w - b.w) / 2, dy * (h - b.h) / 2, b.rot);
+    return { at: [b.cx + mx - w / 2, b.cy + my - h / 2], w, h };
+  }
+
+  function frontAngle(item, type) {
+    const p = Object.assign({}, type.defaults, item.props);
+    return type.render?.front ?? Shapes.furnitureFront(type.render?.shape, p.variant);
   }
 
   function drawResizeHandles(ov, item, type, P) {
     const rz = resizeSpec(type);
     if (!rz) return;
+    if (rz.box) {
+      const b = furnitureBox(item, type);
+      const g = el('g', { 'pointer-events': 'all', class: 'size-handle' });
+      const size = 10 / (S.view.zoom || 1);
+      for (const [dx, dy] of [[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]]) {
+        const [x, y] = turned(dx * b.w / 2, dy * b.h / 2, b.rot);
+        const angle = ((Math.atan2(dy, dx) * 180 / Math.PI + b.rot) % 180 + 180) % 180;
+        const cursor = ['ew', 'nwse', 'ns', 'nesw'][Math.round(angle / 45) % 4];
+        const handle = el('rect', { x: P.X(b.cx + x) - size / 2, y: P.Y(b.cy + y) - size / 2,
+          width: size, height: size, rx: 1, class: 'handle', style: `cursor:${cursor}-resize` });
+        handle.dataset.resize = item.id;
+        handle.dataset.dx = dx; handle.dataset.dy = dy;
+        handle.appendChild(el('title', {}, 'Drag to resize; Shift keeps proportions'));
+        g.appendChild(handle);
+      }
+      ov.appendChild(g);
+      return;
+    }
     const R = PlanScene.markerRadius(item, type, P);
     const cx = P.X(item.at[0]), cy = P.Y(item.at[1]);
     const g = el('g', { 'pointer-events': 'all', class: 'size-handle' });
     g.appendChild(el('circle', { cx, cy, r: R, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1, opacity: 0.5, 'pointer-events': 'none' }));
     /* Four, not one: whichever edge is nearest your finger is the one you
      * grab, and on a phone that matters more than it looks. */
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+    const line = type.render?.shape === 'line';
+    const directions = line ? [[-1, 0], [1, 0]] : [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    for (const [dx, dy] of directions) {
+      const [ox, oy] = turned(dx * R, dy * R, line ? (item.props?.rot ?? type.defaults?.rot ?? 0) : 0);
+      const size = 10 / (S.view.zoom || 1);
       const h = el('rect', {
-        x: cx + dx * R - 3.5, y: cy + dy * R - 3.5, width: 7, height: 7, rx: 1.5,
+        x: cx + ox - size / 2, y: cy + oy - size / 2, width: size, height: size, rx: 1.5,
         class: 'handle', style: `cursor:${dx ? 'ew-resize' : 'ns-resize'}`,
       });
       h.dataset.resize = item.id;
@@ -343,7 +461,13 @@ window.Canvas = (function () {
         .map((x) => ({ ...x, rz: resizeSpec(x.type) })).filter((x) => x.rz);
       if (!targets.length) { toast('Nothing in the selection has a size to set.', true); return; }
       Store.mutate(() => {
-        for (const { item, rz } of targets) {
+        for (const { item, type, rz } of targets) {
+          if (rz.box) {
+            const b = furnitureBox(item, type);
+            item.props = Object.assign({}, item.props, { w: Math.max(.25, b.w * mul), h: Math.max(.25, b.h * mul) });
+            item.at = [b.cx - item.props.w / 2, b.cy - item.props.h / 2];
+            continue;
+          }
           const now = radiusToProp(PlanScene.markerRadius(item, PlanScene.resolveType(S.library, item) || {}, P), rz, P);
           item.props = item.props || {};
           item.props[rz.prop] = radiusToProp(rz.unit === 'ft' ? (now * mul * (P.ppf || 22)) / 2 : now * mul, rz, P);
@@ -357,6 +481,14 @@ window.Canvas = (function () {
     const type = PlanScene.resolveType(S.library, item) || {};
     const rz = resizeSpec(type);
     if (!rz) { toast(`${type.label || item.type} has no size to set.`, true); return; }
+    if (rz.box) {
+      const b = furnitureBox(item, type);
+      Store.mutate(() => {
+        item.props = Object.assign({}, item.props, { w: Math.max(.25, b.w * mul), h: Math.max(.25, b.h * mul) });
+        item.at = [b.cx - item.props.w / 2, b.cy - item.props.h / 2];
+      }, 'resize furniture');
+      return;
+    }
     const now = radiusToProp(PlanScene.markerRadius(item, type, P), rz, P);
     Store.mutate(() => {
       item.props = item.props || {};
@@ -388,13 +520,13 @@ window.Canvas = (function () {
       const w = p.w ?? d.w ?? 3, h = p.h ?? d.h ?? 3;
       return [P.X(item.at[0]) + P.S(w) / 2, P.Y(item.at[1]) + P.S(h) / 2, Math.max(P.S(w), P.S(h)) / 2 + 18];
     }
-    return [P.X(item.at[0]), P.Y(item.at[1]), ((type.render && type.render.tap) || 17) + 16];
+    return [P.X(item.at[0]), P.Y(item.at[1]), Math.max((type.render && type.render.tap) || 17, PlanScene.markerRadius(item, type, P)) + 16];
   }
 
   function drawRotateHandle(ov, item, type, P) {
     if (!rotatable(type)) return;
     const [cx, cy, radius] = rotationCentre(item, type, P);
-    const deg = Number((item.props && item.props.rot) ?? (type.defaults || {}).rot ?? 0) || 0;
+    const deg = (Number((item.props && item.props.rot) ?? (type.defaults || {}).rot ?? 0) || 0) + frontAngle(item, type);
     const hx = cx + Math.sin(deg * Math.PI / 180) * radius;
     const hy = cy - Math.cos(deg * Math.PI / 180) * radius;
 
@@ -585,6 +717,26 @@ window.Canvas = (function () {
    * else for a mid-drag guide to persist between one move() and the next. */
   let alignGuides = null;
 
+  /* Set the same way `alignGuides` is (drawn from `drawSelection()`, cleared
+   * in `end()`): a floating "12.0 ft x 8.5 ft" readout that follows a room
+   * or item resize, in scene pixels so it sits at the cursor regardless of
+   * zoom. */
+  let dimLabel = null;
+
+  /* Distance/dimension guides are a saved, project-level preference (the
+   * user's "dashboard-level" setting) rather than session state like
+   * `S.view.showGrid` — they should look the same to everyone who opens this
+   * project, not reset per browser tab. Feet stay the one stored unit
+   * everywhere (see concept-units.md); `units` only changes how this
+   * editing aid FORMATS a number, never what is saved. */
+  function guidesCfg() {
+    return Object.assign({ enabled: true, units: 'ft' }, (S.project && S.project.guides) || {});
+  }
+  function fmtDist(ft, units) {
+    const v = units === 'm' ? ft * 0.3048 : ft;
+    return `${v.toFixed(v < 10 ? 2 : 1)}${units === 'm' ? ' m' : ' ft'}`;
+  }
+
   /* Every other room and item on the floor, as a set of x/y coordinates
    * (feet) something can align TO: an item is just its own point; a room
    * contributes both edges and its centre. Deliberately not the room the
@@ -694,7 +846,7 @@ window.Canvas = (function () {
       const item = (Store.floor().items || []).find((i) => i.id === target.dataset.rotate);
       if (item) {
         item.props = item.props || {};
-        drag = { mode: 'rotate', id: item.id, before: Number(item.props.rot) || 0 };
+        drag = { mode: 'rotate', id: item.id, before: item.props.rot };
         svg.setPointerCapture(ev.pointerId);
       }
       return;
@@ -705,7 +857,9 @@ window.Canvas = (function () {
       const rz = resizeSpec(type);
       if (item && rz) {
         item.props = item.props || {};
-        drag = { mode: 'resize', id: item.id, prop: rz.prop, before: item.props[rz.prop] };
+        drag = rz.box
+          ? { mode: 'resize-box', id: item.id, before: Store.clone(item), box: furnitureBox(item, type), dx: Number(target.dataset.dx), dy: Number(target.dataset.dy) }
+          : { mode: 'resize', id: item.id, prop: rz.prop, before: item.props[rz.prop] };
         svg.setPointerCapture(ev.pointerId);
       }
       return;
@@ -782,7 +936,7 @@ window.Canvas = (function () {
             x2: P.X(hit.edge.b[0]), y2: P.Y(hit.edge.b[1]), class: 'edge-hi',
           }));
         } else ghost(null);
-      }
+      } else updateMeasureHover(raw);
       return;
     }
 
@@ -821,6 +975,18 @@ window.Canvas = (function () {
       return;
     }
 
+    if (drag.mode === 'resize-box') {
+      const item = Store.floor().items.find(i => i.id === drag.id);
+      if (!item) return;
+      const next = resizedBox(drag.box, drag.dx, drag.dy, ft.x, ft.y, ev.shiftKey);
+      item.at = next.at;
+      Object.assign(item.props, { w: next.w, h: next.h });
+      drag.moved = true;
+      const pt = toScene(ev), guides = guidesCfg();
+      dimLabel = guides.enabled ? { x: pt.x + 14, y: pt.y - 14, text: `${fmtDist(next.w, guides.units)} × ${fmtDist(next.h, guides.units)}` } : null;
+      paint();
+      return;
+    }
     if (drag.mode === 'resize') {
       const item = (Store.floor().items || []).find((i) => i.id === drag.id);
       const type = PlanScene.resolveType(S.library, item) || {};
@@ -835,6 +1001,10 @@ window.Canvas = (function () {
       item.props = item.props || {};
       item.props[rz.prop] = radiusToProp(R, rz, P);
       drag.moved = true;
+      const guides = guidesCfg();
+      dimLabel = guides.enabled
+        ? { x: pt.x + 14, y: pt.y - 14, text: rz.unit === 'ft' ? fmtDist(item.props[rz.prop], guides.units) : `${item.props[rz.prop]} px` }
+        : null;
       paint();
       onStatus({ x: raw.x, y: raw.y, room: `${item.props[rz.prop]}${rz.unit === 'ft' ? ' ft' : ' px'}` });
       return;
@@ -846,7 +1016,7 @@ window.Canvas = (function () {
       const [cx, cy] = rotationCentre(item, type, P);
       const pt = toScene(ev);
       // atan2(dx, -dy): screen degrees, 0 up, clockwise positive.
-      let deg = norm360(Math.atan2(pt.x - cx, cy - pt.y) * 180 / Math.PI);
+      let deg = norm360(Math.atan2(pt.x - cx, cy - pt.y) * 180 / Math.PI - frontAngle(item, type));
       // Shift snaps to the eight-plus-in-betweens most things actually sit at.
       if (ev.shiftKey) deg = norm360(Math.round(deg / 15) * 15);
       item.props = item.props || {};
@@ -884,6 +1054,12 @@ window.Canvas = (function () {
         room.rect = [round4(x), round4(y), round4(Math.abs(ft.x - opp[0])), round4(Math.abs(ft.y - opp[1]))];
       }
       drag.moved = true;
+      const guides = guidesCfg();
+      if (guides.enabled) {
+        const [, , w, h] = PlanScene.roomBBox(room);
+        const pt = toScene(ev);
+        dimLabel = { x: pt.x + 14, y: pt.y - 14, text: `${fmtDist(w, guides.units)} × ${fmtDist(h, guides.units)}` };
+      } else dimLabel = null;
       paint();
       return;
     }
@@ -948,6 +1124,7 @@ window.Canvas = (function () {
     if (!drag) return;
     const d = drag; drag = null;
     alignGuides = null;
+    dimLabel = null;
     try { svg.releasePointerCapture(ev.pointerId); } catch {}
 
     if (d.mode === 'pan') return;
@@ -984,6 +1161,13 @@ window.Canvas = (function () {
       return;
     }
 
+    if (d.mode === 'resize-box' && d.moved) {
+      const item = Store.floor().items.find(i => i.id === d.id);
+      const after = Store.clone(item);
+      Object.assign(item, d.before);
+      Store.mutate(() => Object.assign(item, after), 'resize furniture');
+      return;
+    }
     if (d.mode === 'resize' && d.moved) {
       const item = Store.floor().items.find((i) => i.id === d.id);
       const after = item.props[d.prop];
@@ -1150,7 +1334,7 @@ window.Canvas = (function () {
     Store.mutate(() => {
       floor.openings = floor.openings || [];
       const op = { id, type: typeKey, room: hit.room.id, wall: e.wall, at: round4(at), w };
-      for (const k of ['h', 'sill', 'swing', 'hinge', 'leaves', 'slideTo', 'curtain']) {
+      for (const k of ['h', 'sill', 'swing', 'hinge', 'leaves', 'leafRatio', 'slideTo', 'depth', 'curtain']) {
         if (dp[k] !== undefined) op[k] = dp[k];
       }
       floor.openings.push(op);
@@ -1283,6 +1467,7 @@ window.Canvas = (function () {
     svg.addEventListener('pointermove', move);
     svg.addEventListener('pointerup', end);
     svg.addEventListener('pointercancel', end);
+    svg.addEventListener('pointerleave', () => { const g = svg.querySelector('#fps-measure'); if (g) g.replaceChildren(); });
     svg.addEventListener('dblclick', (ev) => { if (S.tool === 'poly') { ev.preventDefault(); finishPoly(); } });
     svg.addEventListener('contextmenu', (ev) => { if (S.tool === 'poly') { ev.preventDefault(); finishPoly(); } });
 
@@ -1324,5 +1509,6 @@ window.Canvas = (function () {
   return {
     init, paint, fit, zoomTo, deleteSelected, finishPoly, cancelPoly, drawSelection, roomEdges,
     nudgeRotation, nudgeSize, nudgePosition, duplicateSelected, alignMulti, nodeToEl,
+    furnitureBox, resizedBox, frontAngle,
   };
 }());

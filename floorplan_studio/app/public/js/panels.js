@@ -374,13 +374,48 @@ window.Panels = (function () {
 
   /* ---------- inspector ---------- */
 
-  function field(label, control) { return h('div', { class: 'field' }, h('label', {}, label), control); }
+  let fieldId = 0;
+  function field(label, control, hint) {
+    const input = control.matches('input, select, textarea') ? control : control.querySelector('input, select, textarea');
+    if (input && !input.id) input.id = 'fps-field-' + (++fieldId);
+    return h('div', { class: 'field' }, h('label', { for: input && input.id }, label), control,
+      hint ? h('p', { class: 'hint' }, hint) : null);
+  }
 
   function numInput(value, onchange, step) {
     return h('input', {
       type: 'number', value: value ?? '', step: step || 0.25,
       onchange: (e) => onchange(e.target.value === '' ? null : Number(e.target.value)),
     });
+  }
+
+  /* Where a room or item paints and hit-tests relative to its siblings.
+   *
+   * Both are just `array position` in PlanScene — later entries paint on top
+   * and win the click (see plan-scene.js's per-room draw loops and canvas.js's
+   * hit-target order) — so "layer order" is nothing more than moving the
+   * object within its own array. A room drawn over another (a setback over a
+   * motor room, say) used to make the one underneath permanently unreachable;
+   * these four buttons are the only fix that doesn't also require redrawing
+   * either room. */
+  function layerOrderField(box, arr, obj, mutateLabel) {
+    const move = (to) => Store.mutate(() => {
+      const from = arr.indexOf(obj);
+      if (from === -1 || to === from) return;
+      arr.splice(from, 1);
+      arr.splice(Math.max(0, Math.min(arr.length, to)), 0, obj);
+    }, mutateLabel);
+    const i = arr.indexOf(obj);
+    const atBack = i <= 0, atFront = i === arr.length - 1;
+    box.appendChild(h('div', { class: 'field' },
+      h('label', {}, 'Layer order'),
+      h('div', { style: 'display:flex;gap:4px;flex-wrap:wrap' },
+        h('button', { class: 'btn tiny', disabled: atBack, title: 'Send to back', onclick: () => move(0) }, '⏮ Back'),
+        h('button', { class: 'btn tiny', disabled: atBack, title: 'Move backward one', onclick: () => move(i - 1) }, '◀'),
+        h('button', { class: 'btn tiny', disabled: atFront, title: 'Move forward one', onclick: () => move(i + 1) }, '▶'),
+        h('button', { class: 'btn tiny', disabled: atFront, title: 'Bring to front', onclick: () => move(arr.length - 1) }, 'Front ⏭'),
+      ),
+    ));
   }
 
   /* ---------- advanced settings ----------
@@ -544,6 +579,7 @@ window.Panels = (function () {
       onchange: (e) => Store.mutate(() => { room.name = e.target.value; }, 'rename room'),
     })));
     box.appendChild(field('id', h('input', { type: 'text', value: room.id, disabled: true })));
+    layerOrderField(box, floor.rooms, room, 'room order');
     roomTypeField(box, room);
 
     if (room.shape === 'rect') {
@@ -761,6 +797,7 @@ window.Panels = (function () {
      * sheet carries what a camera IS next to what the panel does with it. */
     box.appendChild(panelTitle(t.label || item.type, ['panel:item', 'type:' + item.kind + '.' + item.type]));
     box.appendChild(h('p', { class: 'hint' }, h('span', { class: 'badge' }, item.kind), ' ', item.id));
+    layerOrderField(box, floor.items, item, 'item order');
 
     box.appendChild(h('div', { class: 'field row' },
       h('div', {}, h('label', {}, 'x (ft)'), numInput(item.at[0], (v) => Store.mutate(() => { item.at[0] = v ?? 0; }, 'x'), 0.0625)),
