@@ -13,6 +13,14 @@
   measure to the floor extent rather than the drawing's decorative padding.
 - Keep oversized stairwells within the stair footprint, and retain the visible
   portion of partially open pocket doors.
+- Fix the app rendering taller than a tablet's actual visible viewport, which
+  clipped the last line or two of the rail, inspector and canvas with no way
+  to scroll to them; also reserve room at the bottom of those panels and the
+  save toast for a device's home-indicator/gesture-bar inset.
+- `test/verify.js`'s "your own house" drift check now reports the live
+  document's divergence from the `fixtures/` reference without failing the
+  run — it was wired through the same reporter as a real failure, contradicting
+  its own comment that drift is expected once you start editing.
 
 ### Gates and garage doors, drawn in plan and driven by their own sensor
 

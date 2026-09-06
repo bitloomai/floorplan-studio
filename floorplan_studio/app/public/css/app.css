@@ -22,7 +22,15 @@
 
 * { box-sizing: border-box; }
 
-html, body {
+/* `height: 100%` on its own sizes against the layout viewport, which on a
+   tablet's browser or webview is taller than what is actually on screen
+   whenever any chrome (address bar, gesture bar) is showing — the bottom of
+   the app then renders below the visible area, and `overflow: hidden` below
+   means there is no way to scroll up into it. `dvh` tracks the real visible
+   viewport instead; the plain `100vh` before it is the fallback for engines
+   that do not know the unit. */
+html { height: 100vh; height: 100dvh; }
+body {
   margin: 0; height: 100%;
   background: var(--appBg); color: var(--ink);
   font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -93,6 +101,10 @@ select, input[type=text], input[type=number], input[type=search] {
 .rail, .inspector {
   background: var(--railBg); border-right: 1px solid var(--panelBorder);
   overflow-y: auto; padding: 10px;
+  /* `viewport-fit=cover` draws under a tablet's home indicator; without this
+     the rail and inspector's last line scrolls out from behind it but never
+     back into view, because there is no unsafe padding left to scroll past. */
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 .inspector { border-right: 0; border-left: 1px solid var(--panelBorder); }
 
@@ -136,7 +148,10 @@ select, input[type=text], input[type=number], input[type=search] {
 /* ---------- canvas ---------- */
 
 .canvas-wrap { display: flex; flex-direction: column; min-width: 0; background: var(--appBg); }
-.canvas-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; display: grid; place-items: center; padding: 18px; }
+.canvas-scroll {
+  flex: 1; min-height: 0; overflow: auto; position: relative; display: grid; place-items: center;
+  padding: 18px; padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
 /* A library button dragged over the plan — the same visual language as a
    focused input, so it reads as "drop is welcome here" without a new colour. */
 .canvas-scroll.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
@@ -282,7 +297,7 @@ table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-t
 .swatchrow input[type=color] { width: 46px; height: 26px; padding: 0; border: 1px solid var(--panelBorder); border-radius: 5px; background: none; }
 
 .toast {
-  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--ink); color: var(--panelBg); padding: 9px 15px; border-radius: 8px;
   font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 70vw;
 }

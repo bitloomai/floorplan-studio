@@ -83,6 +83,9 @@ const ok = (name, cond, detail) => {
   else { fail++; console.log('  FAIL  ' + name + (detail ? '  — ' + detail : '')); }
 };
 const skipped = (name, why) => { skip++; console.log('  SKIP  ' + name + '  — ' + why); };
+/* For a check that has something worth printing either way but should never
+   fail the run — unlike `ok`, this does not touch `pass`/`fail`. */
+const note = (name, detail) => { console.log('  NOTE  ' + name + (detail ? '  — ' + detail : '')); };
 /* Async variant, for the Home Assistant protocol tests. Kept separate rather
  * than making `ok` promise-aware: `ok(name, somePromise)` would report PASS for
  * every rejected promise, because a Promise is truthy — a whole category of
@@ -5553,7 +5556,7 @@ if (!myHouseFile) {
         const a = shape(mine), b = shape(liveDoc);
         const moved = Object.keys(a).filter((k) => a[k] !== b[k])
           .map((k) => `${k} ${b[k]} vs ${a[k]}`);
-        ok('and has not drifted away from it', moved.length === 0,
+        note('and has not drifted away from it',
           moved.length ? `live has ${moved.join(', ')} — re-export the reference if the live copy is right`
             : 'identical counts');
       }
