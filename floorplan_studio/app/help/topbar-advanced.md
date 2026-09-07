@@ -1,11 +1,11 @@
 ---
 id: topbar-advanced
 title: The top bar, themes and Advanced
-summary: Floors, zoom, theme, and the Advanced tick that reveals the settings most plans never need.
+summary: Floors, zoom, theme, the shortcut buttons, and the Advanced tick that reveals the settings most plans never need.
 category: start
-tags: topbar, theme, advanced, floors, zoom
+tags: topbar, theme, advanced, floors, zoom, shortcuts, tablet
 applies: topbar, field:project.activeTheme, field:ui.advanced
-see: start-here, canvas-tools
+see: start-here, canvas-tools, input-devices
 order: 8
 ---
 

@@ -5686,6 +5686,150 @@ ok('a zoomed-in plan scrolls instead of pushing the app off the bottom of the wi
     && body;
 })());
 
+/* ------------------------------------------- mouse, trackpad and touch ---
+ *
+ * Three devices, one editor. The failure this section exists to catch is the
+ * one that had already happened twice: a gesture that is DESCRIBED and not
+ * bound. Every tooltip said Space panned the canvas, the help said so, and no
+ * code anywhere read the space bar — because the keys lived in a switch in
+ * main.js, the dialog listing them was a hand-typed array in panels.js, and the
+ * prose was a third copy in a markdown file. There is now one catalogue and
+ * everything reads it, so what is checked here is that the halves still line
+ * up and that the touch-only paths exist at all: nothing in a headless suite
+ * can pinch, but it can insist the code that answers a pinch is there. */
+
+console.log('\n== input devices ==');
+{
+  const Input = require(path.join(APP, 'lib', 'input-actions'));
+  const mainSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'main.js'), 'utf8');
+  const canvasSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'canvas.js'), 'utf8');
+  const panelsSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
+  const html = fs.readFileSync(path.join(APP, 'public', 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(APP, 'public', 'css', 'app.css'), 'utf8');
+  const serverSrc = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
+
+  const ids = Input.ACTIONS.map((a) => a.id);
+  ok('every command is named once', new Set(ids).size === ids.length, ids.length + ' commands');
+  const shapeless = Input.ACTIONS.filter((a) => !a.id || !a.group || !a.label
+    || (a.needs && !Input.NEEDS.includes(a.needs)) || (a.quick && !a.glyph && !a.tool));
+  ok('and carries a group, a label, a known prerequisite and something to draw on its button',
+    !shapeless.length, shapeless.map((a) => a.id).join(', '));
+
+  /* Two commands answering one key is a command nobody can reach, and the
+   * loser is whichever happens to be later in the list. */
+  const claims = new Map();
+  const clashes = [];
+  for (const a of Input.ACTIONS) {
+    for (const m of a.match || []) {
+      const key = `${String(m.key).toLowerCase()}|${m.mod ? 'mod' : ''}|${m.shift === undefined ? '*' : m.shift}`;
+      /* A matcher that ignores Shift collides with one that names it, in both
+       * directions — `z+mod` would swallow `z+mod+shift`. */
+      const family = key.split('|').slice(0, 2).join('|');
+      const seen = claims.get(family) || [];
+      for (const [otherId, otherShift] of seen) {
+        if (otherShift === '*' || m.shift === undefined || String(m.shift) === otherShift) clashes.push(`${a.id} vs ${otherId} on ${m.key}`);
+      }
+      seen.push([a.id, m.shift === undefined ? '*' : String(m.shift)]);
+      claims.set(family, seen);
+    }
+  }
+  ok('no two commands claim the same key', !clashes.length, clashes.join(', '));
+
+  /* The catalogue says what exists; main.js says what it does. Either half
+   * without the other is a button that does nothing or a behaviour nobody can
+   * reach, and both are invisible until somebody presses the thing. */
+  const runBlock = /const RUN = \{([\s\S]*?)\n  \};/.exec(mainSrc);
+  const handlers = new Set([...(runBlock ? runBlock[1] : '').matchAll(/^    '?([a-z][a-z-]*)'?[:,]/gm)].map((m) => m[1]));
+  ok('every command has a handler', ids.every((id) => handlers.has(id)),
+    ids.filter((id) => !handlers.has(id)).join(', '));
+  ok('and every handler is a command', [...handlers].every((id) => ids.includes(id)),
+    [...handlers].filter((id) => !ids.includes(id)).join(', '));
+
+  const hit = (ev) => (Input.matchKey(ev) || {}).id;
+  ok('the keyboard resolves the cases that are one keystroke apart',
+    hit({ key: 'z', ctrlKey: true }) === 'undo'
+    && hit({ key: 'Z', ctrlKey: true, shiftKey: true }) === 'redo'
+    && hit({ key: 'y', metaKey: true }) === 'redo'
+    && hit({ key: '-' }) === 'smaller' && hit({ key: '-', ctrlKey: true }) === 'zoom-out'
+    && hit({ key: 's' }) === 'shortcut-bar' && hit({ key: 's', ctrlKey: true }) === 'save'
+    && hit({ key: 'v' }) === 'tool-select' && hit({ key: 'v', ctrlKey: true }) === undefined
+    && hit({ key: 'ArrowLeft', shiftKey: true }) === 'nudge-left');
+
+  /* Esc is the only command allowed to fire while a dialog is open or while
+   * somebody is typing; everything else has to lose to a text field. */
+  ok('only Esc reaches past a text field', Input.ACTIONS.filter((a) => a.anywhere).map((a) => a.id).join() === 'escape');
+
+  ok('the shortcut bar is built from the catalogue, not a second list of its own',
+    /InputActions\.groups\(InputActions\.quick\(\)\)/.test(mainSrc)
+    && /InputActions\.byId/.test(mainSrc)
+    && /InputActions\.groups\(\)/.test(panelsSrc) && /InputActions\.GESTURES/.test(panelsSrc)
+    && !/const SHORTCUTS = \[/.test(panelsSrc));
+  ok('and a tool button in it is the rail\'s own drawing, not a second copy',
+    /\.tool\[data-tool="' \+ a\.tool \+ '"\] svg/.test(mainSrc));
+  ok('a button is dim when its command would do nothing',
+    /btn\.disabled = !actionEnabled\(a\)/.test(mainSrc) && Input.NEEDS.every((n) => new RegExp(n + ':').test(mainSrc)));
+
+  ok('the page loads the catalogue and the server serves it',
+    /src="js\/input-actions\.js"/.test(html) && /'input-actions\.js'/.test(serverSrc));
+  for (const id of ['btnQuickBar', 'quickBar', 'btnRail', 'btnInspector', 'btnMore', 'topbarMore', 'scrim']) {
+    ok(`the top bar carries #${id}`, new RegExp('id="' + id + '"').test(html));
+  }
+
+  /* The gestures themselves. A headless suite cannot pinch, so each of these
+   * asserts the mechanism exists — every one of them was absent before, and
+   * the absence is what a tablet ran into. */
+  ok('two fingers are a pinch, and it zooms about their middle',
+    /pointers\.size === 2/.test(canvasSrc) && /function startPinch/.test(canvasSrc)
+    && /gesture\.zoom \* \(dist \/ gesture\.dist\)/.test(canvasSrc));
+  ok('zoom holds the point it was asked to hold', /function zoomTo\(z, anchor, light\)/.test(canvasSrc)
+    && /wrap\.scrollLeft \+= \(after\.left \+ fx \* after\.width\) - anchor\.x/.test(canvasSrc)
+    && /zoomTo\(S\.view\.zoom \* factor, \{ x: ev\.clientX, y: ev\.clientY \}\)/.test(canvasSrc));
+  ok('a trackpad pinch and a wheel notch go through the same exponential step',
+    /ev\.deltaMode === 1 \? ev\.deltaY \* 16/.test(canvasSrc) && /Math\.exp\(-px \* 0\.0015\)/.test(canvasSrc));
+  ok('Space pans, which the Pan tool has claimed since the first version',
+    /spaceHeld/.test(canvasSrc) && /ev\.code !== 'Space'/.test(canvasSrc) && /#canvas\.space-pan/.test(css));
+  ok('a touch drag moves the plan unless it started on the selection',
+    /ev\.pointerType === 'touch' && S\.tool === 'select' && !onSelectedHandleOrBody\(ev\.target\)/.test(canvasSrc)
+    && /function tapSelect/.test(canvasSrc));
+  ok('a tap is a tap until it has travelled, and a finger gets more room than a mouse',
+    /const SLOP_PX = \(\) => \(touching\(\) \? 9 : 3\)/.test(canvasSrc)
+    && /Math\.hypot\(ev\.clientX - press\.x, ev\.clientY - press\.y\) < SLOP_PX\(\)/.test(canvasSrc));
+  ok('and the press it measures from survives a drag that fails to build',
+    /let press = \{ x: 0, y: 0, t: 0, target: null \}/.test(canvasSrc)
+    && /press = \{ x: ev\.clientX, y: ev\.clientY, t: ev\.timeStamp/.test(canvasSrc));
+  ok('handles are sized by the pointer last used, not by a media query answered once',
+    /function setPointerKind/.test(canvasSrc)
+    && /HANDLE_PX = \(\) => \(touching\(\) \? 15 : 10\)/.test(canvasSrc)
+    && /KNOB_PX\(\) \/ \(S\.view\.zoom/.test(canvasSrc)
+    && !/const size = 10 \/ \(S\.view\.zoom/.test(canvasSrc));
+  ok('Multi stands in for the Shift key a touch screen does not have',
+    /ev\.shiftKey \|\| S\.view\.multiSelect/.test(canvasSrc) && /setMultiSelect/.test(mainSrc));
+
+  ok('a narrow screen turns the two columns into drawers instead of squeezing them',
+    /@media \(max-width: 900px\)/.test(css) && /body\.rail-open \.rail, body\.insp-open \.inspector/.test(css)
+    && /\.topbar-more \{ display: contents; \}/.test(css)
+    && /function setOverlay/.test(mainSrc) && /closeOverlays\(\)/.test(mainSrc));
+  ok('and a coarse pointer gets bigger controls and no 300 ms tap delay',
+    /@media \(pointer: coarse\)/.test(css) && /touch-action: manipulation/.test(css)
+    /* 16px is the threshold below which iOS zooms the page on focus. */
+    && /input\[type=search\], textarea \{ font-size: 16px/.test(css));
+
+  /* The generated half of the help, which is the only half that cannot go
+   * stale — every key in the catalogue has to appear in the prose the editor,
+   * MCP and the site all read. */
+  const Help = require(path.join(APP, 'lib', 'help'));
+  const topic = Help.corpus(lib).byId.get('input-devices');
+  const body = topic ? Help.topicBody(topic) : '';
+  const unsaid = Input.ACTIONS.filter((a) => !(a.keys || []).every((k) => body.includes('`' + k + '`')));
+  ok('the help lists every key the editor binds', !!topic && !unsaid.length, unsaid.map((a) => a.id).join(', '));
+  ok('and every device gets an answer for every way of getting around',
+    /* "Tap it." is a complete answer; a missing one is the failure. */
+    Input.GESTURES.every((g) => Input.DEVICES.every(([id]) => typeof g[id] === 'string' && /\w.*\.$/.test(g[id].trim())))
+    && Input.DEVICES.every(([, label]) => body.includes(label)));
+  ok('the shortcut bar is described where it is reached from',
+    body.includes('shortcut bar') && /field:ui\.quickbar/.test(fs.readFileSync(path.join(APP, 'help', 'input-devices.md'), 'utf8')));
+}
+
 ok('the editor-only half of the flooring registry never reaches the card', (() => {
   /* The card DRAWS floors, so it needs every finish and its options; it does
    * not edit them, so `generatorOptions` (which controls to show for each

@@ -25,7 +25,12 @@ window.Store = (function () {
     tool: 'select',
     armed: null,                // { kind, type, typeKey } while placing from the library
 
-    view: { zoom: 1, gridSize: 0.5, snap: true, showGrid: true, live: false },
+    /* `multiSelect` is Shift held down, latched. A mouse has Shift and a
+     * finger does not, so on a touch screen this is the only way to pick a
+     * second thing — or to draw a selection box, since a one-finger drag on
+     * empty floor moves the plan there. A view flag, not a project one: it is
+     * how somebody is working right now, not a fact about the house. */
+    view: { zoom: 1, gridSize: 0.5, snap: true, showGrid: true, live: false, multiSelect: false },
     /* null = "now". Set by the time scrubber so daylight can be inspected at
      * any hour without waiting for it. */
     when: null,
@@ -52,6 +57,11 @@ window.Store = (function () {
    * makes the getter itself raise. Reading it must never be what stops the
    * editor loading. */
   try { S.advanced = window.localStorage.getItem(ADV_KEY) === '1'; } catch (e) { /* defaults to off */ }
+
+  function setMultiSelect(on) {
+    S.view.multiSelect = !!on;
+    emit('view');
+  }
 
   function setAdvanced(on) {
     S.advanced = !!on;
@@ -235,7 +245,7 @@ window.Store = (function () {
 
   return {
     S, on, emit, clone, sunConfig,
-    floor, theme, uiTheme, setAdvanced,
+    floor, theme, uiTheme, setAdvanced, setMultiSelect,
     mutate, undo, redo, replaceProject,
     uniqueId, newRoomId, newItemId,
     select, selected, toggleMulti, setMulti, isMulti, setTool, arm, snap,

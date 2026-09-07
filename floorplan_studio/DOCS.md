@@ -35,6 +35,43 @@ readiness.
 selection or disarms the palette. `[` and `]` rotate the selected item — hold
 `Shift` for 45° steps.
 
+## Mouse, trackpad and touch
+
+Press **`?`** in the editor for the whole list; it is generated from what the
+editor actually binds, so it cannot promise a key that is not there.
+
+| | Mouse | Trackpad | Touch |
+|---|---|---|---|
+| **Move around a zoomed-in plan** | middle-drag, or hold `Space` and drag | two-finger scroll | one finger on empty floor, or two fingers anywhere |
+| **Zoom** | `Ctrl`/`Cmd`+wheel | pinch | pinch |
+| **Move something** | drag it | drag it | tap to select it, then drag it |
+| **Select several** | `Shift`-click, or drag a box | `Shift`-click, or drag a box | turn on **Multi**, then tap each |
+
+Zoom holds whatever you were pointing at — the pointer, the middle of a pinch,
+or the middle of the view for the `−`/`+` buttons — so zooming in does not send
+what you were looking at off the edge.
+
+On a touch screen a plain drag moves the *plan*, not what is under your finger,
+unless that thing is already selected. A finger cannot hover to see what it is
+about to grab, and a drawn plan is edge-to-edge grabbable things: with "drag
+whatever you touch" as the rule, looking at the far end of the house moves a
+room instead, under the hand that is hiding it.
+
+### Without a keyboard
+
+**S** in the top bar opens a row of buttons carrying the commands that
+otherwise need keys — undo, redo, duplicate, delete, turn, resize, nudge, the
+five tools and finishing an outline. It is on by default on a touch device and
+off where there is a keyboard, remembered per browser. Buttons dim when they
+would do nothing.
+
+### On a narrow screen
+
+Below about 900 px the tool rail and the inspector become drawers so the plan
+gets the whole window: **☰** for tools and the library, **▤** for the
+properties of what is selected (or double-tap it), and **⋯** for the rest of
+the top bar. `Esc` closes whichever is open.
+
 ## Adding a door
 
 1. Press **`A`** (or click **Opening** in the tool rail).

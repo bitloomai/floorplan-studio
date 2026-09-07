@@ -249,42 +249,39 @@ window.Panels = (function () {
    * who already knows to reach for one probably knows there are more, and
    * "?" is the one key every other editor in this genre answers the same
    * way. Grouped by what you're doing, not alphabetised, because "how do I
-   * turn a fan" is the question, not "what does bracket do". */
-  const SHORTCUTS = [
-    ['Tools', [
-      ['V', 'Select / move'], ['R', 'Draw a rectangular room'], ['P', 'Draw a room outline'],
-      ['A', 'Place a door, window or opening'], ['H', 'Pan'],
-    ]],
-    ['Placing', [
-      ['Click a library item, then click the plan', 'Place one — stays armed for more'],
-      ['Drag a library item onto the plan', 'Place it there directly'],
-      ['Esc', 'Stop placing / deselect / close a dialog'],
-    ]],
-    ['The selected item or room', [
-      ['Arrow keys', 'Move a few inches — hold Shift for a foot'],
-      ['[ / ]', 'Rotate — hold Shift for 45° steps'],
-      ['− / +', 'Resize'],
-      ['Delete / Backspace', 'Remove'],
-      ['Ctrl/Cmd+D', 'Duplicate'],
-    ]],
-    ['Editing', [
-      ['Ctrl/Cmd+Z', 'Undo'], ['Ctrl/Cmd+Shift+Z', 'Redo'], ['Ctrl/Cmd+S', 'Save'],
-      ['Enter', 'Finish the room outline you’re drawing'],
-    ]],
-    ['View', [
-      ['Ctrl/Cmd + scroll', 'Zoom'], ['Space / middle-drag / Alt-drag', 'Pan'], ['?', 'This list'],
-    ]],
-  ];
+   * turn a fan" is the question, not "what does bracket do".
+   *
+   * Both halves are read from `input-actions.js`, the catalogue the keyboard
+   * itself is bound from: this dialog cannot promise a key nothing answers,
+   * which it did for a year on the strength of a hand-maintained copy. The
+   * device table comes first because "can I pinch to zoom" is the question a
+   * tablet arrives with, and it has no key to look up. */
   function shortcutsDialog() {
+    const devices = InputActions.DEVICES;
     const body = h('div', {},
-      ...SHORTCUTS.map(([group, rows]) => h('div', {},
+      h('div', { class: 'subhead' }, 'Getting around the plan'),
+      h('table', { class: 'grid' },
+        h('tr', {}, h('th', {}, ''), ...devices.map(([, label]) => h('th', {}, label))),
+        ...InputActions.GESTURES.map((g) => h('tr', {},
+          h('td', { style: 'white-space:nowrap' }, g.label),
+          ...devices.map(([id]) => h('td', {}, String(g[id]).replace(/\*\*/g, ''))),
+        )),
+      ),
+      ...InputActions.groups().map(([group, list]) => h('div', {},
         h('div', { class: 'subhead' }, group),
-        h('table', { class: 'grid' }, ...rows.map(([key, what]) => h('tr', {},
-          h('td', { class: 'mono', style: 'white-space:nowrap;padding-right:14px' }, key),
-          h('td', {}, what),
+        h('table', { class: 'grid' }, ...list.map((a) => h('tr', {},
+          h('td', { class: 'mono', style: 'white-space:nowrap;padding-right:14px' }, (a.keys || []).join('  ·  ') || '—'),
+          h('td', {}, a.label),
+          h('td', { style: 'text-align:right;white-space:nowrap' }, a.quick ? h('span', { class: 'badge' }, 'button') : ''),
         ))),
-      )));
-    modal('Keyboard shortcuts', body);
+      )),
+      h('p', { class: 'hint' },
+        'Everything marked ', h('span', { class: 'badge' }, 'button'),
+        ' is also in the shortcut bar — the S in the top bar — so a tablet with no keyboard'
+        + ' can reach it. Placing from the library is a click on the type then a click on the'
+        + ' plan, or a drag straight onto it; either way it stays armed for the next one.'),
+    );
+    modal('Shortcuts and gestures', body, { help: ['concept:input'] });
   }
 
   /* ---------- theme -> css variables ---------- */

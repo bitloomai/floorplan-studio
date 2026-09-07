@@ -503,6 +503,11 @@ const CATALOGUES = [
     }
     return out.join('\n');
   }],
+  /* Not a registry, but exactly the same argument: the keys and gestures were
+   * prose typed out beside a keydown handler nobody diffed it against, so the
+   * docs promised a Space-to-pan the code had never implemented. The table now
+   * comes from the catalogue the keyboard is bound from. */
+  ['input-devices', 'Every gesture and key, as bound', () => require('./input-actions').reference()],
   ['walls-openings', 'Opening catalogue', (r) => openingReference(r.boundaries)],
   ['walls-boundaries', 'Wall treatment catalogue', (r) => boundaryReference(r.boundaries)],
   ['opening-coverings', 'Covering catalogue', (r) => coveringReference(r.boundaries)],

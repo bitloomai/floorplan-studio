@@ -54,6 +54,7 @@ floor based on the house the test suite runs against.</sub>
 | ☀️ **Daylight and lamps modelled** | Real solar position per your coordinates, light through openings, artificial-light levels in foot-candles, and a night scrim that thins as the sun comes up. |
 | 📊 **One press to a dashboard** | Generates a Lovelace dashboard, one view per floor, from the same renderer — installed as a resource by the app itself. No HACS, nothing copied into `config/www/`. |
 | 🤖 **Drivable by an AI** | An MCP endpoint, so a model can draw and edit the plan while your editor updates live. |
+| 🖐️ **Mouse, trackpad or tablet** | Pinch and two-finger pan on touch, trackpad pinch, `Space` or middle-drag on a mouse — and zoom that holds the point you are pointing at. On a narrow screen the rail and inspector become drawers so the plan gets the whole window, and an **S** button opens the keyboard's commands as buttons for a tablet that has no keyboard. |
 | 📖 **Help that follows the data** | Contextual help and generated catalogues describe the same registries the editor uses. Advanced settings are marked, and the shared dialog frame keeps them reachable. |
 | 📦 **No runtime dependencies** | No third-party runtime packages or lockfile. The production image is distroless, with no shell or package manager. |
 
@@ -91,6 +92,37 @@ a simulation of polished reflections.
 The app also backs up dashboard configuration, stamps its own deployments and
 can reopen an embedded editable project. See [reopening a generated dashboard](#reopening-a-generated-dashboard)
 for the portability and ownership rules.
+
+### Whatever you are drawing on
+
+The editor is meant to be equally good with a mouse and keyboard, with a
+trackpad, and with a finger on a tablet — which means a few things behave
+differently on each, on purpose.
+
+| | Mouse and keyboard | Trackpad | Touch |
+|---|---|---|---|
+| Move around a zoomed-in plan | middle-drag, or hold `Space` | two-finger scroll | one finger on empty floor, or two fingers anywhere |
+| Zoom | `Ctrl`/`Cmd`+wheel | pinch | pinch |
+| Move something | drag it | drag it | tap it, then drag it |
+| Select several | `Shift`-click, or drag a box | `Shift`-click, or drag a box | **Multi**, then tap each |
+
+Zooming holds whatever you were pointing at, so zooming in twice and carrying
+on is a reasonable thing to do. On a touch screen a plain drag moves the plan
+rather than whatever is under your finger, unless that thing is already
+selected: a finger cannot hover to see what it is about to pick up, and every
+attempt to look at the far end of the house would otherwise move a room a few
+inches under the hand hiding it.
+
+Where there is no keyboard, **S** in the top bar turns the keyboard's commands
+into buttons — undo, redo, duplicate, delete, turn, resize, nudge, the five
+tools — and below about 900 px the tool rail and the properties inspector
+become drawers (**☰** and **▤**, or double-tap what you selected) so the plan
+gets the whole window.
+
+All of it is one catalogue — [`app/lib/input-actions.js`](floorplan_studio/app/lib/input-actions.js)
+— read by the keyboard, the buttons, the shortcuts dialog and the help, so the
+editor cannot describe a gesture it does not implement. It used to: every Pan
+tooltip said `Space` panned the canvas, and nothing read the space bar.
 
 ## Install
 

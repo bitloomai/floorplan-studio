@@ -20,7 +20,45 @@ window.Canvas = (function () {
 
   const NS = 'http://www.w3.org/2000/svg';
   const S = Store.S;
-  let svg, wrap, scene = null, onStatus = () => {};
+  let svg, wrap, scene = null, onStatus = () => {}, onInspect = () => {};
+
+  /* Every pointer currently down on the canvas, in client coordinates. One is
+   * a drag; TWO is a pinch, and there is no other way to say "zoom" on a
+   * screen with no wheel, no Ctrl key and no status bar within reach of the
+   * thumb already holding the tablet. `touch-action: none` on the canvas hands
+   * us every touch, so if this file does not implement a gesture the device
+   * simply does not have it. */
+  const pointers = new Map();
+  let gesture = null;            // { dist, mid, zoom } while two fingers are down
+  /* Where the current press went down, recorded before anything else looks at
+   * it. Kept OUTSIDE the drag record on purpose: the tap threshold and the
+   * double-tap both need it even when no drag was started at all, and a drag
+   * that fails half-way through being built — `setPointerCapture` throws if the
+   * pointer has already gone — would otherwise take the origin with it. */
+  let press = { x: 0, y: 0, t: 0, target: null };
+  let spaceHeld = false;         // hold Space to pan, the way every editor does
+  let lastTap = null;            // for the touch double-tap that opens the inspector
+
+  /* Which kind of pointer was last used, NOT which kind the device has. A
+   * Surface has both: a mouse plugged into a tablet should get the small
+   * precise handles it can hit, and the same machine ten seconds later under a
+   * finger should get the fat ones. A media query answered once at load cannot
+   * say that; the events can. */
+  let pointerKind = 'mouse';
+  const touching = () => pointerKind === 'touch';
+  /* Screen pixels. A finger covers about 9 mm and lands where it looked, not
+   * where it was: the handle has to be bigger and the "did this move or was it
+   * a tap" threshold has to be looser, or every tap smears whatever it hit. */
+  const HANDLE_PX = () => (touching() ? 15 : 10);
+  const KNOB_PX = () => (touching() ? 11 : 6);
+  const SLOP_PX = () => (touching() ? 9 : 3);
+
+  function setPointerKind(type) {
+    const kind = type === 'touch' ? 'touch' : 'mouse';
+    if (kind === pointerKind) return;
+    pointerKind = kind;
+    if (S.selection || S.multi.length) drawSelection();
+  }
 
   const el = (tag, attrs, text) => {
     const n = document.createElementNS(NS, tag);
@@ -447,7 +485,7 @@ window.Canvas = (function () {
     if (rz.box) {
       const b = furnitureBox(item, type);
       const g = el('g', { 'pointer-events': 'all', class: 'size-handle' });
-      const size = 10 / (S.view.zoom || 1);
+      const size = HANDLE_PX() / (S.view.zoom || 1);
       for (const [dx, dy] of [[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]]) {
         const [x, y] = turned(dx * b.w / 2, dy * b.h / 2, b.rot);
         const angle = ((Math.atan2(dy, dx) * 180 / Math.PI + b.rot) % 180 + 180) % 180;
@@ -472,7 +510,7 @@ window.Canvas = (function () {
     const directions = line ? [[-1, 0], [1, 0]] : [[0, -1], [1, 0], [0, 1], [-1, 0]];
     for (const [dx, dy] of directions) {
       const [ox, oy] = turned(dx * R, dy * R, line ? (item.props?.rot ?? type.defaults?.rot ?? 0) : 0);
-      const size = 10 / (S.view.zoom || 1);
+      const size = HANDLE_PX() / (S.view.zoom || 1);
       const h = el('rect', {
         x: cx + ox - size / 2, y: cy + oy - size / 2, width: size, height: size, rx: 1.5,
         class: 'handle', style: `cursor:${dx ? 'ew-resize' : 'ns-resize'}`,
@@ -586,7 +624,9 @@ window.Canvas = (function () {
     const g = el('g', { 'pointer-events': 'all', class: 'rot-handle' });
     g.appendChild(el('circle', { cx, cy, r: radius, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1, 'stroke-dasharray': '2 4', opacity: 0.45, 'pointer-events': 'none' }));
     g.appendChild(el('line', { x1: cx, y1: cy, x2: hx, y2: hy, stroke: 'var(--accent)', 'stroke-width': 1.2, opacity: 0.6, 'pointer-events': 'none' }));
-    const knob = el('circle', { cx: hx, cy: hy, r: 6, class: 'handle' });
+    /* Constant on SCREEN, like the square resize handles beside it: a radius in
+     * scene units alone drew a 6px knob at Fit and a 36px one at 600%. */
+    const knob = el('circle', { cx: hx, cy: hy, r: KNOB_PX() / (S.view.zoom || 1), class: 'handle' });
     knob.dataset.rotate = item.id;
     g.appendChild(knob);
     ov.appendChild(g);
@@ -849,6 +889,15 @@ window.Canvas = (function () {
     };
   }
 
+  /* Nothing of the plan's own is under this point — sheet, grid, the margin
+   * outside the floor. Everything the hit layer draws carries a data attribute
+   * naming what it is, so "none of them" is the whole test. */
+  function isBareFloor(target) {
+    const d = (target && target.dataset) || {};
+    return !(d.item || d.room || d.opening || d.roomLabel || d.labelResize
+      || d.rotate || d.resize || d.vertex !== undefined);
+  }
+
   function onSelectedHandleOrBody(target) {
     const sel = S.selection;
     if (!sel || !target.dataset) return false;
@@ -857,14 +906,117 @@ window.Canvas = (function () {
     return d.rotate === sel.id || d.resize === sel.id || d.item === sel.id;
   }
 
+  /* The gesture layer sits in front of the tool logic: it decides whether this
+   * press is one of the things a DEVICE does — pinch, two-finger pan, drag the
+   * paper — before anything asks which tool is active. Below it, `beginInner`
+   * is the original mouse logic, unchanged in what it means. */
   function begin(ev) {
-    if (ev.button === 1 || S.tool === 'pan' || (ev.button === 0 && ev.altKey)) {
-      drag = { mode: 'pan', sx: ev.clientX, sy: ev.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop };
-      svg.classList.add('panning');
-      svg.setPointerCapture(ev.pointerId);
+    /* `isPrimary` means "the first pointer of its kind currently down", so a
+     * primary press while the map still holds something is proof that the
+     * something is stale — a pointerup delivered somewhere this element never
+     * saw, which is what happens when a repaint detaches the node mid-drag and
+     * pointer capture was refused. Left uncleared, the next press counts as a
+     * second finger and the canvas answers a tap with a pinch. */
+    if (ev.isPrimary && pointers.size) { pointers.clear(); gesture = null; drag = null; }
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, type: ev.pointerType });
+    setPointerKind(ev.pointerType);
+
+    if (pointers.size === 2) { startPinch(); return; }
+    if (pointers.size > 2) return;
+
+    /* `timeStamp` is when the press HAPPENED, not when this handler got to
+     * run. Selecting something rebuilds the inspector, and on a full house
+     * that is most of a second of main thread — measured with a clock read
+     * here, a real double tap 150 ms apart looked like two taps a second
+     * apart, and never opened anything. */
+    press = { x: ev.clientX, y: ev.clientY, t: ev.timeStamp || Date.now(), target: ev.target };
+    beginInner(ev);
+  }
+
+  function startPan(ev, tap) {
+    drag = { mode: 'pan', sx: ev.clientX, sy: ev.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop, tap };
+    svg.classList.add('panning');
+    /* A pointer that has already gone (a stylus that cancelled, a finger the
+     * OS took for a system gesture) makes this throw, and an exception here
+     * would abandon the drag half-built. Capture is an optimisation; the pan
+     * works without it as long as the pointer stays over the canvas. */
+    try { svg.setPointerCapture(ev.pointerId); } catch (e) { /* uncaptured, still tracked */ }
+  }
+
+  /* A second finger arrives. Whatever the first one had begun is finished
+   * where it stands — committed if it had actually moved something, dropped if
+   * it had not — because carrying a half-finished room drag through a pinch is
+   * how a plan ends up with a wall somewhere nobody put it. */
+  function startPinch() {
+    if (drag) {
+      if (drag.mode !== 'pan' && drag.moved) end({ pointerId: -1, clientX: press.x, clientY: press.y });
+      else { drag = null; ghost(null); }
+    }
+    const [a, b] = [...pointers.values()];
+    gesture = {
+      dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      zoom: S.view.zoom,
+    };
+    for (const id of pointers.keys()) { try { svg.setPointerCapture(id); } catch (e) { /* already gone */ } }
+    svg.classList.add('panning');
+  }
+
+  /* What a tap did, once it is known to have been a tap. On a touch screen a
+   * drag on empty floor pans instead of selecting, so the selection this press
+   * MIGHT have meant is decided at pointer-up rather than pointer-down — which
+   * is also why it takes the target recorded then, not whatever is under the
+   * finger after the plan has slid past it. */
+  function tapSelect(target) {
+    const d = (target && target.dataset) || {};
+    if (d.roomLabel || d.labelResize) { Store.select('room', d.roomLabel || d.labelResize, 'label'); return; }
+    if (d.opening) { Store.select('opening', d.opening); return; }
+    if (d.item || d.room) {
+      const kind = d.item ? 'item' : 'room';
+      if (S.view.multiSelect) Store.toggleMulti(kind, d.item || d.room);
+      else Store.select(kind, d.item || d.room);
+      return;
+    }
+    if (!S.view.multiSelect) Store.select(null);
+  }
+
+  /* Two taps in the same place open the properties of what was tapped. It
+   * matters only where the inspector is a drawer — a narrow screen — and there
+   * it replaces a trip to the top bar with the gesture every touch UI already
+   * uses for "tell me more about this". */
+  function tapAgain() {
+    /* Press to press, on the event's own clock — see `press` above. */
+    const again = lastTap && press.t - lastTap.t < 400
+      && Math.hypot(press.x - lastTap.x, press.y - lastTap.y) < 28;
+    lastTap = { t: press.t, x: press.x, y: press.y };
+    if (!again) return;
+    const d = (press.target && press.target.dataset) || {};
+    if (d.item || d.room || d.opening || d.roomLabel || d.labelResize) onInspect();
+  }
+
+  function beginInner(ev) {
+    if (ev.button === 1 || S.tool === 'pan' || spaceHeld || (ev.button === 0 && ev.altKey)) {
+      startPan(ev);
       return;
     }
     if (ev.button !== 0) return;
+
+    /* Touch, Select tool, and the press did not land on what is already
+     * selected: the finger moves the PLAN, and a press that turns out not to
+     * have moved selects whatever was under it after all.
+     *
+     * A mouse can hover, so it can see what it is about to grab; a finger
+     * cannot, and a plan drawn edge to edge is nothing but grabbable things.
+     * Making "drag anything you touch" the default on a tablet means every
+     * attempt to look at the other end of the house moves a room a few inches
+     * instead — silently, because the finger is on top of the evidence. Tap to
+     * pick it up first, then drag it. Turning Multi on restores the box-select
+     * drag, which is the one other thing an empty-floor drag could mean. */
+    if (ev.pointerType === 'touch' && S.tool === 'select' && !onSelectedHandleOrBody(ev.target)
+      && !(S.view.multiSelect && isBareFloor(ev.target))) {
+      startPan(ev, ev.target);
+      return;
+    }
 
     const ft = feetAt(ev);
     const raw = feetAt(ev, false);
@@ -954,7 +1106,7 @@ window.Canvas = (function () {
        * a member of the CURRENT multi-selection keeps the whole group picked
        * (dragging moves all of it); anywhere else, a plain click behaves
        * exactly as it always did — replace the selection with just this. */
-      if (ev.shiftKey) { Store.toggleMulti('item', item.id); return; }
+      if (ev.shiftKey || S.view.multiSelect) { Store.toggleMulti('item', item.id); return; }
       if (S.multi.length > 1 && Store.isMulti('item', item.id)) {
         beginGroupDrag(raw, ev);
         return;
@@ -966,7 +1118,7 @@ window.Canvas = (function () {
     }
     if (target.dataset && target.dataset.room) {
       const room = (Store.floor().rooms || []).find((r) => r.id === target.dataset.room);
-      if (ev.shiftKey) { Store.toggleMulti('room', room.id); return; }
+      if (ev.shiftKey || S.view.multiSelect) { Store.toggleMulti('room', room.id); return; }
       if (S.multi.length > 1 && Store.isMulti('room', room.id)) {
         beginGroupDrag(raw, ev);
         return;
@@ -979,7 +1131,7 @@ window.Canvas = (function () {
     /* Empty canvas, Select tool: a drag from here is a marquee, a plain click
      * is the deselect-everything it always was — `end()` tells them apart by
      * whether the marquee ever grew past a few pixels. */
-    drag = { mode: 'marquee', from: raw, shift: ev.shiftKey };
+    drag = { mode: 'marquee', from: raw, shift: ev.shiftKey || S.view.multiSelect };
     svg.setPointerCapture(ev.pointerId);
   }
 
@@ -999,6 +1151,30 @@ window.Canvas = (function () {
   }
 
   function move(ev) {
+    const held = pointers.get(ev.pointerId);
+    if (held) { held.x = ev.clientX; held.y = ev.clientY; }
+
+    /* A pinch pans and zooms at once, because fingers do both at once and
+     * separating them makes the plan lurch. The centre of the pinch is the
+     * anchor for the zoom AND the handle for the pan: whatever was between
+     * the two fingers stays between them. */
+    if (gesture) {
+      const pts = [...pointers.values()];
+      if (pts.length < 2) return;
+      const [a, b] = pts;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      wrap.scrollLeft -= mid.x - gesture.mid.x;
+      wrap.scrollTop -= mid.y - gesture.mid.y;
+      gesture.mid = mid;
+      /* `light`: the scene is not rebuilt per frame. The viewBox is in scene
+       * units, so the element's own width and height ARE the zoom — a full
+       * PlanScene.build at 60 fps on a tablet buys nothing but a stutter, and
+       * the one repaint when the fingers lift corrects the overlay. */
+      zoomTo(gesture.zoom * (dist / gesture.dist), mid, true);
+      return;
+    }
+
     const raw = feetAt(ev, false);
     const room = Store.floor() ? PlanScene.roomAt(Store.floor(), raw.x, raw.y) : null;
     onStatus({ x: raw.x, y: raw.y, room: room ? room.name : '' });
@@ -1021,7 +1197,18 @@ window.Canvas = (function () {
     if (drag.mode === 'pan') {
       wrap.scrollLeft = drag.sl - (ev.clientX - drag.sx);
       wrap.scrollTop = drag.st - (ev.clientY - drag.sy);
+      if (Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy) > SLOP_PX()) drag.moved = true;
       return;
+    }
+
+    /* Nothing has moved until the pointer has travelled far enough to mean it.
+     * A mouse click is steady to a pixel or two; a tap is not steady to nine,
+     * so without this every tap on a marker nudged it and left an undo entry
+     * saying so — and the plan drifted a few thousandths of a foot at a time
+     * under someone who thought they were only looking. */
+    if (!drag.past) {
+      if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < SLOP_PX()) return;
+      drag.past = true;
     }
 
     const ft = feetAt(ev);
@@ -1213,6 +1400,21 @@ window.Canvas = (function () {
   }
 
   function end(ev) {
+    pointers.delete(ev.pointerId);
+
+    /* A pinch ends when it stops being two fingers. The finger still down does
+     * NOT become a drag — lifting one of two is a release, not the start of
+     * something new — so nothing begins again until the canvas is clear. */
+    if (gesture) {
+      if (pointers.size < 2) {
+        gesture = null;
+        svg.classList.remove('panning');
+        paint();
+        drawSelection();
+      }
+      return;
+    }
+
     svg.classList.remove('panning');
     if (!drag) return;
     const d = drag; drag = null;
@@ -1220,7 +1422,12 @@ window.Canvas = (function () {
     dimLabel = null;
     try { svg.releasePointerCapture(ev.pointerId); } catch {}
 
-    if (d.mode === 'pan') return;
+    if (d.mode === 'pan') {
+      /* The touch press that turned out not to be a pan. See tapSelect. */
+      if (d.tap && !d.moved) { tapSelect(d.tap); tapAgain(); }
+      return;
+    }
+    if (touching() && !d.past) tapAgain();
 
     if ((d.mode === 'label' || d.mode === 'label-resize') && d.moved) {
       const room = Store.floor().rooms.find(r => r.id === d.id);
@@ -1547,10 +1754,47 @@ window.Canvas = (function () {
     Store.select(null);
   }
 
-  function zoomTo(z) {
-    S.view.zoom = Math.max(0.2, Math.min(6, z));
-    paint();
+  /* Zoom, optionally about a point on the screen.
+   *
+   * Without an anchor the plan is centred in its scroller, so zooming in walks
+   * away from whatever you were looking at and you go hunting for it with the
+   * scrollbars — the single most irritating thing about the editor at any zoom
+   * above Fit. With one, the point under the pointer (or between two fingers)
+   * is still under it afterwards, which is what every map and every design
+   * tool does and what nobody notices until it is missing.
+   *
+   * The correction is measured, not calculated: where that fraction of the
+   * drawing ACTUALLY landed after the resize, minus where it should be. That
+   * survives the plan being centred when it is small, clamped when it is
+   * large, and every rounding in between. */
+  function zoomTo(z, anchor, light) {
+    const next = Math.max(0.2, Math.min(6, z));
+    if (!scene) { S.view.zoom = next; return; }
+    const box = anchor ? svg.getBoundingClientRect() : null;
+    const fx = box && box.width ? (anchor.x - box.left) / box.width : 0;
+    const fy = box && box.height ? (anchor.y - box.top) / box.height : 0;
+
+    S.view.zoom = next;
+    if (light) {
+      svg.setAttribute('width', scene.width * next);
+      svg.setAttribute('height', scene.height * next);
+    } else paint();
+
+    if (anchor) {
+      const after = svg.getBoundingClientRect();
+      wrap.scrollLeft += (after.left + fx * after.width) - anchor.x;
+      wrap.scrollTop += (after.top + fy * after.height) - anchor.y;
+    }
     Store.emit('view');
+  }
+
+  /* The status bar's − and + buttons, and the keyboard's. They zoom about the
+   * middle of what you are looking at rather than about the middle of the
+   * drawing, for the same reason the wheel zooms about the pointer: the thing
+   * you were looking at is the thing you want to still be looking at. */
+  function zoomStep(mul) {
+    const r = wrap.getBoundingClientRect();
+    zoomTo(S.view.zoom * mul, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
   }
 
   function fit() {
@@ -1567,6 +1811,13 @@ window.Canvas = (function () {
     svg = document.getElementById('canvas');
     wrap = document.getElementById('canvasScroll');
     onStatus = opts.onStatus || onStatus;
+    onInspect = opts.onInspect || onInspect;
+
+    /* The starting guess, corrected by the first real event. A tablet should
+     * not have to be touched once before its handles are the right size. */
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) pointerKind = 'touch';
+    } catch (e) { /* an engine without matchMedia keeps the mouse defaults */ }
 
     svg.addEventListener('pointerdown', begin);
     svg.addEventListener('pointermove', move);
@@ -1576,10 +1827,43 @@ window.Canvas = (function () {
     svg.addEventListener('dblclick', (ev) => { if (S.tool === 'poly') { ev.preventDefault(); finishPoly(); } });
     svg.addEventListener('contextmenu', (ev) => { if (S.tool === 'poly') { ev.preventDefault(); finishPoly(); } });
 
-    wrap.addEventListener('wheel', (ev) => {
-      if (!ev.ctrlKey) return;          // plain wheel keeps scrolling the pane
+    /* Hold Space to pan — promised by the Pan tool's own tooltip since the
+     * first version of this editor, and bound by nothing until now. It is the
+     * gesture a trackpad most wants: two-finger scroll moves the pane, but
+     * grabbing the paper is what you reach for when the other hand is already
+     * on the keyboard. */
+    const typingNow = () => /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+    window.addEventListener('keydown', (ev) => {
+      if (ev.code !== 'Space' || ev.repeat || typingNow()) return;
       ev.preventDefault();
-      zoomTo(S.view.zoom * (ev.deltaY < 0 ? 1.12 : 1 / 1.12));
+      spaceHeld = true;
+      svg.classList.add('space-pan');
+    });
+    const dropSpace = () => { spaceHeld = false; svg.classList.remove('space-pan'); };
+    window.addEventListener('keyup', (ev) => { if (ev.code === 'Space') dropSpace(); });
+    /* Alt-tabbing away with Space down otherwise leaves the canvas convinced
+     * it is still held, and every click pans. */
+    window.addEventListener('blur', dropSpace);
+
+    /* One wheel, three devices.
+     *
+     *   mouse       a notch is ±100px and Ctrl means zoom
+     *   trackpad    a pinch arrives as ctrlKey with a small delta — the
+     *               browser's own convention, not ours — and a two-finger
+     *               scroll arrives as a plain wheel, which keeps scrolling
+     *               the pane
+     *   Mac         Cmd is the modifier people reach for, so honour both
+     *
+     * Exponential rather than a fixed step per event, so the tiny deltas a
+     * trackpad pinch emits accumulate smoothly instead of snapping a notch at
+     * a time, and one wheel notch still lands near the 1.12 it always was. */
+    wrap.addEventListener('wheel', (ev) => {
+      if (!ev.ctrlKey && !ev.metaKey) return;   // plain wheel keeps scrolling the pane
+      ev.preventDefault();
+      const px = ev.deltaMode === 1 ? ev.deltaY * 16
+        : ev.deltaMode === 2 ? ev.deltaY * wrap.clientHeight : ev.deltaY;
+      const factor = Math.min(2, Math.max(0.5, Math.exp(-px * 0.0015)));
+      zoomTo(S.view.zoom * factor, { x: ev.clientX, y: ev.clientY });
     }, { passive: false });
 
     /* Drag a library button straight onto the plan. Native HTML drag and
@@ -1605,14 +1889,15 @@ window.Canvas = (function () {
       if (id) Store.setTool('select');
     });
 
-    return { paint, fit, zoomTo, deleteSelected, finishPoly, cancelPoly, drawSelection, placeType };
+    return { paint, fit, zoomTo, zoomStep, deleteSelected, finishPoly, cancelPoly, drawSelection, placeType };
   }
 
   /* Exported so the properties panel can draw the SAME nodes the plan draws for
    * its variant previews. A picker that renders its options by any other route
    * is a picker that can lie about what you are choosing. */
   return {
-    init, paint, fit, zoomTo, deleteSelected, finishPoly, cancelPoly, drawSelection, roomEdges,
+    init, paint, fit, zoomTo, zoomStep, deleteSelected, finishPoly, cancelPoly, drawSelection, roomEdges,
+    usingTouch: () => touching(),
     nudgeRotation, nudgeSize, nudgePosition, duplicateSelected, alignMulti, nodeToEl,
     furnitureBox, resizedBox, frontAngle,
   };

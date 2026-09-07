@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Drawing the plan — Floorplan Studio</title>
-<meta name="description" content="The five tools, what each is for, and the keys worth learning first.">
+<meta name="description" content="The five tools, what each is for, and where every key and gesture is listed.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="help.css">
 <script>try{var d=document.documentElement,t=localStorage.getItem('fps-docs-theme'),s=localStorage.getItem('fps-docs-side');if(t)d.setAttribute('data-theme',t);if(s&&matchMedia('(min-width:861px)').matches)d.setAttribute('data-side',s);}catch(e){}</script>
@@ -40,26 +40,82 @@
 
 <div class="wrap narrow page">
   <h1>Drawing the plan</h1>
-  <p class="lede">2 topics.</p>
-  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong><a href="#canvas-tools">Drawing and moving things</a><a href="#panel-floor">The floor panel</a></nav>
+  <p class="lede">3 topics.</p>
+  <nav class="page-toc glass" aria-label="On this page"><strong>On this page</strong><a href="#canvas-tools">Drawing and moving things</a><a href="#input-devices">Mouse, trackpad and touch</a><a href="#panel-floor">The floor panel</a></nav>
   <article class="topic glass" id="canvas-tools">
 <h2><a class="heading-link" href="#canvas-tools">Drawing and moving things</a></h2>
-<p class="summary">The five tools, what each is for, and the keys worth learning first.</p>
+<p class="summary">The five tools, what each is for, and where every key and gesture is listed.</p>
 
 <div class="body"><h3>How to access</h3>
 <ul><li><strong>Find it:</strong> Plan canvas → Select.</li><li><strong>Find it:</strong> Plan canvas → Room.</li><li><strong>Find it:</strong> Plan canvas → Shape.</li><li><strong>Find it:</strong> Plan canvas → Opening.</li><li><strong>Find it:</strong> Plan canvas → Pan.</li></ul>
-<table><thead><tr><th>key</th><th>tool</th></tr></thead><tbody><tr><td><strong>V</strong></td><td>Select and move</td></tr><tr><td><strong>R</strong></td><td>Draw a rectangular room</td></tr><tr><td><strong>P</strong></td><td>Draw a room outline, point by point</td></tr><tr><td><strong>A</strong></td><td>Place a door, window or opening</td></tr><tr><td><strong>H</strong></td><td>Pan</td></tr></tbody></table>
-<p><strong>Esc</strong> always backs out — it stops placing, drops the selection, and closes a dialog.</p>
-<h2>With something selected</h2>
-<ul><li><strong>Arrow keys</strong> move it a few inches; hold <strong>Shift</strong> for a foot.</li><li><strong><code>[</code></strong> and <strong><code>]</code></strong> rotate; hold Shift for 45° steps.</li><li><strong><code>−</code></strong> and <strong><code>+</code></strong> resize.</li><li><strong>Ctrl/Cmd+D</strong> duplicates with a small offset.</li><li><strong>Delete</strong> removes.</li></ul>
-<p>Press <strong><code>?</code></strong> at any time for the full list.</p>
+<p>Five tools, and each one only does its own job:</p>
+<ul><li><strong>Select</strong> picks things up. It is also the only tool that moves, resizes,</li></ul>
+<p>  turns and deletes what is already there, so it is where you spend most of   your time.</p>
+<ul><li><strong>Room</strong> drags out a rectangle and turns it into a room.</li><li><strong>Shape</strong> takes a room corner by corner, for an L, a bay or anything else a</li></ul>
+<p>  rectangle cannot say. Finish it to close the outline.</p>
+<ul><li><strong>Opening</strong> puts a door, window, gate or shutter <em>on a wall</em> — it has to sit</li></ul>
+<p>  on one, so click near the wall you mean rather than in the middle of the room.</p>
+<ul><li><strong>Pan</strong> drags the plan around without touching anything on it.</li></ul>
+<p><strong>Esc</strong> always backs out: it stops placing, drops the selection, and closes a dialog.</p>
+<p>Every key, button and gesture — including what to do on a tablet with no keyboard — is in <strong>Mouse, trackpad and touch</strong>, linked below, and in the editor under <strong>⌨</strong> in the top bar or by pressing <strong><code>?</code></strong>. That list is generated from what the editor actually binds, so it is the one to trust.</p>
 <h2>Zoom</h2>
 <p>Zooming moves the view, it does not scale the drawing. That is why a 1px wall stays a 1px wall at any zoom and the labels stay crisp — a CSS-scaled plan turns walls into fat bands and text into blurred stamps.</p>
-<h2>On a touch screen</h2>
-<p>A drag is treated as a tap until it has moved about 8 pixels, so trying to pan does not toggle whatever was under your thumb.</p>
+<p>It also keeps whatever you are pointing at where it is, so zooming in on a corner of the house does not send that corner off the edge of the window.</p>
 <h2>Selecting a room</h2>
-<p>Click inside it, away from anything placed on top. Items sit above rooms, so clicking a sofa selects the sofa — which is usually what you meant.</p></div>
-<div class="related">Read next: <a href="reference.html#concept-units">Feet, and which way is north</a> · <a href="library-guide.html#library-palette">The library</a> · <a href="rooms.html#panel-room">The room panel</a></div>
+<p>Click inside it, away from anything placed on top. Items sit above rooms, so clicking a sofa selects the sofa — which is usually what you meant.</p>
+<p>On a touch screen, tap it: a plain drag moves the plan rather than the room, and only something already selected can be dragged. A press counts as a tap until it has travelled about nine pixels, so an unsteady finger never nudges what it meant to pick.</p></div>
+<div class="related">Read next: <a href="plan.html#input-devices">Mouse, trackpad and touch</a> · <a href="reference.html#concept-units">Feet, and which way is north</a> · <a href="library-guide.html#library-palette">The library</a> · <a href="rooms.html#panel-room">The room panel</a></div>
+</article>
+<article class="topic glass" id="input-devices">
+<h2><a class="heading-link" href="#input-devices">Mouse, trackpad and touch</a></h2>
+<p class="summary">How to move around the plan on each kind of device, and where a tablet with no keyboard finds the shortcuts.</p>
+
+<div class="body"><h3>How to access</h3>
+<ul><li><strong>Find it:</strong> Plan canvas → Select.</li><li><strong>Find it:</strong> Plan canvas → Pan.</li><li><strong>Find it:</strong> Top bar → Keyboard shortcuts.</li><li><strong>Find it:</strong> Top bar → More. On a narrow screen the top bar folds its Sun, Light, Logic, Dashboard, Import and Export buttons, the theme picker and the view switches into this menu.</li><li><strong>Find it:</strong> Top bar → Shortcut buttons → Multi.</li></ul>
+<p>The editor is meant to be equally usable with a mouse and keyboard, with a trackpad, and with a finger on a tablet. Those are three genuinely different machines, so a few things deliberately behave differently on each. The table below is generated from what the editor actually binds, so it cannot promise a gesture that is not there.</p>
+<h2>Zooming, and moving around a zoomed-in plan</h2>
+<p>Zoom always keeps the point you are pointing at where it is. Scroll-wheel zoom holds the spot under the pointer, a pinch holds the spot between your fingers, and the status bar's <strong>−</strong> and <strong>+</strong> hold the middle of the view. Nothing walks off screen while you are looking at it, which is what makes zooming in twice and carrying on a reasonable thing to do.</p>
+<p>Once the plan is bigger than the window, moving around it is:</p>
+<ul><li><strong>Mouse</strong> — drag with the middle button, or hold <strong>Space</strong> and drag with the</li></ul>
+<p>  left one. The wheel scrolls, and the pane has ordinary scrollbars.</p>
+<ul><li><strong>Trackpad</strong> — two-finger scroll in any direction. Pinch to zoom.</li><li><strong>Touch</strong> — one finger dragged across empty floor moves the plan; two fingers</li></ul>
+<p>  move and zoom it together, from anywhere, including over a room.</p>
+<h2>Why one finger does not drag a room</h2>
+<p>On a touch screen a plain drag moves the <em>plan</em>, not what is under your finger — unless what is under your finger is already selected. Tap something to pick it up first, then drag it.</p>
+<p>A mouse can hover, so it can see what it is about to grab. A finger cannot, and a drawn plan is edge-to-edge grabbable things. With &quot;drag whatever you touch&quot; as the rule, every attempt to look at the other end of the house moved a room a few inches instead — silently, because your hand is on top of the evidence.</p>
+<p>A tap is still a tap until it has travelled about nine pixels, so an unsteady finger selects rather than nudges.</p>
+<h2>Selecting several things without a Shift key</h2>
+<p>Shift-click adds and removes on a mouse, and a drag across empty floor draws a selection box. Neither is available to a finger, so the shortcut bar has a <strong>Multi</strong> button that latches the same behaviour: every tap adds to the selection, and a drag on empty floor draws the box instead of moving the plan. Turn it off to go back to one-at-a-time.</p>
+<h2>The shortcut bar — <strong>S</strong> in the top bar</h2>
+<p>Every command in this editor has a key. A tablet has no keys, so the same commands are buttons: undo and redo, duplicate and delete, turn left and right, bigger and smaller, nudge in four directions, the five tools, finish an outline, and Esc.</p>
+<p>It is off by default where there is a keyboard, on by default where the pointer is coarse, and remembered per browser either way. Press <strong>S</strong>, or use the button in the top bar.</p>
+<p>Buttons go dim when they would do nothing — Undo with nothing to undo, Delete with nothing selected — so the bar always says what is available rather than leaving you to find out by pressing.</p>
+<h2>On a narrow screen</h2>
+<p>Below about 900 pixels the tool rail and the properties inspector stop being columns and become drawers, so the plan gets the whole window:</p>
+<ul><li><strong>☰</strong> opens the tools and the device library. Choosing either closes it.</li><li><strong>▤</strong> opens the inspector for what is selected. Double-tapping something on</li></ul>
+<p>  the plan opens it too.</p>
+<ul><li><strong>⋯</strong> holds the rest of the top bar — Sun, Light, Logic, Dashboard, Import,</li></ul>
+<p>  Export, the shortcut list, the theme, Live states and Advanced. They are the   same controls, moved rather than duplicated.</p>
+<p>Those three buttons only exist at that width, and between them they stand in for two whole columns and nine buttons: a narrow screen ends up with <em>less</em> chrome around the plan than a wide one, not more.</p>
+<p><strong>Esc</strong> closes whichever of those is open before it starts dropping selections.</p>
+<h2>Handles are sized for whatever you last touched</h2>
+<p>The resize squares and the rotation knob are drawn larger after a touch and smaller after a mouse, on the same machine, switching as you switch. A tablet with a keyboard and trackpad case is two devices depending on the minute, and a media query answered once when the page loaded cannot tell them apart.</p>
+<p>If a handle is still fiddly, the arrow, turn and resize buttons do the same job exactly: a quarter-foot, 15°, or 15% a press.</p>
+<h2>Every gesture and key, as bound</h2>
+<h3>Getting around the plan</h3>
+<table><thead><tr><th></th><th>Mouse and keyboard</th><th>Trackpad</th><th>Touch</th></tr></thead><tbody><tr><td><strong>Move around a zoomed-in plan</strong></td><td>Drag with the middle button, hold Space and drag, or use the H tool. The scroll wheel scrolls.</td><td>Two-finger scroll, in any direction.</td><td>Drag one finger on empty floor, or two fingers anywhere — including over a room.</td></tr><tr><td><strong>Zoom</strong></td><td>Ctrl/Cmd and the scroll wheel, or the − / + buttons in the status bar.</td><td>Pinch. It zooms about the pointer, so the thing under it stays under it.</td><td>Pinch with two fingers. It zooms about the middle of the pinch.</td></tr><tr><td><strong>Select one thing</strong></td><td>Click it.</td><td>Click or tap it.</td><td>Tap it.</td></tr><tr><td><strong>Select several</strong></td><td>Shift-click each, or drag a box across empty floor.</td><td>Shift-click each, or drag a box across empty floor.</td><td>Turn on <strong>Multi</strong> in the shortcut bar, then tap each one; a drag then draws the box.</td></tr><tr><td><strong>Move something</strong></td><td>Drag it. Hold Alt to ignore the alignment guides.</td><td>Drag it. Hold Alt to ignore the alignment guides.</td><td>Drag it, or select it and use the arrow buttons for an exact few inches.</td></tr><tr><td><strong>Place something from the library</strong></td><td>Click the type then click the plan, or drag the type onto the plan.</td><td>Click the type then click the plan, or drag the type onto the plan.</td><td>Tap the type, then tap the plan. It stays armed, so ten of the same fixture is ten taps.</td></tr><tr><td><strong>Open the properties of what you selected</strong></td><td>The inspector is always on the right.</td><td>The inspector is always on the right.</td><td>On a narrow screen it is a drawer: the ▤ button in the top bar, or double-tap the thing.</td></tr></tbody></table>
+<h3>Tools</h3>
+<table><thead><tr><th>Keys</th><th>What it does</th><th>Button</th></tr></thead><tbody><tr><td><code>V</code></td><td>Select / move. Pick, move, resize and rotate what is already on the plan.</td><td>yes</td></tr><tr><td><code>R</code></td><td>Draw a rectangular room. Drag a rectangle; it becomes a room.</td><td>yes</td></tr><tr><td><code>P</code></td><td>Draw a room outline. Click or tap each corner, then finish the outline.</td><td>yes</td></tr><tr><td><code>A</code></td><td>Place a door, window or opening. Click near a wall — an opening has to sit on one.</td><td>yes</td></tr><tr><td><code>H</code></td><td>Pan. Drag to move the plan around. Space does the same thing while held.</td><td>yes</td></tr></tbody></table>
+<h3>Placing</h3>
+<table><thead><tr><th>Keys</th><th>What it does</th><th>Button</th></tr></thead><tbody><tr><td><code>Esc</code></td><td>Stop placing, deselect, close a dialog. The one key that always backs out of whatever you are in the middle of.</td><td>—</td></tr><tr><td><code>Shift+click</code></td><td>Add to the selection. Shift-click adds and removes on a mouse. On a touch screen there is no Shift, so this button latches the same behaviour: every tap adds, and a drag across empty floor draws a selection box instead of panning.</td><td>yes</td></tr></tbody></table>
+<h3>The selected item or room</h3>
+<table><thead><tr><th>Keys</th><th>What it does</th><th>Button</th></tr></thead><tbody><tr><td><code>←</code></td><td>Move left. Three inches at a time; hold Shift for a foot.</td><td>yes</td></tr><tr><td><code>↑</code></td><td>Move up</td><td>yes</td></tr><tr><td><code>↓</code></td><td>Move down</td><td>yes</td></tr><tr><td><code>→</code></td><td>Move right</td><td>yes</td></tr><tr><td><code>[</code></td><td>Turn anticlockwise. 15° a step, or 45° with Shift held.</td><td>yes</td></tr><tr><td><code>]</code></td><td>Turn clockwise</td><td>yes</td></tr><tr><td><code>−</code></td><td>Smaller</td><td>yes</td></tr><tr><td><code>+</code></td><td>Bigger</td><td>yes</td></tr><tr><td><code>Ctrl/Cmd+D</code></td><td>Duplicate. Drops a copy a short step away, already selected.</td><td>yes</td></tr><tr><td><code>Delete</code> or <code>Backspace</code></td><td>Remove</td><td>yes</td></tr></tbody></table>
+<h3>Editing</h3>
+<table><thead><tr><th>Keys</th><th>What it does</th><th>Button</th></tr></thead><tbody><tr><td><code>Ctrl/Cmd+Z</code></td><td>Undo</td><td>yes</td></tr><tr><td><code>Ctrl/Cmd+Shift+Z</code> or <code>Ctrl/Cmd+Y</code></td><td>Redo. Ctrl/Cmd+Y as well as Ctrl/Cmd+Shift+Z, because Windows editors bind the first and Mac ones the second.</td><td>yes</td></tr><tr><td><code>Ctrl/Cmd+S</code></td><td>Save. The plan also autosaves a second and a half after you stop editing.</td><td>—</td></tr><tr><td><code>Enter</code> or <code>Double-click</code></td><td>Finish the outline you are drawing</td><td>yes</td></tr></tbody></table>
+<h3>View</h3>
+<table><thead><tr><th>Keys</th><th>What it does</th><th>Button</th></tr></thead><tbody><tr><td><code>Ctrl/Cmd+0</code></td><td>Fit the floor in the window. The fastest way back to something you placed a long way outside the house.</td><td>—</td></tr><tr><td><code>Ctrl/Cmd+−</code></td><td>Zoom out. The status bar carries −, + and Fit as buttons at every window size, which is why the shortcut bar does not repeat them.</td><td>—</td></tr><tr><td><code>Ctrl/Cmd+=</code></td><td>Zoom in</td><td>—</td></tr><tr><td><code>S</code></td><td>Show or hide the shortcut buttons. The same row of buttons the <strong>S</strong> in the top bar opens.</td><td>—</td></tr><tr><td><code>?</code></td><td>This list. Also the ⌨ button in the top bar.</td><td>—</td></tr></tbody></table>
+<p>Every row marked <strong>yes</strong> above is also a button in the shortcut bar — the <strong>S</strong> in the top bar — so a tablet with no keyboard attached can reach all of them. That is 19 of the 26 commands; the rest are either already a button somewhere else in the chrome or only meaningful with a keyboard in front of you.</p></div>
+<div class="related">Read next: <a href="plan.html#canvas-tools">Drawing and moving things</a> · <a href="start.html#topbar-advanced">The top bar, themes and Advanced</a> · <a href="start.html#start-here">What this app is</a></div>
 </article>
 <article class="topic glass" id="panel-floor">
 <h2><a class="heading-link" href="#panel-floor">The floor panel</a></h2>

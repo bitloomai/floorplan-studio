@@ -40,6 +40,166 @@
     } catch { /* offline is fine — markers just draw in their unavailable style */ }
   }
 
+  /* ---------- what every command actually does ----------
+   *
+   * `input-actions.js` says what the commands ARE, what they are called and
+   * which keys ask for them; this says what they do. Keys, the shortcut bar
+   * and the shortcuts dialog all arrive here, so a command cannot be bound to
+   * a key and missing from the buttons, or listed in the dialog and wired to
+   * nothing. The suite checks the two halves line up. */
+  const RUN = {
+    'tool-select': () => Store.setTool('select'),
+    'tool-rect': () => Store.setTool('rect'),
+    'tool-poly': () => Store.setTool('poly'),
+    'tool-aperture': () => Store.setTool('aperture'),
+    'tool-pan': () => Store.setTool('pan'),
+
+    escape: () => {
+      if (!$('modal').hidden) { Panels.closeModal(); return; }
+      if (closeOverlays()) return;
+      Canvas.cancelPoly();
+      if (S.armed) Store.arm(null);
+      else Store.select(null);
+    },
+    multi: () => Store.setMultiSelect(!S.view.multiSelect),
+
+    'nudge-left': (ev) => Canvas.nudgePosition(-step(ev), 0),
+    'nudge-right': (ev) => Canvas.nudgePosition(step(ev), 0),
+    'nudge-up': (ev) => Canvas.nudgePosition(0, -step(ev)),
+    'nudge-down': (ev) => Canvas.nudgePosition(0, step(ev)),
+    'rotate-left': (ev) => Canvas.nudgeRotation(ev && ev.shiftKey ? -45 : -15),
+    'rotate-right': (ev) => Canvas.nudgeRotation(ev && ev.shiftKey ? 45 : 15),
+    smaller: () => Canvas.nudgeSize(1 / 1.15),
+    bigger: () => Canvas.nudgeSize(1.15),
+    duplicate: () => Canvas.duplicateSelected(),
+    delete: () => Canvas.deleteSelected(),
+
+    undo: () => { Store.undo() || Panels.toast('Nothing to undo'); },
+    redo: () => { Store.redo() || Panels.toast('Nothing to redo'); },
+    save,
+    'finish-poly': () => Canvas.finishPoly(),
+
+    'zoom-fit': () => Canvas.fit(),
+    'zoom-out': () => Canvas.zoomStep(1 / 1.2),
+    'zoom-in': () => Canvas.zoomStep(1.2),
+    'shortcut-bar': () => showQuickBar(!quickBarOn),
+    shortcuts: () => Panels.shortcutsDialog(),
+  };
+
+  /* Arrows move a few inches, Shift a whole foot — the same 4x-ish ratio the
+   * rotate and resize nudges use. A button has no Shift, so it gets the small
+   * step, which is the one you want when you are tapping repeatedly. */
+  const step = (ev) => (ev && ev.shiftKey ? 1 : 0.25);
+
+  /* Whether a BUTTON for this command should be live. A key press never asks:
+   * pressing Delete with nothing selected has always been a no-op. A button
+   * that looks pressable and does nothing is a different thing entirely. */
+  const ENABLED = {
+    undo: () => Store.canUndo(),
+    redo: () => Store.canRedo(),
+    selection: () => !!(S.selection || S.multi.length),
+    poly: () => S.tool === 'poly',
+  };
+  const actionEnabled = (a) => (a.needs ? ENABLED[a.needs]() : true);
+
+  function runAction(id, ev) {
+    const fn = RUN[id];
+    if (fn) fn(ev);
+  }
+
+  /* ---------- the shortcut bar ----------
+   *
+   * A tablet has no keyboard, so every key this editor answers to is a key
+   * somebody cannot press: no Ctrl+Z to take back the room they just dragged,
+   * no `[` to turn a camera, no arrows to move a marker three inches. The bar
+   * is those commands as buttons, off by default on a machine with a keyboard
+   * and on by default where the pointer is coarse — and remembered either way,
+   * because it is a fact about how somebody works, not about their house. */
+  let quickBarOn = false;
+  const QUICK_KEY = 'fps.quickbar';
+  try {
+    const saved = window.localStorage.getItem(QUICK_KEY);
+    quickBarOn = saved === null
+      ? !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      : saved === '1';
+  } catch (e) { /* an iframe with site data blocked; the button still works */ }
+
+  function showQuickBar(on) {
+    quickBarOn = !!on;
+    $('quickBar').hidden = !quickBarOn;
+    $('btnQuickBar').setAttribute('aria-expanded', String(quickBarOn));
+    $('btnQuickBar').setAttribute('aria-pressed', String(quickBarOn));
+    try { window.localStorage.setItem(QUICK_KEY, quickBarOn ? '1' : '0'); } catch (e) { /* this session only */ }
+  }
+
+  function buildQuickBar() {
+    const bar = $('quickBar');
+    const h = Panels.h;
+    const parts = [];
+    for (const [, list] of InputActions.groups(InputActions.quick())) {
+      const group = h('div', { class: 'quick-group' });
+      for (const a of list) {
+        const keys = (a.keys || []).join(' or ');
+        const btn = h('button', {
+          class: 'quick-btn', type: 'button', 'data-action': a.id,
+          title: a.label + (keys ? '  (' + keys + ')' : ''), 'aria-label': a.label,
+        });
+        /* A tool's icon is CLONED from the rail rather than drawn again here.
+         * Two drawings of the Select arrow is one drawing that goes stale. */
+        const icon = a.tool ? document.querySelector('.tool[data-tool="' + a.tool + '"] svg') : null;
+        const glyph = a.glyph || a.label;
+        if (icon) btn.appendChild(icon.cloneNode(true));
+        else btn.appendChild(h('span', { class: 'quick-glyph' + (glyph.length > 1 ? ' word' : '') }, glyph));
+        btn.addEventListener('click', () => runAction(a.id));
+        group.appendChild(btn);
+      }
+      parts.push(group);
+    }
+    bar.replaceChildren(...parts);
+    syncQuickBar();
+  }
+
+  function syncQuickBar() {
+    for (const btn of $('quickBar').querySelectorAll('.quick-btn')) {
+      const a = InputActions.byId(btn.dataset.action);
+      if (!a) continue;
+      btn.disabled = !actionEnabled(a);
+      const pressed = a.tool ? (S.tool === a.tool && !S.armed)
+        : a.id === 'multi' ? S.view.multiSelect : null;
+      if (pressed === null) btn.removeAttribute('aria-pressed');
+      else btn.setAttribute('aria-pressed', String(pressed));
+    }
+  }
+
+  /* ---------- drawers ----------
+   *
+   * Below `--narrow` the rail and the inspector stop being columns and become
+   * overlays; above it these classes mean nothing and the CSS ignores them.
+   * One at a time, because two open at once on a 768 px screen is no plan at
+   * all. */
+  const OVERLAYS = [['rail-open', 'btnRail'], ['insp-open', 'btnInspector'], ['more-open', 'btnMore']];
+
+  function setOverlay(which) {
+    for (const [cls, btn] of OVERLAYS) {
+      const on = cls === which;
+      document.body.classList.toggle(cls, on);
+      $(btn).setAttribute('aria-expanded', String(on));
+    }
+    $('scrim').hidden = !which;
+  }
+
+  function toggleOverlay(which) {
+    setOverlay(document.body.classList.contains(which) ? null : which);
+  }
+
+  /* Returns whether it had anything to close, so Esc can fall through to
+   * deselecting when it did not. */
+  function closeOverlays() {
+    const open = OVERLAYS.some(([cls]) => document.body.classList.contains(cls));
+    if (open) setOverlay(null);
+    return open;
+  }
+
   function bindChrome() {
     $('projectName').addEventListener('change', (e) => {
       Store.mutate(() => { S.project.name = e.target.value; }, 'rename project');
@@ -124,63 +284,53 @@
     $('guidesToggle').addEventListener('change', (e) => setGuides({ enabled: e.target.checked }));
     $('guidesUnits').addEventListener('change', (e) => setGuides({ units: e.target.value }));
 
-    $('zoomIn').addEventListener('click', () => Canvas.zoomTo(S.view.zoom * 1.2));
-    $('zoomOut').addEventListener('click', () => Canvas.zoomTo(S.view.zoom / 1.2));
-    $('zoomFit').addEventListener('click', () => Canvas.fit());
+    /* Through the same commands the keys use, so the button and the key
+     * cannot start meaning different things — and `zoomStep` keeps the middle
+     * of the view still instead of walking away from what you were looking
+     * at. */
+    $('zoomIn').addEventListener('click', () => runAction('zoom-in'));
+    $('zoomOut').addEventListener('click', () => runAction('zoom-out'));
+    $('zoomFit').addEventListener('click', () => runAction('zoom-fit'));
 
+    $('btnQuickBar').addEventListener('click', () => runAction('shortcut-bar'));
+    $('btnRail').addEventListener('click', () => toggleOverlay('rail-open'));
+    $('btnInspector').addEventListener('click', () => toggleOverlay('insp-open'));
+    $('btnMore').addEventListener('click', () => toggleOverlay('more-open'));
+    $('scrim').addEventListener('click', () => setOverlay(null));
+    /* Picking a tool or a type is the end of what the rail was open for. */
+    $('tools').addEventListener('click', () => setOverlay(null));
+    $('libraryList').addEventListener('click', () => setOverlay(null));
+    /* A dialog opened from the ⋯ menu must not open behind it. */
+    $('topbarMore').addEventListener('click', (ev) => { if (ev.target.closest('.btn')) setOverlay(null); });
+
+    /* The columns come back when there is room for them, and a drawer left
+     * open would then be a panel floating over its own permanent copy. */
+    try {
+      const wide = window.matchMedia('(min-width: 901px)');
+      const onWide = (e) => { if (e.matches) setOverlay(null); };
+      if (wide.addEventListener) wide.addEventListener('change', onWide);
+      else if (wide.addListener) wide.addListener(onWide);
+    } catch (e) { /* no matchMedia: the drawers simply never appear */ }
+
+    /* One lookup, one dispatch. Every key this editor answers to is declared
+     * in `input-actions.js` with the command it asks for, so a key cannot be
+     * bound here and missing from the shortcuts dialog, or promised by the
+     * dialog and bound to nothing — which is exactly how "Space pans" came to
+     * be printed on the Pan tool for a year with no code reading the space
+     * bar. Shift is read by the handlers, not by the match: on a nudge or a
+     * turn it makes the step bigger rather than asking for something else. */
     window.addEventListener('keydown', (ev) => {
+      const action = InputActions.matchKey(ev);
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-      if (ev.key === 'Escape') {
-        if (!$('modal').hidden) { ev.preventDefault(); return Panels.closeModal(); }
-        Canvas.cancelPoly();
-        if (S.armed) Store.arm(null);
-        else Store.select(null);
-        return;
-      }
-      if (!$('modal').hidden || typing) return;
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') {
-        ev.preventDefault();
-        (ev.shiftKey ? Store.redo() : Store.undo()) || Panels.toast(ev.shiftKey ? 'Nothing to redo' : 'Nothing to undo');
-        return;
-      }
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') { ev.preventDefault(); save(); return; }
-      /* Cmd/Ctrl+D is "one more of this" everywhere else; the browser's own
-       * bookmark-this-page meaning for it is the one thing worth overriding
-       * unconditionally with preventDefault. */
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'd') { ev.preventDefault(); Canvas.duplicateSelected(); return; }
-      if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); Canvas.deleteSelected(); return; }
-      if (ev.key === 'Enter') { Canvas.finishPoly(); return; }
-      /* [ and ] turn the selected item. Shift makes it 45 at a time, which is
-       * what a camera on a corner or a bed against a wall actually wants. */
-      if (ev.key === '[' || ev.key === ']') {
-        ev.preventDefault();
-        Canvas.nudgeRotation((ev.key === '[' ? -1 : 1) * (ev.shiftKey ? 45 : 15));
-        return;
-      }
-      /* - and + resize it, for the same reason [ and ] turn it: the handle is
-       * 7px and a touch screen has no hover to find it with. */
-      if (ev.key === '-' || ev.key === '_' || ev.key === '+' || ev.key === '=') {
-        ev.preventDefault();
-        Canvas.nudgeSize(ev.key === '-' || ev.key === '_' ? 1 / 1.15 : 1.15);
-        return;
-      }
-      /* Arrow keys move the selected item or room a few inches — the position
-       * counterpart to [ ]/- + above, for the same "a 7px handle is hard to
-       * grab exactly" reason. Shift jumps a whole foot, same 4x-ish ratio the
-       * rotate/resize nudges use. Never mind Home/End/PageUp scrolling the
-       * library list — this only fires with a selection, and typing already
-       * bailed out above. */
-      const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
-      if (ARROWS[ev.key]) {
-        ev.preventDefault();
-        const step = ev.shiftKey ? 1 : 0.25;
-        const [dx, dy] = ARROWS[ev.key];
-        Canvas.nudgePosition(dx * step, dy * step);
-        return;
-      }
-      if (ev.key === '?') { Panels.shortcutsDialog(); return; }
-      const map = { v: 'select', r: 'rect', p: 'poly', a: 'aperture', h: 'pan' };
-      if (map[ev.key.toLowerCase()]) Store.setTool(map[ev.key.toLowerCase()]);
+      /* Esc is the one key that works from inside a dialog and from inside a
+       * text field: it is how you back out of both. */
+      if (action && action.anywhere) { ev.preventDefault(); runAction(action.id, ev); return; }
+      if (!$('modal').hidden || typing || !action) return;
+      /* Ctrl/Cmd+D bookmarks the page, Ctrl+0 resets browser zoom, Delete goes
+       * back a page on some setups: in an editor every one of those is the
+       * wrong answer, so a matched action always wins the key. */
+      ev.preventDefault();
+      runAction(action.id, ev);
     });
 
     window.addEventListener('beforeunload', (ev) => {
@@ -210,6 +360,7 @@
     // SVGElement.className is a read-only SVGAnimatedString, not a string —
     // assigning to it throws. Attribute setter is the only way in.
     $('canvas').setAttribute('class', 'tool-' + S.tool);
+    syncQuickBar();
   }
 
   async function boot() {
@@ -273,6 +424,11 @@
         $('coordReadout').textContent = `${x.toFixed(2)}, ${y.toFixed(2)} ft`;
         $('roomReadout').textContent = room || '';
       },
+      /* Double-tapping something on a touch screen asks to see it. Where the
+       * inspector is a permanent column there is nothing to do — it is already
+       * showing what was tapped — so this only means anything in drawer mode,
+       * and `setOverlay` is a no-op above the breakpoint by construction. */
+      onInspect: () => { if (document.body.clientWidth <= 900) setOverlay('insp-open'); },
     });
 
     Store.on((reason) => {
@@ -285,6 +441,12 @@
       if (reason === 'selection') { Canvas.drawSelection(); Panels.renderInspector(); }
       if (reason === 'tool') { syncTools(); Panels.renderLibrary(); }
       if (reason === 'view') $('zoomLabel').textContent = Math.round(S.view.zoom * 100) + '%';
+      /* Undo, Delete and the nudges are only live when there is something to
+       * undo or something selected, and every one of those changes with an
+       * event above. A button that looks pressable and is not is worse than no
+       * button at all — especially where it is the only way to reach the
+       * command. */
+      syncQuickBar();
       if (reason === 'project' || reason === 'floor' || reason === 'remote') showSun();
       if (reason === 'project') {
         markSaved(false); scheduleSave();
@@ -302,6 +464,8 @@
     });
 
     bindChrome();
+    buildQuickBar();
+    showQuickBar(quickBarOn);
     Panels.renderAll();
     syncTools();
     Canvas.paint();

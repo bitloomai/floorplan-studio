@@ -15,6 +15,11 @@
 
 <header class="topbar">
   <div class="brand">
+    <!-- On a narrow screen the rail and the inspector are drawers rather than
+         columns: 190 + 260 px of permanent chrome leaves a tablet in portrait
+         about 300 px to draw a house in. Both buttons are hidden by CSS at any
+         width that can afford the columns. -->
+    <button id="btnRail" class="btn tiny drawer-btn" title="Tools and device library" aria-label="Tools and device library" aria-expanded="false">☰</button>
     <img class="app-icon" src="icon.svg" width="28" height="28" alt="Floorplan Studio" title="Floorplan Studio">
     <input id="projectName" class="project-name" aria-label="Project name" spellcheck="false">
   </div>
@@ -26,24 +31,43 @@
 
   <div class="topbar-actions">
     <span id="saveState" class="save-state" role="status">saved</span>
-    <label class="inline" title="Draw markers as their real Home Assistant state instead of the offline default look"><input type="checkbox" id="livePreview"> Live states</label>
-    <!-- Everything a plan actually needs is on by default; the rest — tap
-         targets, hold behaviour, the daylight and lamp constants, per-room
-         overrides — is here rather than gone, because a panel of forty fields
-         teaches people to stop reading it. -->
-    <label class="inline" title="Show every setting, including the ones most plans never touch"><input type="checkbox" id="advancedMode"> Advanced</label>
-    <select id="themePick" aria-label="Editor theme" title="Editor theme"></select>
-    <button id="btnSun" class="btn" title="House location and daylight">☀ Sun</button>
-    <button id="btnLighting" class="btn" title="How lamps light the plan">◐ Light</button>
-    <button id="btnLogic" class="btn" title="Automations, scenes and helpers">⚡ Logic</button>
-    <button id="btnDashboard" class="btn" title="Generate the Home Assistant dashboard">▦ Dashboard…</button>
-    <button id="btnImport" class="btn" title="Load a sample project or convert older floor-plan specs">Import…</button>
-    <button id="btnExport" class="btn" title="Download this project's spec and SVG">Export…</button>
+    <!-- Everything from here to the end of this div is `display: contents` on a
+         wide screen — one flat row, exactly as it always was — and a dropdown
+         under the ⋯ button when the bar would otherwise wrap into three rows on
+         a tablet. One set of controls either way: a second copy behind a
+         "mobile menu" is the copy that stops matching. -->
+    <div class="topbar-more" id="topbarMore">
+      <label class="inline" title="Draw markers as their real Home Assistant state instead of the offline default look"><input type="checkbox" id="livePreview"> Live states</label>
+      <!-- Everything a plan actually needs is on by default; the rest — tap
+           targets, hold behaviour, the daylight and lamp constants, per-room
+           overrides — is here rather than gone, because a panel of forty fields
+           teaches people to stop reading it. -->
+      <label class="inline" title="Show every setting, including the ones most plans never touch"><input type="checkbox" id="advancedMode"> Advanced</label>
+      <select id="themePick" aria-label="Editor theme" title="Editor theme"></select>
+      <button id="btnSun" class="btn" title="House location and daylight">☀ Sun</button>
+      <button id="btnLighting" class="btn" title="How lamps light the plan">◐ Light</button>
+      <button id="btnLogic" class="btn" title="Automations, scenes and helpers">⚡ Logic</button>
+      <button id="btnDashboard" class="btn" title="Generate the Home Assistant dashboard">▦ Dashboard…</button>
+      <button id="btnImport" class="btn" title="Load a sample project or convert older floor-plan specs">Import…</button>
+      <button id="btnExport" class="btn" title="Download this project's spec and SVG">Export…</button>
+      <button id="btnShortcuts" class="btn tiny" title="Shortcuts and gestures  (or press ?)" aria-label="Keyboard shortcuts">⌨</button>
+    </div>
+    <button id="btnMore" class="btn tiny drawer-btn" title="Sun, Light, Logic, Dashboard, Import, Export, shortcuts and the view switches" aria-label="More" aria-expanded="false">⋯</button>
+    <!-- The keyboard's own actions, as buttons, and the only control this bar
+         gains on a desktop. A tablet has no [ ] to turn a fan with and no
+         Ctrl+Z to take it back; this is where those live, off by default
+         wherever there is a keyboard to press instead. -->
+    <button id="btnQuickBar" class="btn tiny" title="Shortcut buttons — undo, redo, nudge, turn, resize  (S)" aria-label="Shortcut buttons" aria-expanded="false">S</button>
     <button id="btnHelp" class="btn tiny" title="Help — search everything, or browse by topic" aria-label="Help">?</button>
-    <button id="btnShortcuts" class="btn tiny" title="Keyboard shortcuts  (⌨ or press ?)" aria-label="Keyboard shortcuts">⌨</button>
+    <button id="btnInspector" class="btn tiny drawer-btn" title="Properties of what is selected" aria-label="Properties" aria-expanded="false">▤</button>
     <button id="btnSave" class="btn primary" title="Save  (Ctrl/Cmd+S)">Save</button>
   </div>
 </header>
+
+<!-- Built from app/lib/input-actions.js, the same catalogue the keyboard and
+     the shortcuts dialog read. Nothing in here is a second list of what the
+     editor can do. -->
+<div class="quickbar" id="quickBar" role="toolbar" aria-label="Shortcut buttons" hidden></div>
 
 <main class="workspace">
   <aside class="rail" aria-label="Tools and library">
@@ -130,6 +154,11 @@
   </section>
 
   <aside class="inspector" id="inspector" aria-label="Properties"></aside>
+
+  <!-- Only ever visible while a drawer is open, and only at widths where the
+       drawers exist. Tapping it closes what is open, which is the one gesture
+       everybody tries first. -->
+  <div class="scrim" id="scrim" hidden></div>
 </main>
 
 <!-- dialogs -->
@@ -154,6 +183,7 @@
 <script src="js/store.js"></script>
 <script src="js/canvas.js"></script>
 <script src="js/ui-navigation.js"></script>
+<script src="js/input-actions.js"></script>
 <script src="js/panels.js"></script>
 <script src="js/panels-extra.js"></script>
 <script src="js/panels-dashboard.js"></script>

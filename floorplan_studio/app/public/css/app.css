@@ -454,3 +454,155 @@ table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-t
 .help-hit { min-height: 44px; padding: 8px 10px; }
 .help-body table { display: block; overflow-x: auto; }
 @media (pointer: coarse) { .help-btn { width: 40px; height: 40px; } }
+
+/* ---------- one editor, three kinds of hand ----------
+
+   A mouse hovers, clicks a 7px handle and has a keyboard beside it. A trackpad
+   scrolls in two dimensions and pinches. A finger does none of those: it has no
+   hover to find anything with, it lands about 9 mm wide, and the tablet it
+   belongs to has no Ctrl+Z at all. What follows is everything that has to
+   differ between them — the gestures themselves live in canvas.js, and the
+   commands a keyboardless screen still has to reach live in the shortcut bar
+   below. */
+
+/* The dropdown holding the top bar's secondary controls. On a wide screen it
+   is `display: contents`: the controls are laid out by `.topbar-actions`
+   exactly as they were before this element existed, and the ⋯ button is
+   hidden. Narrow, it becomes a panel and the bar stays one row instead of
+   wrapping into three on a tablet. Same controls either way — a second
+   "mobile" copy of them is the copy that stops matching. */
+.topbar-more { display: contents; }
+.drawer-btn { display: none; }
+/* Above the scrim, and above the plan: the menu it drops has to paint over
+   both. */
+.topbar { position: relative; z-index: 40; }
+.workspace { position: relative; }
+
+.scrim { position: absolute; inset: 0; background: rgba(12, 18, 30, .38); z-index: 25; }
+.scrim[hidden] { display: none; }
+
+/* ---------- the shortcut bar ----------
+
+   Every command the keyboard can ask for, as a button, because a tablet's
+   keyboard is a thing somebody has to go and find. Built from the same
+   catalogue the keys are bound from, so it cannot offer something no key does
+   or miss something they do. */
+.quickbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  padding: 6px 12px; flex: 0 0 auto;
+  background: var(--panelBg); border-bottom: 1px solid var(--panelBorder);
+}
+.quickbar[hidden] { display: none; }
+/* `flex: 0 0 auto` so a group WRAPS to the next line instead of being squeezed
+   narrower than its own buttons, which on a 768 px tablet quietly clipped the
+   last three of them off the right-hand edge. */
+.quick-group {
+  display: flex; align-items: center; gap: 4px; flex: 0 0 auto;
+  padding-right: 10px; border-right: 1px solid var(--panelBorder);
+}
+.quick-group:last-child { border-right: 0; padding-right: 0; }
+.quick-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 38px; height: 38px; padding: 0 8px;
+  border: 1px solid var(--panelBorder); border-radius: 8px;
+  background: var(--panelBg); color: var(--ink);
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.quick-btn svg { width: 19px; height: 19px; display: block; }
+.quick-glyph { line-height: 1; }
+/* "Multi", "Esc", "Fit" — a word where the others have a symbol. */
+.quick-glyph.word { font-size: 12px; letter-spacing: .01em; }
+.quick-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.quick-btn:disabled { opacity: .35; cursor: default; }
+.quick-btn[aria-pressed="true"] {
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panelBg));
+}
+
+/* Hold Space and the canvas becomes paper you can drag, whatever tool is
+   active — the gesture the Pan tool's own tooltip has always promised. */
+#canvas.space-pan { cursor: grab; }
+#canvas.space-pan.panning { cursor: grabbing; }
+
+/* ---------- a narrow screen ----------
+
+   A tablet in portrait is 768 px wide. Two permanent 190/260 px columns leave
+   roughly 300 px to draw a house in, which is not a floor plan editor, so
+   below this width the rail and the inspector become drawers over the plan and
+   the canvas gets the whole window. Nothing about them changes above it. */
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .drawer-btn { display: inline-flex; align-items: center; }
+  /* `visibility` keeps a closed drawer out of the tab order instead of leaving
+     it focusable just off screen. It is switched at 0s — instantly on the way
+     in, delayed to the end of the slide on the way out — rather than
+     transitioned: a discrete property with a duration flips somewhere in the
+     middle of the animation, which is a rule about how browsers interpolate
+     keywords and not something anybody should have to reason about. */
+  .rail, .inspector {
+    position: absolute; top: 0; bottom: 0; z-index: 30;
+    width: min(330px, 88vw); border: 0; visibility: hidden;
+    box-shadow: 0 10px 40px rgba(12, 18, 30, .28);
+    transition: transform .18s ease, visibility 0s linear .18s;
+  }
+  .rail { left: 0; transform: translateX(-101%); border-right: 1px solid var(--panelBorder); }
+  .inspector { right: 0; transform: translateX(101%); border-left: 1px solid var(--panelBorder); }
+  body.rail-open .rail, body.insp-open .inspector {
+    transform: none; visibility: visible;
+    transition: transform .18s ease, visibility 0s;
+  }
+
+  .topbar-more {
+    display: none; position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
+    flex-direction: column; align-items: stretch; gap: 8px; padding: 12px;
+    min-width: 232px; max-height: 72vh; overflow-y: auto;
+    background: var(--panelBg); border: 1px solid var(--panelBorder);
+    border-radius: var(--radius); box-shadow: 0 12px 34px rgba(12, 18, 30, .26);
+  }
+  body.more-open .topbar-more { display: flex; }
+  .topbar-more .btn { text-align: left; }
+
+  /* The project name gives up its width first: it is the one control here
+     whose value you can read in the browser tab. */
+  .project-name { width: 8ch; }
+  .statusbar { gap: 6px 10px; }
+}
+
+@media (max-width: 620px) {
+  /* The live coordinate readout is the first thing to go: it answers a
+     question a phone-sized screen is not being used to ask. */
+  #coordReadout { display: none; }
+  .sunbox input[type=range] { width: 84px; }
+  #sunReadout { min-width: 0; }
+}
+
+/* ---------- a coarse pointer ----------
+
+   Sizes, not behaviour. Everything here exists because a finger cannot aim at
+   what a mouse can: 30 px controls become 40+, native boxes grow, and text
+   inputs go to 16 px because iOS zooms the whole page in on any field smaller
+   than that the moment it is focused — which on an Ingress iframe leaves the
+   editor scrolled somewhere nobody asked for. */
+@media (pointer: coarse) {
+  .btn { padding: 9px 13px; font-size: 14px; }
+  .btn.tiny { padding: 7px 11px; font-size: 13px; }
+  .quick-btn { min-width: 46px; height: 46px; }
+  .tool { padding: 11px 4px; font-size: 12px; }
+  .tool span svg { width: 22px; height: 22px; }
+  .lib-item { padding: 9px 8px; font-size: 12px; }
+  .link { padding: 6px 2px; font-size: 13px; }
+  select, input[type=text], input[type=number], input[type=search], textarea { font-size: 16px; padding: 8px 9px; }
+  input[type=checkbox], input[type=radio] { width: 20px; height: 20px; }
+  input[type=range] { height: 30px; }
+  .statusbar { padding: 8px 12px; gap: 10px 14px; }
+  .entity-row { padding: 10px 9px; }
+  .variant-grid .variant { padding: 9px 2px 7px; }
+}
+
+/* A tap must not be read as a possible double-tap-to-zoom, which is where the
+   300 ms delay before every button press on a touch screen comes from, and a
+   press must not leave a grey flash behind on Android's WebView. */
+.btn, .tool, .lib-item, .quick-btn, .help-btn, .variant-grid .variant, label.inline, select {
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}

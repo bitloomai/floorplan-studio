@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Mouse, trackpad and touch
+
+- One catalogue (`app/lib/input-actions.js`) now defines every command, its
+  keys and its button. The keyboard, the shortcut bar, the shortcuts dialog and
+  the help all read it, so the editor can no longer document a key it does not
+  bind — `Space` to pan was promised by every Pan tooltip and bound by nothing.
+- Pinch to zoom and two-finger pan on touch; one finger moves the plan unless
+  the press starts on the current selection, so looking around no longer drags
+  a room. A press counts as a tap until it has travelled ~9 px (3 px for a
+  mouse), which also stops taps leaving no-op undo entries.
+- Zoom holds the point it was asked to hold: the pointer for wheel and trackpad
+  pinch, the middle of the pinch on touch, the middle of the view for the
+  status bar's `−`/`+` and `Ctrl`/`Cmd`+`0`/`−`/`=`.
+- `Space` held pans from any tool. `Ctrl`/`Cmd`+`Y` redoes alongside
+  `Ctrl`/`Cmd`+`Shift`+`Z`.
+- **S** in the top bar shows a row of shortcut buttons — the keyboard's
+  commands for a tablet that has no keyboard — on by default for a coarse
+  pointer, off with a keyboard, remembered per browser. **Multi** latches
+  Shift-click for touch, including box selection.
+- Below 900 px the rail and inspector become drawers (**☰**, **▤**,
+  double-tap) and the top bar's secondary controls fold into **⋯**, so a tablet
+  in portrait draws on the whole window. Resize handles and the rotation knob
+  size themselves from the pointer last used, and the knob is now a constant
+  size on screen at any zoom.
+
 ### Prompt-based registry authoring
 
 - MCP now reads the complete library and edits shared library, flooring, theme,

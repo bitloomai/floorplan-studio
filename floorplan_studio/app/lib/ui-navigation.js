@@ -9,10 +9,10 @@
   const locations = {
     topbar: { label: 'Top bar' },
     canvas: { label: 'Plan canvas' },
-    'panel:library': { label: 'Device library', instruction: 'Open the library in the left sidebar.' },
+    'panel:library': { label: 'Device library', instruction: 'Open the library in the left sidebar — or, on a narrow screen where the sidebar is a drawer, with the ☰ button in the top bar.' },
     'panel:floor': { label: 'Floor', instruction: 'Choose a floor in the top bar, then clear the selection with Esc to show its inspector.' },
     'panel:room': { label: 'Room', instruction: 'Choose Select, then click inside a room to open its inspector on the right.' },
-    'panel:item': { label: 'Item inspector', instruction: 'Choose Select, then click an item on the plan to open its inspector on the right.' },
+    'panel:item': { label: 'Item inspector', instruction: 'Choose Select, then click an item on the plan to open its inspector on the right. On a narrow screen the inspector is a drawer: use the Properties button in the top bar, or double-tap the item.' },
     'panel:opening': { label: 'Opening', instruction: 'Choose Select, then click a door, gate, shutter or window on the plan to open its inspector.' },
     'section:opening.mechanism': { parent: 'panel:opening', label: 'Opening mechanism' },
     'dialog:sun': { parent: 'topbar', label: 'Sun', element: 'btnSun' },
@@ -25,6 +25,14 @@
     'dialog:import': { parent: 'topbar', label: 'Import…', element: 'btnImport' },
     'dialog:export': { parent: 'topbar', label: 'Export…', element: 'btnExport' },
     'field:ui.advanced': { parent: 'topbar', label: 'Advanced', element: 'advancedMode', toggle: true },
+    /* `glyph`: the control shows a symbol, so it is LABELLED for a screen
+     * reader rather than having its text replaced with the label — rewriting
+     * "S" to "Shortcut buttons" would break the button it names. */
+    'field:ui.quickbar': { parent: 'topbar', label: 'Shortcut buttons', element: 'btnQuickBar', glyph: true },
+    'field:ui.multiSelect': { parent: 'field:ui.quickbar', label: 'Multi' },
+    'dialog:shortcuts': { parent: 'topbar', label: 'Keyboard shortcuts', element: 'btnShortcuts', glyph: true },
+    'dialog:more': { parent: 'topbar', label: 'More', element: 'btnMore', glyph: true,
+      instruction: 'On a narrow screen the top bar folds its Sun, Light, Logic, Dashboard, Import and Export buttons, the theme picker and the view switches into this menu.' },
     'field:project.activeTheme': { parent: 'topbar', label: 'Editor theme', element: 'themePick', input: true },
     'section:item.look': { parent: 'panel:item', label: 'Look' },
     'section:item.colour': { parent: 'panel:item', label: 'Colour' },
@@ -134,7 +142,7 @@
       const el = loc.element ? document.getElementById(loc.element) : loc.tool ? document.querySelector('[data-tool="' + loc.tool + '"]') : null;
       if (!el) continue;
       el.setAttribute('data-ui-location', id);
-      if (loc.input) el.setAttribute('aria-label', loc.label);
+      if (loc.input || loc.glyph) el.setAttribute('aria-label', loc.label);
       else if (loc.toggle) {
         const text = [...el.parentNode.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());
         if (text) text.textContent = ' ' + loc.label;
