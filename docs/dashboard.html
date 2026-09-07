@@ -31,6 +31,7 @@
     <a href="https://github.com/bitloomai/floorplan-studio" aria-label="Floorplan Studio source on GitHub"><span aria-hidden="true">↗</span><span>Source on GitHub</span></a>
     <hr>
     <div class="lbl">Browse</div>
+    <a href="materials.html#material-gallery"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Material gallery</span></a>
     <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
     <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
     </nav>
@@ -57,7 +58,15 @@
 <p>Your project, the library, the themes and the finishes are baked into one file. That is why the dashboard keeps working when this editor is not running, and why a change here needs a re-install to appear there.</p>
 <p>Help text is deliberately <strong>not</strong> baked in. A Lovelace card is not a place anybody reads documentation, and it would be dead weight on every load.</p>
 <h2>If a floor is missing</h2>
-<p>Check it has rooms. A floor with none is skipped rather than shipped as an empty tab.</p></div>
+<p>Check it has rooms. A floor with none is skipped rather than shipped as an empty tab.</p>
+<h2>Opening and closing a room's popup</h2>
+<p>Under <strong>Appearance &amp; behaviour</strong>, and worth knowing about because the defaults suit a phone rather than every screen.</p>
+<p>A room's <strong>name</strong> and the <strong>floor around it</strong> are separate tap targets, and each can be switched off on its own. Turning the floor off suits a plan you mostly pan around, where a stray thumb should not open a sheet; turning the name off suits a wall tablet where the whole room is the button. Leave at least one on, or nothing opens the popup at all.</p>
+<p>A <strong>long press</strong> on a room can turn everything on without going through the sheet. A long press on a <strong>marker</strong> opens its Home Assistant dialog, opens its room's popup, or does nothing — the last of which is what a wall-mounted tablet wants, so a resting hand does not open dialogs.</p>
+<p><strong>Closing it</strong> has four independent ways in: tapping the same room again, tapping outside it, Escape, and the sheet's own handle — plus a Close button in the header. Switch off the ones that get in your way, and keep at least one.</p>
+<p>These cascade house → floor → room like everything else in the control model, so one room can behave differently from the rest of the house.</p>
+<h2>How a surface arrives and how tight it sits</h2>
+<p>Each <strong>design</strong> carries its own density and its own entry animation — a bottom sheet rises, a side rail slides in from its edge, a modal fades, a docked panel does neither because it never went anywhere. A viewer whose system asks for reduced motion gets none of it, the same rule the plan's own animations follow.</p></div>
 <div class="related">Read next: <a href="start.html#start-here">What this app is</a> · <a href="controls.html#room-controls">What a room's popup offers</a> · <a href="data.html#data-import-export">Projects, backups, import and export</a></div>
 </article>
 </div>

@@ -60,18 +60,131 @@
   /* Each returns { defs: [node], fill: 'url(#id)' } for tile kinds, or
    * { nodes: [node] } for field kinds. `P` projects feet to pixels. */
 
+  const pattern = (id, o, width, height, children) => ({
+    defs: [{ tag: 'pattern', attrs: { id, width, height, patternUnits: 'userSpaceOnUse', patternTransform: `rotate(${num(o.angle, 0)})` }, children }],
+    fill: `url(#${id})`,
+  });
+
   const TILE = {
-    /* Straight planks with staggered end joints. */
+    /* Mitred parallelograms meet at a continuous spine. Rotating herringbone
+     * cannot produce chevron: its rectangular ends never form this joint. */
+    chevron(id, o, P) {
+      const w = P.S(Math.max(0.05, num(o.plankWidth, 0.3)));
+      const l = Math.min(w * 64, P.S(Math.max(0.1, num(o.plankLength, 1.5))));
+      const base = o.color || '#b9986c', kids = [];
+      for (let row = -Math.ceil(l / w); row < 2; row++) {
+        const y = row * w;
+        for (const [points, tone] of [
+          [`0,${y} ${l},${y + l} ${l},${y + l + w} 0,${y + w}`, 0.04],
+          [`${l},${y + l} ${2 * l},${y} ${2 * l},${y + w} ${l},${y + l + w}`, -0.04],
+        ]) kids.push({ tag: 'polygon', attrs: { points, fill: shade(base, tone), stroke: shade(base, -0.24), 'stroke-width': num(o.jointPx, 0.6) } });
+      }
+      return pattern(id, o, 2 * l, w, kids);
+    },
+
+    /* Three strips per block, with neighbouring blocks turned a quarter turn. */
+    basketweave(id, o, P) {
+      const s = P.S(Math.max(0.1, num(o.blockSize, 1.5)));
+      const base = o.color || '#be966b', kids = [];
+      for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) {
+        const vertical = (x + y) % 2;
+        for (let i = 0; i < 3; i++) {
+          const bx = x * s + (vertical ? i * s / 3 : 0);
+          const by = y * s + (vertical ? 0 : i * s / 3);
+          const width = vertical ? s / 3 : s, height = vertical ? s : s / 3;
+          kids.push({ tag: 'rect', attrs: { x: bx, y: by, width, height, fill: shade(base, (i - 1) * 0.035 + (vertical ? -0.04 : 0.04)), stroke: shade(base, -0.25), 'stroke-width': num(o.jointPx, 0.6) } });
+          kids.push({ tag: 'line', attrs: { x1: bx + width * 0.2, y1: by + height * 0.2, x2: bx + width * (vertical ? 0.2 : 0.8), y2: by + height * (vertical ? 0.8 : 0.2), stroke: shade(base, -0.13), 'stroke-width': 0.5 } });
+        }
+      }
+      return pattern(id, o, s * 2, s * 2, kids);
+    },
+
+    hexagon(id, o, P) {
+      const r = P.S(Math.max(0.05, num(o.tileW, 0.8))) / Math.sqrt(3);
+      const h = Math.sqrt(3) * r, base = o.color || '#dfdcd4';
+      const kids = [];
+      for (let col = -1; col <= 2; col++) for (let row = -1; row <= 1; row++) {
+        const cx = col * 1.5 * r, cy = (row + (col % 2 ? 0.5 : 0)) * h;
+        const points = Array.from({ length: 6 }, (_, i) => `${cx + r * Math.cos(i * Math.PI / 3)},${cy + r * Math.sin(i * Math.PI / 3)}`).join(' ');
+        kids.push({ tag: 'polygon', attrs: { points, fill: shade(base, (((col + 2) % 2) - 0.5) * num(o.variation, 0.035)), stroke: o.grout || shade(base, -0.2), 'stroke-width': num(o.groutPx, 0.8) } });
+      }
+      return pattern(id, o, 3 * r, h, kids);
+    },
+
+    /* Thread spacing is physical, so sisal stays coarse beside fine carpet.
+     * Over-under strokes distinguish woven material from random stone chips. */
+    weave(id, o, P) {
+      const s = P.S(Math.max(0.02, num(o.threadWidth, 0.08)));
+      const base = o.color || '#c8b895', yarn = o.color2 || shade(base, -0.13);
+      const kids = [{ tag: 'rect', attrs: { width: s * 2, height: s * 2, fill: base } }];
+      for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) {
+        const vertical = (x + y) % 2;
+        kids.push({ tag: 'line', attrs: { x1: (x + (vertical ? 0.5 : 0.1)) * s, y1: (y + (vertical ? 0.1 : 0.5)) * s,
+          x2: (x + (vertical ? 0.5 : 0.9)) * s, y2: (y + (vertical ? 0.9 : 0.5)) * s, stroke: yarn, 'stroke-width': s * 0.35, opacity: 0.65 } });
+      }
+      return pattern(id, o, s * 2, s * 2, kids);
+    },
+
+    /* A four-petal cement motif, repeated within an actual grouted tile. */
+    encaustic(id, o, P) {
+      const s = P.S(Math.max(0.1, num(o.tileW, 0.66))), mid = s / 2;
+      const base = o.color || '#e4dcca', ink = o.color2 || '#567272';
+      const kids = [{ tag: 'rect', attrs: { width: s, height: s, fill: base, stroke: o.grout || shade(base, -0.22), 'stroke-width': num(o.groutPx, 0.7) } }];
+      for (let a = 0; a < 360; a += 90) kids.push({ tag: 'path', attrs: {
+        d: `M ${mid} ${mid} Q ${s * 0.08} ${s * 0.08} ${mid} ${s * 0.08} Q ${s * 0.92} ${s * 0.08} ${mid} ${mid} Z`,
+        fill: ink, transform: `rotate(${a} ${mid} ${mid})`,
+      } });
+      kids.push({ tag: 'circle', attrs: { cx: mid, cy: mid, r: s * 0.085, fill: o.color3 || '#b77851' } });
+      return pattern(id, o, s, s, kids);
+    },
+
+    stud(id, o, P) {
+      const s = P.S(Math.max(0.05, num(o.spacing, 0.16))), base = o.color || '#42474a';
+      return pattern(id, o, s, s, [
+        { tag: 'rect', attrs: { width: s, height: s, fill: base } },
+        { tag: 'circle', attrs: { cx: s / 2, cy: s / 2, r: s * 0.32, fill: shade(base, 0.09), stroke: shade(base, -0.22), 'stroke-width': 0.5 } },
+      ]);
+    },
+    /* Straight planks with staggered end joints.
+     *
+     * `grain` (default 0, off) draws lengthwise figure inside each plank. It
+     * exists because without it a plank pattern is a grid of uniform blocks
+     * with a dark line round each one — which is a drawing of BRICKWORK, and
+     * reads as brickwork the moment the joints are anything but hairline. The
+     * grain is what says timber: it runs along the plank, it is the only
+     * feature that does, and it is why you can tell a wood floor from a tiled
+     * one at a glance in real life. Every finish that does not ask for it
+     * draws exactly as it did before the option existed.
+     */
     plank(id, o, P) {
       const wFt = num(o.plankWidth, 0.5), lFt = num(o.plankLength, 4);
       const w = P.S(wFt), l = P.S(lFt);
       const base = o.color || '#e8ddcd';
       const rnd = prng(id + ':plank');
       const rows = 4;
+      const grain = Math.max(0, Math.round(num(o.grain, 0)));
       const kids = [{ tag: 'rect', attrs: { x: 0, y: 0, width: l, height: w * rows, fill: base } }];
       for (let r = 0; r < rows; r++) {
         const y = r * w;
-        kids.push({ tag: 'rect', attrs: { x: 0, y, width: l, height: w, fill: shade(base, (rnd() - 0.5) * num(o.variation, 0.10)) } });
+        const face = shade(base, (rnd() - 0.5) * num(o.variation, 0.10));
+        kids.push({ tag: 'rect', attrs: { x: 0, y, width: l, height: w, fill: face } });
+        /* Figure first, so the joints below still read as the edges of the
+         * board rather than as one more streak among many. Each streak is a
+         * shallow wave the length of the plank, drawn in the board's own
+         * colour darkened a little — never in the joint colour, which would
+         * make one plank look like several. */
+        for (let g = 0; g < grain; g++) {
+          const gy = y + w * (0.16 + (0.68 * (g + 0.5)) / grain) + (rnd() - 0.5) * w * 0.12;
+          const bow = (rnd() - 0.5) * w * 0.5;
+          kids.push({
+            tag: 'path',
+            attrs: {
+              d: `M 0 ${gy} Q ${l * 0.5} ${gy + bow} ${l} ${gy}`,
+              fill: 'none', stroke: shade(face, -0.14 - rnd() * 0.12),
+              'stroke-width': 0.5 + rnd() * 0.7, opacity: 0.5 + rnd() * 0.35,
+            },
+          });
+        }
         kids.push({ tag: 'line', attrs: { x1: 0, y1: y, x2: l, y2: y, stroke: shade(base, -num(o.jointDepth, 0.22)), 'stroke-width': num(o.jointPx, 0.8) } });
         // staggered butt joint, a different offset per row
         const off = ((r * 0.37 + rnd() * 0.1) % 1) * l;
@@ -88,6 +201,14 @@
       const w = P.S(num(o.tileW, 2)), hgt = P.S(num(o.tileH, num(o.tileW, 2)));
       const base = o.color || '#dfe6ee';
       const grout = o.grout || shade(base, -0.16);
+      if (num(o.variation, 0) > 0) {
+        const rnd = prng(id + ':tile'), kids = [];
+        for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) kids.push({ tag: 'rect', attrs: {
+          x: x * w, y: y * hgt, width: w, height: hgt,
+          fill: shade(base, (rnd() - 0.5) * Math.min(1, o.variation)), stroke: grout, 'stroke-width': num(o.groutPx, 1.1),
+        } });
+        return pattern(id, o, w * 4, hgt * 4, kids);
+      }
       return {
         defs: [{
           tag: 'pattern', attrs: { id, width: w, height: hgt, patternUnits: 'userSpaceOnUse', patternTransform: `rotate(${num(o.angle, 0)})` },
@@ -119,25 +240,23 @@
       };
     },
 
-    /* Herringbone — two plank rectangles at 90° to each other. */
+    /* The two-board cell repeats along diagonal lattice vectors. Four boards
+     * around a square left an unjointed hole at the centre of every repeat. */
     herringbone(id, o, P) {
-      const l = P.S(num(o.plankLength, 1.5)), w = P.S(num(o.plankWidth, 0.4));
+      const w = P.S(Math.max(0.05, num(o.plankWidth, 0.4)));
+      const ratio = Math.max(2, Math.min(24, Math.round(num(o.plankLength, 1.5) / Math.max(0.05, num(o.plankWidth, 0.4)))));
+      const l = w * ratio;
       const base = o.color || '#e0d0b8';
       const joint = shade(base, -0.24);
-      const size = l + w;
-      return {
-        defs: [{
-          tag: 'pattern', attrs: { id, width: size, height: size, patternUnits: 'userSpaceOnUse', patternTransform: `rotate(${num(o.angle, 45)})` },
-          children: [
-            { tag: 'rect', attrs: { x: 0, y: 0, width: size, height: size, fill: base } },
-            { tag: 'rect', attrs: { x: 0, y: 0, width: l, height: w, fill: shade(base, 0.05), stroke: joint, 'stroke-width': 0.8 } },
-            { tag: 'rect', attrs: { x: l, y: 0, width: w, height: l, fill: shade(base, -0.05), stroke: joint, 'stroke-width': 0.8 } },
-            { tag: 'rect', attrs: { x: 0, y: w, width: w, height: l, fill: shade(base, -0.05), stroke: joint, 'stroke-width': 0.8 } },
-            { tag: 'rect', attrs: { x: w, y: l, width: l, height: w, fill: shade(base, 0.05), stroke: joint, 'stroke-width': 0.8 } },
-          ],
-        }],
-        fill: `url(#${id})`,
-      };
+      const size = 2 * l, kids = [];
+      for (let a = -1; a <= 2; a++) for (let b = -2 * ratio; b <= 2 * ratio; b++) {
+        const x = a * l - b * w, y = a * l + b * w;
+        for (const [bx, by, width, height, tone] of [[x, y, l, w, 0.05], [x + l, y, w, l, -0.05]]) {
+          if (bx >= size || by >= size || bx + width <= 0 || by + height <= 0) continue;
+          kids.push({ tag: 'rect', attrs: { x: bx, y: by, width, height, fill: shade(base, tone), stroke: joint, 'stroke-width': 0.8 } });
+        }
+      }
+      return pattern(id, Object.assign({ angle: 45 }, o), size, size, kids);
     },
 
     /* Alternating light/dark squares. */
@@ -181,31 +300,74 @@
 
   const FIELD = {
     /* Marble veining. Continuous across the whole floor and clipped per room,
-     * so a vein crossing a doorway does not break at the threshold. */
+     * so a vein crossing a doorway does not break at the threshold.
+     *
+     * Optionally the TILE it is printed on, too.
+     *
+     * A marble-look glazed vitrified tile is the commonest bedroom floor in a
+     * modern house here, and neither generator could draw one: `tile` has a
+     * grid and no veins, `marble` had veins and no grid. Setting `tileW` gives
+     * this one the grid too, laid by the same `tile` pattern so a 4x2 floor
+     * sets out identically whichever finish draws it.
+     *
+     * `veinColor2` is the other half of that look. Statuario and Calacatta
+     * carry two vein systems — a grey structural one and a sparser, finer gold
+     * — and drawing both in one colour is what makes a printed tile read as a
+     * flat grey slab. The second set is deliberately fewer and thinner.
+     *
+     * A finish that sets neither draws exactly what it drew before both
+     * existed: the first loop is untouched and the second one does not run. */
     marble(id, o, P, ctx) {
       const rnd = prng(id + ':' + (o.seed || 'marble'));
       const nodes = [];
       const { x0, y0, x1, y1 } = ctx.bounds;
-      const veins = Math.round(num(o.veins, 18) * ((x1 - x0) * (y1 - y0)) / 900);
+      const area = ((x1 - x0) * (y1 - y0)) / 900;
+      const veins = Math.round(num(o.veins, 18) * area);
       const col = o.veinColor || shade(o.color || '#eef1f5', -0.30);
-      for (let v = 0; v < Math.max(4, veins); v++) {
-        let x = x0 + rnd() * (x1 - x0), y = y0 + rnd() * (y1 - y0);
-        let ang = rnd() * Math.PI * 2;
-        let d = `M ${P.X(x)} ${P.Y(y)}`;
-        const segs = 4 + Math.floor(rnd() * 5);
-        for (let s = 0; s < segs; s++) {
-          ang += (rnd() - 0.5) * 1.1;
-          const len = 1 + rnd() * 4;
-          const nx = x + Math.cos(ang) * len, ny = y + Math.sin(ang) * len;
-          const mx = (x + nx) / 2 + (rnd() - 0.5), my = (y + ny) / 2 + (rnd() - 0.5);
-          d += ` Q ${P.X(mx)} ${P.Y(my)} ${P.X(nx)} ${P.Y(ny)}`;
-          x = nx; y = ny;
+      const draw = (rng, count, colour, thin) => {
+        for (let v = 0; v < count; v++) {
+          let x = x0 + rng() * (x1 - x0), y = y0 + rng() * (y1 - y0);
+          let ang = rng() * Math.PI * 2;
+          let d = `M ${P.X(x)} ${P.Y(y)}`;
+          const segs = 4 + Math.floor(rng() * 5);
+          for (let s = 0; s < segs; s++) {
+            ang += (rng() - 0.5) * 1.1;
+            const len = 1 + rng() * 4;
+            const nx = x + Math.cos(ang) * len, ny = y + Math.sin(ang) * len;
+            const mx = (x + nx) / 2 + (rng() - 0.5), my = (y + ny) / 2 + (rng() - 0.5);
+            d += ` Q ${P.X(mx)} ${P.Y(my)} ${P.X(nx)} ${P.Y(ny)}`;
+            x = nx; y = ny;
+          }
+          /* `veinWidth` and `veinOpacity` multiply the natural-slab defaults,
+           * which are deliberately faint — real marble veining is. A PRINTED
+           * tile is not faint: the pattern is inked onto every tile and reads
+           * from across the room, and at plan scale the slab's sub-pixel
+           * hairlines at a third opacity are drawn and invisible, which is the
+           * worst of both. Both default to 1, so every existing finish keeps
+           * exactly the veining it had. */
+          const wMul = num(o.veinWidth, 1), oMul = num(o.veinOpacity, 1);
+          nodes.push({
+            tag: 'path',
+            attrs: {
+              d, fill: 'none', stroke: colour,
+              'stroke-width': (thin ? 0.25 + rng() * 0.5 : 0.4 + rng() * 1.1) * wMul,
+              opacity: Math.min(1, (thin ? 0.22 + rng() * 0.3 : 0.16 + rng() * 0.3) * oMul),
+              'stroke-linecap': 'round',
+            },
+          });
         }
-        nodes.push({ tag: 'path', attrs: { d, fill: 'none', stroke: col, 'stroke-width': 0.4 + rnd() * 1.1, opacity: 0.16 + rnd() * 0.3, 'stroke-linecap': 'round' } });
+      };
+      draw(rnd, Math.max(4, veins), col, false);
+      /* Its own generator, so adding the gold cannot shift a single grey vein
+       * on a floor somebody has already looked at. */
+      if (o.veinColor2) {
+        draw(prng(id + ':' + (o.seed || 'marble') + ':2'), Math.max(2, Math.round(veins * 0.4)), o.veinColor2, true);
       }
-      return { nodes };
+      /* The grid, when this finish is a tile rather than a slab. Drawn by the
+       * tile generator itself rather than by a second copy of it here. */
+      const base = num(o.tileW, 0) > 0 ? TILE.tile(id, o, P) : null;
+      return base ? { defs: base.defs, fill: base.fill, nodes } : { nodes };
     },
-
     /* Terrazzo chips. */
     terrazzo(id, o, P, ctx) {
       const rnd = prng(id + ':terrazzo');
@@ -215,7 +377,17 @@
       const palette = o.chips || [shade(o.color || '#eceae4', -0.5), shade(o.color || '#eceae4', -0.25), '#b8a68c'];
       for (let i = 0; i < n; i++) {
         const x = x0 + rnd() * (x1 - x0), y = y0 + rnd() * (y1 - y0);
-        const r = (0.04 + rnd() * 0.09);
+        const r = (0.04 + rnd() * 0.09) * Math.max(0.1, num(o.chipScale, 1));
+        const sides = Math.min(8, Math.max(0, Math.round(num(o.chipSides, 0))));
+        if (sides >= 3) {
+          const turn = rnd() * Math.PI * 2;
+          const points = Array.from({ length: sides }, (_, j) => {
+            const a = turn + j * Math.PI * 2 / sides, radius = r * (0.65 + rnd() * 0.35);
+            return `${P.X(x + Math.cos(a) * radius)},${P.Y(y + Math.sin(a) * radius)}`;
+          }).join(' ');
+          nodes.push({ tag: 'polygon', attrs: { points, fill: palette[Math.floor(rnd() * palette.length)], opacity: 0.8 } });
+          continue;
+        }
         nodes.push({
           tag: 'ellipse',
           attrs: {
@@ -350,9 +522,15 @@
       return { fill: r.fill, defs: r.defs, nodes: [] };
     }
     if (FIELD[gen]) {
-      const base = TILE.plain(id, o);
       const r = FIELD[gen](id, o, P, ctx);
-      return { fill: base.fill, defs: [], nodes: r.nodes };
+      /* A field generator may bring its own BASE rather than take a flat
+       * colour. A marble-look tile is the case that needed it: it is a tile
+       * pattern with veining drawn over the top, and neither half is the whole
+       * floor — the grid alone is a plain vitrified tile and the veins alone
+       * are a slab. Anything that returns only nodes still gets exactly the
+       * plain base it always got. */
+      const base = r.fill ? r : TILE.plain(id, o);
+      return { fill: base.fill, defs: r.defs || [], nodes: r.nodes };
     }
     return { fill: o.color || '#e6eaf0', defs: [], nodes: [], error: `unknown generator "${gen}"` };
   }

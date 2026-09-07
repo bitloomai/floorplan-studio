@@ -272,12 +272,18 @@ input[type=checkbox], input[type=radio] {
  * of these need the attribute honoured explicitly or they never hide. */
 .modal[hidden], .toast[hidden] { display: none; }
 
-.modal { position: fixed; inset: 0; background: rgba(12, 18, 30, .45); display: grid; place-items: center; z-index: 50; padding: 20px; }
+.modal { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border: 0; color: inherit; background: transparent; display: grid; place-items: center; z-index: 50; padding: 20px; }
+.modal::backdrop { background: rgba(12, 18, 30, .45); }
 .modal-card {
   background: var(--panelBg); border-radius: var(--radius); border: 1px solid var(--panelBorder);
   width: min(760px, 100%); max-height: 84vh; display: flex; flex-direction: column; overflow: hidden;
 }
 .modal-card > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--panelBorder); }
+/* The dialog header's own controls. `margin-left:auto` keeps them against the
+ * close button so the title keeps the left edge whatever its length. */
+.modal-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; margin-right: 10px; }
+.modal-adv { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 12px; color: var(--inkSoft); white-space: nowrap; }
+.modal-adv input { width: auto; margin: 0; }
 .modal-card > header h2 { margin: 0; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
 #modalBody { padding: 14px; overflow: auto; }
 
@@ -339,6 +345,14 @@ table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-t
 /* The swatch inherits `currentColor` from the button, which is what makes the
    selected state recolour the drawing rather than only its frame. */
 .variant-grid .variant svg { display: block; }
+
+/* The colour picker's swatches are the exception: they carry REAL colours
+   rather than `currentColor`, so the dimming that makes an unselected look
+   recede would be dimming the one thing you are being asked to judge. The
+   frame alone carries selection here, and every swatch stays at full
+   strength. */
+.variant-grid.schemes .variant { opacity: 1; }
+.variant-grid.schemes .variant:hover { border-color: var(--accent); }
 
 /* Resize handles are squares so they read as different from the round rotate
    knob without needing a legend. */

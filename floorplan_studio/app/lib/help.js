@@ -350,6 +350,39 @@ function navigationMarkdown(topic) {
 
 function topicBody(topic) { return navigationMarkdown(topic) + topic.body; }
 
+/* --------------------------------------------------- registry catalogues
+ *
+ * The library registry documents itself: 261 types, each with a generated
+ * topic built from its own record. The other four registries did not, and the
+ * result was prose quoting them from memory — "a flat list of 68", "about
+ * thirty others", "you can see the whole table in the controls registry" when
+ * no surface showed that table. Every one of those is a second copy of a fact,
+ * and a second copy is the one that goes stale.
+ *
+ * So each of these builds a catalogue out of the registry itself and appends
+ * it to the topic that already explains what the registry is FOR. The split is
+ * deliberate: prose says why a transmission matters and what people get wrong
+ * about it; the catalogue says what the shipped values actually are. Neither
+ * can drift, because the second half is not written down anywhere.
+ *
+ * Tables rather than one heading each, for the big ones. Sixty-eight headings
+ * is not a reference, it is a scroll. */
+
+const pct = (v) => (v === undefined || v === null ? '—' : Math.round(Number(v) * 100) + '%');
+const ft = (v) => (v === undefined || v === null ? '—' : v + ' ft');
+
+/* Grouped the way the registry groups itself, and in the registry's own order,
+ * so the catalogue reads in the order the picker offers. */
+function byGroup(bag) {
+  const groups = new Map();
+  for (const [key, entry] of Object.entries(bag || {})) {
+    const g = entry.group || 'Other';
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push([key, entry]);
+  }
+  return groups;
+}
+
 function openingReference(boundaries) {
   return Object.entries(boundaries.openingTypes || {}).map(([key, type]) => {
     const p = type.props || {};
@@ -361,8 +394,131 @@ function openingReference(boundaries) {
       + (p.swing ? 'Swing: **' + p.swing + '**. ' : '')
       + (p.slideTo ? 'Slide toward: **' + p.slideTo + '**. ' : '')
       + (type.group ? 'Select the opening → **' + navigation.label('section:opening.mechanism')
-        + '** for the contact sensor, motor/cover entity and preview position. ' : '');
+        + '** for the contact sensor, motor/cover entity and preview position. ' : '')
+      + '\n\nPasses **' + pct(type.transmission) + '** of the daylight behind it when shut'
+      + (type.openTransmission !== undefined ? ', **' + pct(type.openTransmission) + '** when open' : '') + '.';
   }).join('\n\n');
+}
+
+function boundaryReference(boundaries) {
+  const out = ['**Find it:** ' + navigation.route('dialog:boundaries').steps.map((s) => s.label).join(' → ')
+    + '. Thickness, height and tint are under **Advanced**.', ''];
+  for (const [group, rows] of byGroup(boundaries.types)) {
+    out.push('### ' + group, '',
+      '| Treatment | Key | Passes | Thick | High | Tint |',
+      '| --- | --- | --- | --- | --- | --- |');
+    for (const [key, t] of rows) {
+      out.push(`| ${t.label || key} | \`${key}\` | ${pct(t.transmission)} | ${ft(t.thicknessFt)} | `
+        + `${ft(t.heightFt)} | ${t.tint ? '`' + t.tint + '`' : '—'} |`);
+    }
+    out.push('');
+  }
+  out.push('"Passes" is the fraction of daylight the run lets through, and it feeds the lamp'
+    + ' models in the other direction too. A blank height is a full-height run.');
+  return out.join('\n');
+}
+
+function coveringReference(boundaries) {
+  const out = ['| Covering | Key | Closed | Open |', '| --- | --- | --- | --- |'];
+  for (const [key, c] of Object.entries(boundaries.coverings || {})) {
+    out.push(`| ${c.label || key} | \`${key}\` | ${pct(c.closed)} | ${pct(c.open)} |`);
+  }
+  out.push('', 'The two columns are why a covering is worth naming: a blackout blind and a sheer'
+    + ' curtain are the same object on a plan and nothing like each other at either end of the day.');
+  return out.join('\n');
+}
+
+function flooringReference(flooring) {
+  const out = ['**Find it:** ' + navigation.route('dialog:flooring').steps.map((s) => s.label).join(' → ') + '.', ''];
+  for (const [group, rows] of byGroup(flooring.types)) {
+    out.push('### ' + group, '', '| Finish | Key | Drawn by | Reflectance |', '| --- | --- | --- | --- |');
+    for (const [key, t] of rows) {
+      out.push(`| ${t.label || key} | \`${key}\` | ${t.generator || '—'} | ${pct(t.reflectance)} |`);
+    }
+    out.push('');
+  }
+  out.push('Reflectance is the fraction of light the floor throws back, and it is a real term in'
+    + ' the lighting model rather than a label — see the note above. A finish with none reflects'
+    + ' nothing.');
+  return out.join('\n');
+}
+
+/* The controls registry is four different lists, and merging them would be a
+ * worse reference than four short ones: a design and a section and a domain
+ * are not the same kind of thing. */
+function controlsReference(controls) {
+  const out = [];
+  const designs = controls.designs || {};
+  out.push('### The surfaces a popup can be', '',
+    '| Design | Key | Shape | Columns | Density |', '| --- | --- | --- | --- | --- |');
+  for (const [key, d] of Object.entries(designs)) {
+    out.push(`| ${d.label || key} | \`${key}\` | ${d.surface || '—'}, anchored ${d.anchor || '—'} | `
+      + `${d.columns || 'flowing'} | ${d.density || '—'} |`);
+  }
+  out.push('');
+  for (const [key, d] of Object.entries(designs)) {
+    if (d.description) out.push(`- **${d.label || key}** — ${d.description}`);
+  }
+
+  const sections = (controls.default || {}).sections || [];
+  out.push('', '### The sections it can carry', '',
+    '| Section | Key | Kind | On by default |', '| --- | --- | --- | --- |');
+  for (const s of sections) {
+    out.push(`| ${s.label || s.id} | \`${s.id}\` | ${s.type || 'entities'} | ${s.enabled === false ? 'no' : 'yes'} |`);
+  }
+
+  const presets = controls.presets || {};
+  if (Object.keys(presets).length) {
+    out.push('', '### Ready-made popups', '',
+      'A preset is the set of sections a kind of room usually wants. Start from one and adjust.', '');
+    for (const [key, p] of Object.entries(presets)) {
+      const on = (p.sections || []).filter((s) => s.enabled !== false).map((s) => s.id);
+      out.push(`- **${p._label || key}** (\`${key}\`)${on.length ? ' — ' + on.join(', ') : ''}`);
+    }
+  }
+
+  /* The table the prose has been promising. */
+  const byDomain = (controls.domainActions || {}).byDomain || {};
+  const act = (a) => (!a ? 'more-info' : (typeof a === 'string' ? a : '`' + (a.service || 'more-info') + '`'));
+  out.push('', '### What a tap does, by domain', '',
+    'The mapping is a registry rather than a guess. Anything not listed falls through to the'
+    + ' default, which is to toggle it.', '',
+    '| Domain | Drawn as | A tap | A long press |', '| --- | --- | --- | --- |');
+  for (const [domain, spec] of Object.entries(byDomain)) {
+    out.push(`| \`${domain}\` | ${spec.control || 'toggle'} | ${act(spec.tap)} | `
+      + `${spec.alt ? act(spec.alt) + (spec.altLabel ? ' (' + spec.altLabel + ')' : '') : '—'} |`);
+  }
+  return out.join('\n');
+}
+
+/* Which topic carries which catalogue. A table rather than a run of `if`s
+ * because the next registry to grow a reference should be one line. */
+const CATALOGUES = [
+  ['item-colour', 'Stock colour scheme catalogue', () => {
+    const out = ['These are shared material palettes for furniture, fixtures and devices. Your project-owned schemes are listed in the colour editor.', ''];
+    for (const [group, rows] of byGroup(require('./shapes').SCHEMES)) {
+      out.push('### ' + group, '', '| Scheme | Key | Body | Trim | Detail | Live |', '| --- | --- | --- | --- | --- | --- |');
+      for (const [id, s] of rows) out.push(`| ${s.label} | \`${id}\` | ${s.fill} | ${s.line} | ${s.glyph} | ${s.accent} |`);
+      out.push('');
+    }
+    return out.join('\n');
+  }],
+  ['walls-openings', 'Opening catalogue', (r) => openingReference(r.boundaries)],
+  ['walls-boundaries', 'Wall treatment catalogue', (r) => boundaryReference(r.boundaries)],
+  ['opening-coverings', 'Covering catalogue', (r) => coveringReference(r.boundaries)],
+  ['room-flooring', 'Floor finish catalogue', (r) => flooringReference(r.flooring)],
+  ['room-controls', 'Control surface catalogue', (r) => controlsReference(r.controls)],
+];
+
+/* The live registries where the caller has them — the editor and MCP both hold
+ * an edited copy — and the shipped ones otherwise, so a catalogue describes
+ * the registry the reader is actually using. */
+function registriesFor(opts) {
+  return {
+    boundaries: opts?.boundaries || require('../defaults/boundaries.json'),
+    flooring: opts?.flooring || require('../defaults/flooring.json'),
+    controls: opts?.controls || require('../defaults/controls.json'),
+  };
 }
 
 /* -------------------------------------------------------------- the API */
@@ -371,8 +527,12 @@ function corpus(library, opts) {
   const loaded = authored((opts || {}).reload);
   const errors = loaded.errors.slice();
   const topics = loaded.topics.map((t) => Object.assign({}, t, { navigation: navigation.forSelectors(t.applies) }));
-  const openings = topics.find(t => t.id === 'walls-openings');
-  if (openings) openings.body += '\n\n## Opening catalogue\n\n' + openingReference(opts?.boundaries || require('../defaults/boundaries.json'));
+  const registries = registriesFor(opts);
+  for (const [id, heading, build] of CATALOGUES) {
+    const topic = topics.find((t) => t.id === id);
+    if (topic) topic.body += '\n\n## ' + heading + '\n\n' + build(registries);
+    else errors.push(`Catalogue "${heading}" has no topic "${id}" to attach to.`);
+  }
   const all = topics.slice();
 
   /* Conceptual prose supplements the generated reference. Replacing it erased

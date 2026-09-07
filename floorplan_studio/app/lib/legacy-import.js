@@ -22,7 +22,7 @@ const path = require('path');
 
 /* Keys the builder models natively, per level. Anything else is _legacy. */
 const FLOOR_KNOWN = new Set(['id', 'name', 'level_ft', 'icon', 'extent', 'grid', 'rooms', 'apertures', 'fixtures', 'devices', 'furniture']);
-const ROOM_KNOWN = new Set(['id', 'name', 'rect', 'floor', 'outdoor', 'noLabel', 'chip_at', 'chip_rotate', 'part_of', 'ac_boost', 'dnd']);
+const ROOM_KNOWN = new Set(['id', 'name', 'rect', 'floor', 'outdoor', 'noLabel', 'chip_at', 'chip_rotate', 'chip_scale', 'part_of', 'ac_boost', 'dnd']);
 const AP_KNOWN = new Set(['type', 'room', 'wall', 'at', 'w', 'swing', 'curtain', 'sensor', 'h', 'sill']);
 const ITEM_KNOWN = new Set(['entity', 'type', 'at', 'room', 'name', '_name']);
 
@@ -83,6 +83,7 @@ function importRoom(r) {
     noLabel: !!r.noLabel,
     chip_at: r.chip_at || null,
     chip_rotate: r.chip_rotate || 0,
+    ...(r.chip_scale !== undefined ? { chip_scale: r.chip_scale } : {}),
     part_of: r.part_of || null,
     _legacy: rest(r, ROOM_KNOWN),
   };
@@ -270,11 +271,23 @@ function fromFiles(files) {
   }
 
   let floors = [];
+  /* Colour schemes somebody made themselves live on the project rather than in
+   * a registry, precisely so they travel with it — see `SCHEMES` in shapes.js.
+   * An exported project therefore carries them, and dropping them here would
+   * make the round trip lossy in exactly the way the export exists to avoid: a
+   * plan would arrive with every item naming a scheme that no longer existed
+   * and quietly fall back to the theme. A bare set of legacy floor specs has no
+   * schemes, and gets none. */
+  let schemes = null;
   if (projects.length) {
     const raw = projects[0].spec.floors;
     floors = raw.filter((f) => f && typeof f === 'object' && !Array.isArray(f));
     if (floors.length !== raw.length) {
       skipped.push({ file: projects[0].name, reason: `${raw.length - floors.length} entr${raw.length - floors.length === 1 ? 'y' : 'ies'} in floors[] was not an object` });
+    }
+    const rawSchemes = projects[0].spec.schemes;
+    if (Array.isArray(rawSchemes)) {
+      schemes = rawSchemes.filter((s) => s && typeof s === 'object' && !Array.isArray(s) && typeof s.id === 'string' && s.id);
     }
   } else {
     for (const p of parsed) {
@@ -306,7 +319,7 @@ function fromFiles(files) {
   }
 
   floors.sort((a, b) => (a.level_ft ?? 0) - (b.level_ft ?? 0));
-  return { floors, stats: statsFor(floors), skipped, renamed };
+  return { floors, stats: statsFor(floors), skipped, renamed, schemes };
 }
 
 /* Read every *.json in a directory and hand the bytes to `fromFiles`, so the

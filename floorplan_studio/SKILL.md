@@ -38,11 +38,14 @@ a schema when there is a paragraph about it.
 | What can a wall BE? How much light does each pass? | `get_registry({ name: "boundaries" })` → `types` |
 | What door and window types exist? | same document → `openingTypes` |
 | What blinds/curtains can hang in an opening? | same document → `coverings` |
-| What floor finishes exist? | `get_registry({ name: "flooring" })` → `types` (65, grouped Basic / Wood / Stone / India / Outdoor) |
+| What floor finishes exist? | `get_registry({ name: "flooring" })` → `types`, grouped by material and laying pattern; `generatorOptions` describes the editable fields. Use the live registry for current choices. |
 | How reflective is a floor? | same document → each type's `reflectance` |
 | What can a room's control panel contain? | `get_registry({ name: "controls" })` |
 | What does tapping an entity of domain X do? | same document → `domainActions.byDomain` |
 | What colour tokens can I use? | `get_registry({ name: "themes" })` |
+| What **colour** can a thing be painted? | `get_registry({ name: "schemes" })` → `shipped` (part of the app) and `project` (this plan's own, and they win on a name clash) |
+| How do I author shared finishes, types, themes or controls? | Read `get_registry({ name: "flooring" })` (or library/themes/boundaries/controls), then `edit_registry` with literal path keys. |
+| How do I move or resize a room badge? | `edit_collection` → rooms → update `chip_at`, `chip_scale`, `chip_rotate`; `noLabel` hides it. |
 | **What does this control MEAN? Why is it off by default?** | `get_help({ for: type:device.camera })` — also panel:, section:, field:, registry:, concept: |
 | What help exists at all? | `get_help({ index: true })`, or `get_help({ q: daylight })` |
 | Is the project currently valid? | `validate_project` |
@@ -198,6 +201,53 @@ eight downlights on one switch is `count: 8`.
 
 ## Recipes
 
+**Position and resize a room badge**
+
+Read the floor and room first. `chip_at` is the badge centre in floor feet;
+it can be beside the room. `chip_scale` is 0.25–4 (1 is normal), and scales
+the badge, name and count together. Keep its box within the floor extent.
+
+```
+edit_collection({ collection: "rooms", op: "update", floorId: "first_floor", id: "kitchen",
+  value: { chip_at: [14, 7], chip_scale: 0.75, chip_rotate: 0, noLabel: false } })
+```
+
+Set `chip_at: null` to restore automatic placement and `chip_scale: 1` for
+normal size. `chips.show` controls the whole project's badge visibility.
+
+**Choose or author a floor finish**
+
+Query the live flooring registry for keys and `generatorOptions`; never copy
+a stock count out of prose. Set a room's `flooring` to the chosen key, with
+`flooringOptions` for room-only overrides. That object is replaced by a room
+update, so read and retain its other options first. Reflectance is a model
+estimate, not a measured specification or a gloss effect.
+
+For a reusable finish, read an existing entry, duplicate its complete data
+under a new key, then edit it through `edit_registry`. Paths are arrays, not
+dot strings: `["types", "device.fan", "label"]` keeps the library key intact.
+
+```
+edit_registry({ name: "flooring", path: ["types", "custom_clay"],
+  value: { label: "Custom clay", group: "Custom", generator: "tile", reflectance: 0.3,
+    options: { color: "#b98870", tileW: 1, tileH: 1, groutPx: 0.8 } } })
+```
+
+The same tool authors library, theme, boundary and controls registry fields.
+It replaces the value at the named path and preserves unrelated fields.
+Read before replacing a parent object or array. Shared changes affect every
+use of that entry; finish open editor dialogs and reload if notified, so an
+older form cannot overwrite a newer registry. Shipped renderer algorithms
+remain source code; a registry edit can configure them, not invent one.
+
+**Paint an item or create a project-owned scheme**
+
+Read `get_registry({name:"schemes"})`, then update the item's `scheme` through
+`edit_collection`. Add your own full `{id,label,group,fill,line,glyph,accent}`
+entry by reading the current project `schemes` array and writing the updated
+array with `edit_settings({path:"schemes",value:[...]})`. Existing project
+schemes win over shipped ids. All four colour values must be plain hex.
+
 **Add a floor and a room**
 
 ```
@@ -284,7 +334,7 @@ silent zero on a wall tablet.
 
 It cannot call a Home Assistant service. It cannot turn on a light, run a
 script, or create an entity, a scene or a helper. It reads and writes its own
-project file and — only if a human has switched that on — one Lovelace dashboard
+project and shared registry files and — only if a human has switched that on — one Lovelace dashboard
 it stamps as its own. A shortcut you add only ever *references* something that
 already exists.
 

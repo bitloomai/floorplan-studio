@@ -4,7 +4,7 @@ title: The item panel
 summary: Everything one placed thing is — its look, its size, its entity and what it reports.
 category: library
 tags: item, panel, inspector, entity, variant
-applies: panel:item, field:item.entity, field:item.variant, section:item.look, section:item.size, section:item.properties, section:item.entity, section:item.tap, section:item.channels
+applies: panel:item, field:item.entity, field:item.variant, section:item.look, section:item.size, section:item.properties, section:item.entity, section:item.tap, section:item.hold, field:item.room, section:item.channels
 see: item-aim, library-palette, concept-artificial-light
 order: 48
 ---
@@ -46,3 +46,23 @@ Some things ARE their reading — a solar array, an energy meter, a tank level.
 For those, `state === 'on'` is never true, so they would sit in the "off" style
 forever with the number suppressed. Their type sets a numeric rule instead. If a
 readout is mysteriously blank, that is the first thing to check.
+
+## Long press opens (Advanced)
+
+Holding a marker opens more-info for its own entity. That is the wrong answer
+for a camera: holding one should show you *who it saw*, and that is a different
+entity.
+
+Left blank, the type may still guess — a camera looks for its own detection
+sensor — and if neither is available, hold falls back to the marker's own
+entity. Setting it here is how you say so outright.
+
+## Room (Advanced)
+
+Which room an item belongs to is worked out from where it stands, and that is
+right almost always. Naming a room by hand is for the case geometry cannot
+answer: a pillar-mounted array that overhangs its own slab, a sensor on the
+boundary between two spaces.
+
+It is data, not a lookup — an item **can** sit outside its own room's outline on
+purpose.

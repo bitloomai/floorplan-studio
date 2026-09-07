@@ -1319,6 +1319,23 @@
     return p.variant || r.variant || Shapes().MARKER_DEFAULT[r.family] || null;
   }
 
+  /* Which colour scheme an item is painted in, resolved against the shipped
+   * defaults and the document's own (`project.schemes`).
+   *
+   * The item's own choice first, then whatever the library type names as its
+   * default. An item that names none and a type that names none draw in the
+   * theme, exactly as everything did before schemes existed — which is what
+   * makes this additive rather than a repaint of every plan already out there.
+   *
+   * `scheme` is a field on the ITEM rather than a declared prop, for the same
+   * reason `entity` is: it applies to all 261 types and nothing about it
+   * varies per type, so declaring it 261 times would be 261 chances to forget.
+   */
+  function schemeOf(item, type, custom) {
+    const id = (item && item.scheme) || ((type && type.render) || {}).scheme;
+    return Shapes().resolveScheme(id, custom);
+  }
+
   /* Per-gang state for a multi-gang marker, one boolean per gang.
    *
    * A 3-gang wall plate is three Home Assistant entities behind one piece of
@@ -1385,8 +1402,32 @@
     const isLamp = (item.kind || type.kind) === 'fixture';
     const out = isLamp ? Light().lampOutput(item, type, st, (ctx && ctx.lightCfg) || null) : null;
     const litColour = isLamp && sk.on ? lampColour(st, theme, out && out.kelvin) : null;
-    const fill = litColour || colour(sty.fill, theme, theme.offFill);
-    const stroke = litColour ? colour('@lampRim', theme, theme.offRim) : colour(sty.stroke, theme, theme.offRim);
+    /* What this thing is made of, if anybody said. See `SCHEMES` in shapes.js
+     * for the four colours and the two rules; the ones that matter here are
+     * that a LIT fixture is never painted (light beats paint — a lamp draws in
+     * the colour it is emitting whatever its body is) and neither is an entity
+     * that REPORTS itself unavailable, which has to keep the dead-entity
+     * styling that is the only thing saying it is dead.
+     *
+     * `st &&` is load-bearing. `stateOf` answers "unavailable" for an item with
+     * no entity bound at all, and for every item on the plan when live states
+     * are switched off — which is most of a plan for most of the time somebody
+     * is drawing one. Without this, choosing a colour would appear to do
+     * nothing until the marker was wired up, which is exactly backwards: you
+     * pick what a fan looks like while you are placing fans. A dead entity is
+     * one that HAS a state and that state says unavailable. */
+    const sch = (st && sk.key === 'unavailable') ? null : schemeOf(item, type, ctx && ctx.schemes);
+    /* The rim a running marker draws in. The scheme's accent takes it — that
+     * is what an LED ring or a status light IS — but only when the scheme
+     * actually distinguishes one from its outline: a scheme that does not
+     * would make ON and OFF the same picture, and this plan's first job is to
+     * say what is on. In that case the theme's own live colour still wins. */
+    const liveRim = sch && sch.accent !== sch.line ? sch.accent : colour(sty.stroke, theme, theme.offRim);
+    const fill = litColour || (sch ? sch.fill : colour(sty.fill, theme, theme.offFill));
+    const stroke = litColour
+      ? colour('@lampRim', theme, theme.offRim)
+      : (sch ? (sk.on ? liveRim : sch.line) : colour(sty.stroke, theme, theme.offRim));
+    const glyphC = sch ? sch.glyph : colour(sty.glyph, theme, theme.glyphOff);
     const nodes = [];
     const shape = r.shape || 'disc';
     const props = item.props || {};
@@ -1460,8 +1501,8 @@
       const pct = num(a2.percentage, num(a2.current_position, num(a2.battery_level, num(parseFloat(st && st.state), 60))));
       const nodes2 = Shapes().marker(family, variantOf(item, type), {
         cx, cy, R: markerRadius(item, type, P),
-        fill, line: stroke, glyph: colour(sty.glyph, theme, theme.glyphOff),
-        accent: litColour || colour('@fanRim', theme, '#2fb5a4'),
+        fill, line: stroke, glyph: glyphC,
+        accent: litColour || (sch ? sch.accent : colour('@fanRim', theme, '#2fb5a4')),
         facing, on: sk.on, pct,
         /* Only lamp families read this — a dimmed light's own bulbs should look
          * dimmed, not just the room glow around them. Every other family
@@ -1481,7 +1522,7 @@
        * draws the object itself and a glyph on top would be a second opinion. */
       if (family === 'sense' && r.icon) {
         const spin2 = r.rotateIcon ? facing : 0;
-        nodes.push(...rotated(Shapes().icon(r.icon, cx, cy, colour(sty.glyph, theme, theme.glyphOff), num(r.iconScale, 0.8)), spin2, cx, cy));
+        nodes.push(...rotated(Shapes().icon(r.icon, cx, cy, glyphC, num(r.iconScale, 0.8)), spin2, cx, cy));
       }
     } else if (shape === 'label') {
       const text = labelText(props.template || defs.template, st, item);
@@ -1605,7 +1646,7 @@
        * other device's coverage, so "point the camera at the gate" is the same
        * gesture and the same numbers as pointing anything else. */
       nodes.push({ tag: 'circle', attrs: { cx, cy, r: markerRadius(item, type, P), fill, stroke, 'stroke-width': 1.4 } });
-      nodes.push(...rotated(Shapes().icon('camera', cx, cy, colour(sty.glyph, theme, theme.glyphOff), 0.72), facing, cx, cy));
+      nodes.push(...rotated(Shapes().icon('camera', cx, cy, glyphC, 0.72), facing, cx, cy));
     } else {
       /* `markerRadius` is the single answer to "how big is this right now" —
        * it already falls back to `r.size` when the type has no resize prop
@@ -1620,8 +1661,8 @@
        * inside it does when the type says the icon has a front (a TV, a
        * doorbell, a sensor with a lens). `render.rotateIcon` opts in. */
       const spin = r.rotateIcon ? facing : 0;
-      if (r.icon) nodes.push(...rotated(Shapes().icon(r.icon, cx, cy, colour(sty.glyph, theme, theme.glyphOff), num(r.iconScale, 0.8)), spin, cx, cy));
-      else if (r.glyph) nodes.push({ tag: 'text', text: r.glyph, attrs: { x: cx, y: cy + 3.4, 'font-size': 10, 'text-anchor': 'middle', fill: colour(sty.glyph, theme, theme.glyphOff), 'pointer-events': 'none' } });
+      if (r.icon) nodes.push(...rotated(Shapes().icon(r.icon, cx, cy, glyphC, num(r.iconScale, 0.8)), spin, cx, cy));
+      else if (r.glyph) nodes.push({ tag: 'text', text: r.glyph, attrs: { x: cx, y: cy + 3.4, 'font-size': 10, 'text-anchor': 'middle', fill: glyphC, 'pointer-events': 'none' } });
     }
 
     if (sty.badge) {
@@ -2145,6 +2186,11 @@
 
     /* ---- items ---- */
     const shares = shareMap(floor.items, library);
+    /* The document's own colour schemes. Shipped defaults live in the renderer
+     * (shapes.js) and are never written into a project; these are the ones
+     * somebody made here, so they travel in the export and reach the generated
+     * card with the rest of the project. */
+    const customSchemes = Array.isArray(project.schemes) ? project.schemes : null;
     for (const item of floor.items || []) {
       const type = resolveType(library, item);
       if (!type) {
@@ -2170,11 +2216,18 @@
          * it did, unaware that state exists. */
         const fSt = item.entity && states ? states[item.entity] : null;
         const fOn = !!fSt && !['off', 'unavailable', 'unknown'].includes(fSt.state);
+        /* What it is made of. Furniture reads only `fill` and `line` — the
+         * whole footprint and everything drawn on it at reduced opacity — so a
+         * teak sideboard is teak all the way through rather than a grey box
+         * with a teak edge. `accent` stays the lamp's own colour on the one
+         * kind of furniture that has a lamp in it (a lit stair), for the same
+         * "light beats paint" reason a lit fixture is never painted. */
+        const fSch = schemeOf(item, type, customSchemes);
         const c = {
           x: item.at[0], y: item.at[1], w, h, p, P, t: theme,
           X: P.X(item.at[0]), Y: P.Y(item.at[1]), W: P.S(w), H: P.S(h),
-          fill: colour((type.render && type.render.fill) || '@furnFill', theme, theme.furnFill),
-          line: colour((type.render && type.render.line) || '@furnLine', theme, theme.furnLine),
+          fill: fSch ? fSch.fill : colour((type.render && type.render.fill) || '@furnFill', theme, theme.furnFill),
+          line: fSch ? fSch.line : colour((type.render && type.render.line) || '@furnLine', theme, theme.furnLine),
           on: fOn,
           state: fSt,
           motion,
@@ -2191,7 +2244,7 @@
           target.push(n);
         }
       } else {
-        const ctx = { room: roomAt(floor, item.at[0], item.at[1]), darkFloor, lightCfg, motion, coverage, floor, states, library, share: shares };
+        const ctx = { room: roomAt(floor, item.at[0], item.at[1]), darkFloor, lightCfg, motion, coverage, floor, states, library, share: shares, schemes: customSchemes };
         /* The zone this lamp lights. `item.room` wins over geometry for the
          * same reason it does everywhere else — a pillar-mounted fitting can
          * sit outside the slab it lights. A lamp in no room at all (a garden
@@ -2288,6 +2341,7 @@
       return ox > 0 && oy > 0 ? ox * oy * b.weight : 0;
     };
 
+    const chipHits = [];
     for (const room of floor.rooms || []) {
       if (room.noLabel || room.part_of || chipCfg.show === false) continue;
       const name = (room.name || room.id).toUpperCase();
@@ -2310,10 +2364,11 @@
        * metrics API that works in Node, the browser and an exported file
        * alike. 6.2px per character at 11px is close enough that the pill never
        * clips, and a little slack looks deliberate. */
-      const wName = name.length * 6.2;
-      const wCount = count ? count.length * 6.6 + 10 : 0;
-      const w = wName + wCount + 18;
-      const h = 18;
+      const scale = Math.max(0.25, Math.min(4, num(room.chip_scale, 1)));
+      const wName = name.length * 6.2 * scale;
+      const wCount = count ? (count.length * 6.6 + 10) * scale : 0;
+      const w = wName + wCount + 18 * scale;
+      const h = 18 * scale;
 
       /* Where the name sits.
        *
@@ -2377,6 +2432,15 @@
 
       const rot = room.chip_rotate ? `rotate(${room.chip_rotate} ${cx} ${cy})` : undefined;
 
+      /* The chip's own box, handed back so a consumer can make it separately
+       * tappable. It is recorded HERE rather than recomputed, because where the
+       * chip ended up is the output of the whole placement ladder above — a
+       * second implementation would put the tap target somewhere the label is
+       * not. `openOn.chipTap` and `openOn.floorTap` are the reason it exists:
+       * without a chip target they were indistinguishable, since one room
+       * polygon covered the label and the floor alike. */
+      chipHits.push({ roomId: (primaryRoom(floor, room) || room).id, x: cx - w / 2, y: cy - h / 2, width: w, height: h, rot });
+
       if (chipCfg.style === 'pill') {
         layers.labels.push({
           tag: 'rect', roomId: room.id,
@@ -2393,17 +2457,17 @@
       layers.labels.push({
         tag: 'text', text: name, roomId: room.id,
         attrs: Object.assign({
-          x: cx - (wCount ? wCount / 2 : 0), y: cy + 4, 'font-size': 11, 'font-weight': 600,
+          x: cx - (wCount ? wCount / 2 : 0), y: cy + 4 * scale, 'font-size': 11 * scale, 'font-weight': 600,
           'text-anchor': 'middle', fill: inkFill, 'pointer-events': 'none', transform: rot,
         }, chipCfg.style === 'pill' ? {} : {
-          stroke: theme.roomLabelHalo, 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round',
+          stroke: theme.roomLabelHalo, 'stroke-width': 3 * scale, 'paint-order': 'stroke', 'stroke-linejoin': 'round',
         }),
       });
       if (count) {
         layers.labels.push({
           tag: 'text', text: count, roomId: room.id,
           attrs: {
-            x: cx + w / 2 - wCount / 2 - 6, y: cy + 4, 'font-size': 10.5, 'font-weight': 700,
+            x: cx + w / 2 - wCount / 2 - 6 * scale, y: cy + 4 * scale, 'font-size': 10.5 * scale, 'font-weight': 700,
             'text-anchor': 'middle', 'pointer-events': 'none', transform: rot,
             fill: lvl.on ? theme.lampRim : (chipCfg.style === 'pill' ? theme.glyphOff : theme.roomLabel),
           },
@@ -2464,7 +2528,7 @@
      * 62% lit" about the same room, and recomputing it in three places is how
      * three slightly different answers appear on one screen. */
     return {
-      width, height, projector: P, order, layers,
+      width, height, projector: P, order, layers, chips: chipHits,
       sun: sunScene, sunConfig: sunCfg, darkFloor, warnings,
       lighting: lightCfg, scrim, motion,
       roomLevels: Object.fromEntries(roomLevels),
@@ -2496,12 +2560,22 @@
    * array — stays reachable. Ordering by area rather than by declaration order
    * means it holds however the plan was drawn.
    */
-  function hitTargets(floor, library, P, states) {
+  function hitTargets(floor, library, P, states, chips) {
     const out = [];
     for (const room of floor.rooms || []) {
       out.push({
         target: 'room', id: (primaryRoom(floor, room) || room).id, tag: 'path',
         attrs: { d: roomPoints(room).map((pt, i) => `${i ? 'L' : 'M'} ${P.X(pt[0])} ${P.Y(pt[1])}`).join(' ') + ' Z' },
+      });
+    }
+    /* The name chip, if the caller handed back where build() put it. After the
+     * room and before everything else: a tap on the label is a tap on the
+     * label rather than on the floor under it, and a marker still wins over
+     * both. Optional because the editor hit-tests without a scene in hand. */
+    for (const c of chips || []) {
+      out.push({
+        target: 'chip', id: c.roomId, tag: 'rect',
+        attrs: { x: c.x, y: c.y, width: c.width, height: c.height, rx: c.height / 2, transform: c.rot || null },
       });
     }
     for (const op of floor.openings || []) {
@@ -2578,7 +2652,7 @@
     build, toSvg, nodeToSvg, resolveType, specLine, hitTargets,
     makeProjector, roomPoints, roomBBox, roomCentroid, pointInRoom, roomAt, roomEdges,
     primaryRoom, colour, stateOf, lampColour, openingIsOpen, openingState, openingTransmission, coneNodes, MOTION_CSS,
-    variantOf, markerRadius, labelText, thresholdColour, labelMetrics,
+    variantOf, schemeOf, markerRadius, labelText, thresholdColour, labelMetrics,
     coveringOpenness, coveringTransmission, insetPolygon, polygonArea,
     WALL_NORMAL,
   };

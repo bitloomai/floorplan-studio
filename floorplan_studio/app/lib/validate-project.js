@@ -18,8 +18,15 @@
 
 'use strict';
 
+const Shapes = require('./shapes');
+
 const KINDS = new Set(['fixture', 'device', 'furniture', 'logic']);
 const WALLS = new Set(['n', 'e', 's', 'w']);
+/* The same test the renderer applies, and deliberately the same source of
+ * truth: a colour a scheme declares is a colour that reaches an SVG attribute
+ * in an exported plate and inside a generated dashboard card. */
+const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const SHIPPED_SCHEMES = new Set(Object.keys(Shapes.SCHEMES));
 
 function isFiniteNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 /* >= 2 rather than === 2: the renderer only ever reads p[0]/p[1] (roomPoints()
@@ -76,6 +83,38 @@ function validate(project, library) {
     }
   }
 
+  /* Colour schemes the document carries. Shipped ones live in the renderer and
+   * never appear here; these are somebody's own, they travel in the export, and
+   * they are baked into the generated dashboard card — so a malformed one is a
+   * colour going into an SVG attribute on a page this app did not draw. The
+   * renderer already refuses anything that is not a plain hex triple (see
+   * `schemeColour` in shapes.js); this reports it instead of letting it fail
+   * silently as a fallback nobody asked for.
+   *
+   * `id` and `fill` are errors because a scheme without either cannot be
+   * referred to or cannot paint. Everything else is a warning: the renderer
+   * fills a missing colour in from the ones that are there. */
+  const schemeIds = new Set();
+  if (project.schemes !== undefined) {
+    if (!Array.isArray(project.schemes)) err('schemes', 'project.schemes must be an array of colour schemes');
+    else {
+      project.schemes.forEach((s, si) => {
+        const spath = `schemes[${si}]`;
+        if (!s || typeof s !== 'object' || Array.isArray(s)) { err(spath, 'scheme must be an object'); return; }
+        if (typeof s.id !== 'string' || !s.id.trim()) err(`${spath}.id`, 'scheme is missing an id');
+        else if (schemeIds.has(s.id)) err(`${spath}.id`, `duplicate scheme id "${s.id}"`);
+        else schemeIds.add(s.id);
+        if (!HEX.test(String(s.fill || ''))) err(`${spath}.fill`, 'fill must be a hex colour like #2b2f34 — a scheme with no body colour paints nothing');
+        for (const k of ['line', 'glyph', 'accent']) {
+          if (s[k] !== undefined && !HEX.test(String(s[k]))) warn(`${spath}.${k}`, `${k} is not a hex colour, so it falls back rather than painting`);
+        }
+        if (s.accent !== undefined && s.accent === s.line) {
+          warn(`${spath}.accent`, 'accent is the same colour as line, so a marker in this scheme draws ON and OFF alike and falls back to the theme\'s live colour');
+        }
+      });
+    }
+  }
+
   const floorIds = new Set();
   project.floors.forEach((floor, fi) => {
     const fpath = `floors[${fi}]`;
@@ -92,6 +131,9 @@ function validate(project, library) {
       if (!room || !room.id) { err(rpath, 'room is missing an id'); return; }
       if (roomIds.has(room.id)) err(rpath, `duplicate room id "${room.id}" on floor "${floor.id}"`);
       roomIds.add(room.id);
+      if (room.chip_scale !== undefined && (!isFiniteNum(room.chip_scale) || room.chip_scale < .25 || room.chip_scale > 4))
+        err(`${rpath}.chip_scale`, 'badge scale must be a number from 0.25 to 4');
+      if (room.chip_at != null && !isPoint(room.chip_at)) err(`${rpath}.chip_at`, 'badge position must be [x, y] in floor feet');
       if (room.shape === 'rect') {
         const r = room.rect;
         if (!Array.isArray(r) || r.length !== 4 || !r.every(isFiniteNum)) err(`${rpath}.rect`, 'rect must be [x, y, w, h]');
@@ -137,6 +179,17 @@ function validate(project, library) {
       if (!isPoint(item.at)) err(`${ipath}.at`, 'at must be an [x, y] pair');
       if (item.room != null && !roomIds.has(item.room)) {
         warn(`${ipath}.room`, `references room "${item.room}", which does not exist on floor "${floor.id}" — the item keeps its own position either way`);
+      }
+      /* A scheme that is neither shipped nor carried by this document leaves
+       * the item drawing in the theme with nothing saying why — the same
+       * failure a missing flooring key used to have. A warning rather than an
+       * error: the plan still renders, and refusing to save the whole project
+       * over one stale colour name would be worse than saying so. */
+      if (item.scheme != null) {
+        if (typeof item.scheme !== 'string') err(`${ipath}.scheme`, 'scheme must be the id of a colour scheme');
+        else if (!schemeIds.has(item.scheme) && !SHIPPED_SCHEMES.has(item.scheme)) {
+          warn(`${ipath}.scheme`, `names colour scheme "${item.scheme}", which is neither shipped nor in project.schemes — the item draws in the theme instead`);
+        }
       }
     });
   });

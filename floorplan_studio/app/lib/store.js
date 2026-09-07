@@ -16,6 +16,7 @@ const path = require('path');
 const VERSION = '0.0.1';
 const DEFAULTS_DIR = path.join(__dirname, '..', 'defaults');
 const DATA_DIR = process.env.FPS_DATA_DIR || path.join(__dirname, '..', 'data');
+const registryListeners = new Set();
 
 /* Whoever else changed the project — a human's autosave, or an MCP tool call
  * from an AI driving the plan — the editor's live view needs to know a new
@@ -224,7 +225,23 @@ function upgradeDoc(key, doc) {
     }
   }
   if (key === 'library') added.push(...fillTypeGaps(doc, fresh));
-  if (key === 'flooring') added.push(...fillFlooringReflectance(doc, fresh));
+  if (key === 'flooring') {
+    added.push(...fillFlooringReflectance(doc, fresh));
+    // An existing options table must learn new generators and fields as well
+    // as new finishes; otherwise an upgrade can draw them but cannot edit them.
+    for (const [generator, specs] of Object.entries(fresh.generatorOptions || {})) {
+      if (doc.generatorOptions[generator] === undefined) {
+        doc.generatorOptions[generator] = specs;
+        added.push('generatorOptions:' + generator);
+      } else if (Array.isArray(doc.generatorOptions[generator])) {
+        const have = new Set(doc.generatorOptions[generator].map((s) => s.key));
+        for (const spec of specs) if (!have.has(spec.key)) {
+          doc.generatorOptions[generator].push(spec);
+          added.push(generator + '.' + spec.key);
+        }
+      }
+    }
+  }
   // A schema rename touches every entry in the document, and 250 comma-separated
   // notes in the app log is not a report, it is a wall. Name the first few
   // and count the rest.
@@ -555,6 +572,20 @@ module.exports = {
   onProjectChange,
 
   readLibrary: () => readDoc('library'),
+  onRegistryChange(fn) { registryListeners.add(fn); return () => registryListeners.delete(fn); },
+  editRegistry(name, edit) {
+    if (!['library', 'themes', 'flooring', 'boundaries', 'controls'].includes(name)) throw new Error('unknown registry');
+    const file = path.join(DATA_DIR, FILES[name]);
+    // Read inside the same file queue as writes, so concurrent agent patches
+    // compose instead of each saving a stale full copy.
+    return enqueue(file, async () => {
+      const doc = upgradeDoc(name, JSON.parse(await fsp.readFile(file, 'utf8')));
+      await edit(doc);
+      await rawWriteAtomic(file, doc);
+      for (const fn of registryListeners) { try { fn(name); } catch {} }
+      return doc;
+    });
+  },
   writeLibrary(lib) {
     if (!lib || typeof lib.types !== 'object') throw new Error('library.types must be an object');
     return writeAtomic(path.join(DATA_DIR, FILES.library), lib);

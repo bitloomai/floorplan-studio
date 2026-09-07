@@ -93,7 +93,7 @@ window.PanelsDashboard = (function () {
         h('button', { class: 'btn', onclick: () => Panels.closeModal() }, 'Cancel')),
       status);
 
-    Panels.modal('Generate dashboard', body);
+    Panels.modal('Generate dashboard', body, { help: 'dialog:dashboard', rebuild: dashboardDialog });
 
     const opts = () => ({
       title: titleIn.value.trim() || 'Home Plan',
@@ -284,9 +284,26 @@ window.PanelsDashboard = (function () {
       onclick: () => { Store.mutate(() => { stats.push({ icon: 'energy', format: 'power' }); }, 'stat'); redraw(); },
     }, '+ stat'));
 
+    /* Which of the house's shortcuts reach this card.
+     *
+     * `showAllShortcuts` has always been read by card-overview and was
+     * settable nowhere. Off, the card carries only what asked to be there — a
+     * shortcut in the header slot or written on the house itself; on, it
+     * carries every shortcut in the plan, which is the right answer for a
+     * single wall tablet and the wrong one for a phone. */
+    body.appendChild(h('div', { class: 'subhead' }, 'Shortcuts'));
+    body.appendChild(h('label', { class: 'inline' }, h('input', {
+      type: 'checkbox', checked: !!hc.showAllShortcuts,
+      onchange: (e) => Store.mutate(() => { hc.showAllShortcuts = e.target.checked || undefined; }, 'house shortcuts'),
+    }), ' Show every shortcut in the plan, not just the house’s own'));
+    body.appendChild(h('p', { class: 'hint' },
+      'Off, this card carries the shortcuts written on the house and any placed in a header '
+      + 'slot. On, a room’s own shortcuts appear here too — useful on one wall-mounted tablet, '
+      + 'crowded on a phone.'));
+
     body.appendChild(h('div', { class: 'subhead' }, ' '));
     body.appendChild(h('button', { class: 'btn', onclick: () => { Panels.closeModal(); dashboardDialog(); } }, '← back'));
-    Panels.modal('House card', body);
+    Panels.modal('House card', body, { help: 'dialog:house-card', rebuild: houseCardDialog });
   }
 
   /* The common row stays compact; the less common behaviour lives here rather
@@ -504,6 +521,58 @@ window.PanelsDashboard = (function () {
     body.appendChild(h('p', { class: 'hint' },
       'Name, state, brightness or speed. Never shown on a touch screen, where there is no hover and the tip would sit under your thumb.'));
 
+    /* How a room's popup opens and closes.
+     *
+     * These are house-level CONTROLS settings, not dashboard ones — they layer
+     * house → floor → room like everything else in that model — so they are
+     * written to the project's own `openOn`/`dismiss` rather than to
+     * `dashboard`. They live in this dialog because "what does tapping a room
+     * do" is a behaviour question, and this is the behaviour dialog.
+     *
+     * Every one of them shipped as a default the card read from nowhere. */
+    const defOpen = ((S.controls || {}).default || {}).openOn || {};
+    const defDismiss = ((S.controls || {}).default || {}).dismiss || {};
+    const openOn = S.project.openOn || {};
+    const dismiss = S.project.dismiss || {};
+    const setGroup = (group, key, value) => Store.mutate(() => {
+      S.project[group] = Object.assign({}, S.project[group], { [key]: value });
+    }, group);
+    const flag = (group, cur, def, key, label, hint) => {
+      body.appendChild(h('label', { class: 'inline', style: 'display:flex' }, h('input', {
+        type: 'checkbox', checked: cur[key] !== undefined ? cur[key] !== false : def[key] !== false,
+        onchange: (e) => setGroup(group, key, e.target.checked),
+      }), ' ' + label));
+      if (hint) body.appendChild(h('p', { class: 'hint' }, hint));
+    };
+
+    body.appendChild(h('div', { class: 'subhead' }, 'Opening a room’s popup'));
+    flag('openOn', openOn, defOpen, 'chipTap', 'Tapping a room’s name opens it',
+      'The name chip is its own tap target, separate from the floor around it.');
+    flag('openOn', openOn, defOpen, 'floorTap', 'Tapping anywhere in the room opens it',
+      'Turn this off on a plan you mostly pan around, so a stray thumb on the floor does not open a sheet. '
+      + 'Leave at least one of these two on, or nothing opens the popup.');
+    body.appendChild(field('Holding a room', h('select', {
+      onchange: (e) => setGroup('openOn', 'chipHold', e.target.value || null),
+    },
+    h('option', { value: 'allOn', selected: (openOn.chipHold ?? defOpen.chipHold) === 'allOn' }, 'Turns everything on'),
+    h('option', { value: '', selected: (openOn.chipHold ?? defOpen.chipHold) !== 'allOn' }, 'Opens the popup, same as a tap')),
+    'A long press is the one place worth a shortcut past the sheet.'));
+    body.appendChild(field('Holding a marker', h('select', {
+      onchange: (e) => setGroup('openOn', 'markerHold', e.target.value),
+    },
+    ...[['moreInfo', 'Opens its Home Assistant dialog'], ['controls', 'Opens its room’s popup'], ['none', 'Does nothing']]
+      .map(([v, l]) => h('option', { value: v, selected: (openOn.markerHold || defOpen.markerHold || 'moreInfo') === v }, l))),
+    'On a wall tablet, “does nothing” stops a resting hand opening dialogs.'));
+
+    body.appendChild(h('div', { class: 'subhead' }, 'Closing it again'));
+    flag('dismiss', dismiss, defDismiss, 'retap', 'Tapping the same room again closes it');
+    flag('dismiss', dismiss, defDismiss, 'backdrop', 'Tapping outside it closes it');
+    flag('dismiss', dismiss, defDismiss, 'escape', 'Escape closes it');
+    flag('dismiss', dismiss, defDismiss, 'grabBar', 'Tapping the sheet’s handle closes it',
+      'The handle is still drawn either way — it is what shows the sheet’s top edge.');
+    flag('dismiss', dismiss, defDismiss, 'close', 'Offer a Close button in the popup header',
+      'Only worth turning off when something else here can still dismiss it.');
+
     body.appendChild(h('div', { class: 'subhead' }, 'Your own CSS'));
     body.appendChild(h('p', { class: 'hint' },
       'Appended to the cards’ own stylesheet, inside their shadow root — it styles these cards and can reach nothing else on the dashboard. '
@@ -529,7 +598,7 @@ window.PanelsDashboard = (function () {
 
     body.appendChild(h('div', { class: 'subhead' }, ' '));
     body.appendChild(h('button', { class: 'btn', onclick: () => { Panels.closeModal(); dashboardDialog(); } }, '← back'));
-    Panels.modal('Appearance & behaviour', body);
+    Panels.modal('Appearance & behaviour', body, { help: 'dialog:appearance', rebuild: appearanceDialog });
   }
 
   /* ------------------------------------------------------- floor cards --- */
@@ -576,7 +645,7 @@ window.PanelsDashboard = (function () {
 
     body.appendChild(h('div', { class: 'subhead' }, ' '));
     body.appendChild(h('button', { class: 'btn', onclick: () => { Panels.closeModal(); dashboardDialog(); } }, '← back'));
-    Panels.modal('Floor cards', body);
+    Panels.modal('Floor cards', body, { help: 'dialog:floor-cards', rebuild: floorCardDialog });
   }
 
   function lightingDialog() {
@@ -664,8 +733,15 @@ window.PanelsDashboard = (function () {
      * and whether the room name carries a live count. They were reachable only
      * by hand-editing project.json or going through MCP. They are here rather
      * than in the main list because a house needs none of them to look right —
-     * which is exactly what the Advanced toggle is for. */
-    if (S.advanced) {
+     * which is exactly what the Advanced toggle is for.
+     *
+     * The tick is in this dialog's own header as well as the top bar, because
+     * the top bar is COVERED while a dialog is open, and the shared
+     * `adv`/`note` pair says what is being withheld when it is off — the same
+     * words the panels use, from one implementation. */
+    const A = Panels.dialogAdvanced();
+    body.appendChild(Panels.locationTitle('section:lighting.model'));
+    A.adv(body, () => {
       const setIn = (group, key, value) => Store.mutate(() => {
         S.project.lighting = S.project.lighting || {};
         S.project.lighting[group] = Object.assign({}, S.project.lighting[group] || cfg[group], { [key]: value });
@@ -743,10 +819,40 @@ window.PanelsDashboard = (function () {
           onchange: (e) => setChip('hideWhenAtMost', Number(e.target.value)),
         }), 'lamps. “1 of 1 on” tells you nothing the marker beside it does not. Any room can override this in its own panel.'),
       );
-    }
+
+      /* Named rooms, rather than a rule of thumb.
+       *
+       * `chips.hideRooms` is a list of room ids the count never appears on —
+       * a bath, a balcony, anything whose lamps are on a schedule you do not
+       * want reported at you. The renderer has always read it; nothing could
+       * write it. Drawn as one tick per room across the whole house, because
+       * the alternative is asking somebody to type room ids. */
+      const hidden = new Set(chips.hideRooms || []);
+      const rooms = (S.project.floors || []).flatMap((f) => (f.rooms || [])
+        .filter((r) => !r.part_of)
+        .map((r) => ({ id: r.id, label: `${r.name || r.id}` , floor: f.name || f.id })));
+      body.append(h('div', { class: 'subhead' }, 'Advanced — rooms that never show a count'));
+      if (!rooms.length) {
+        body.append(h('p', { class: 'hint' }, 'No rooms yet.'));
+      } else {
+        const grid = h('div', { class: 'option-grid' });
+        for (const r of rooms) {
+          grid.append(h('label', { class: 'inline', title: r.floor }, h('input', {
+            type: 'checkbox', checked: hidden.has(r.id),
+            onchange: (e) => {
+              if (e.target.checked) hidden.add(r.id); else hidden.delete(r.id);
+              setChip('hideRooms', [...hidden]);
+            },
+          }), ' ' + r.label));
+        }
+        body.append(grid, h('p', { class: 'hint' },
+          'A room’s own “show count” setting still wins over this, in both directions.'));
+      }
+    });
+    A.note(body, 'light zones, floor bounce, the glow pool, what an unspecified fitting counts as, and the room name chips');
 
     describe();
-    Panels.modal('Lighting', body);
+    Panels.modal(null, body, { location: 'dialog:lighting', rebuild: lightingDialog });
   }
 
   return { dashboardDialog, lightingDialog, houseCardDialog, floorCardDialog, appearanceDialog };

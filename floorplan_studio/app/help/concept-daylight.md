@@ -4,7 +4,7 @@ title: Daylight
 summary: Where the sun is, how much of it reaches each room, and what the plan needs from you to know.
 category: light
 tags: sun, daylight, daylight, transmission, weather, solar
-applies: concept:daylight, dialog:sun, section:floor.sun
+applies: concept:daylight, dialog:sun, section:floor.sun, section:sun.model, section:room.daylight
 see: concept-units, walls-boundaries, concept-artificial-light
 order: 40
 ---
@@ -39,3 +39,38 @@ You can also bind a **solar production sensor** — but note it can only ever pu
 the estimate *down*. A quiet inverter is evidence of cloud; a busy one is not
 evidence of extra sun, and letting it brighten things would make the plan lie on
 a cold clear morning.
+
+## Per-room glazing (Advanced)
+
+"Enough glass" is a judgement about a room, not about a house: a stairwell and a
+living room with identical glazed-to-floor ratios are not equally well lit in
+practice. A room can carry its own **fully-daylit glazing ratio**; left blank it
+inherits the house's.
+
+An outdoor room ignores it entirely — it is lit from above and takes the
+open-sky share instead.
+
+## The daylight model (Advanced)
+
+The constants the model runs on, none of which a house needs to touch:
+
+- **the ambient wash** — the darkest a lit room gets at night, the brightest by
+  day, the share a room with no glazing of its own still receives, and how much
+  sky an outdoor room takes.
+- **the sky curve** — how sky strength follows the sun's elevation. It peaks
+  well before the zenith on purpose: a plan cares how much light gets *through*
+  a window, and a high sun enters a vertical opening at a poor angle.
+- **sun patches** — the geometry of the beam a window throws on the floor.
+
+They are behind **Advanced** because "never needs to" is not "cannot".
+
+## What the weather does to the sky (Advanced)
+
+With a weather entity set, each condition it can report carries a multiplier:
+1 is a clear sky at full strength, and a third of that is heavy overcast. They
+are listed in the Sun dialog under Advanced, one row per condition the model
+knows, and only a changed one is stored — so the rest keep tracking the shipped
+values as those improve.
+
+With no weather entity, none of them apply and the single fallback beside the
+entity picker is used for everything.

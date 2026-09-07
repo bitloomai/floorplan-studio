@@ -103,18 +103,72 @@
       return n;
     },
 
-    /* Back, two arms, seat cushions. */
+    /* Back, two arms, seat cushions.
+     *
+     * `variant` is the SHAPE of the piece, never its size: a bench-seat sofa
+     * has one continuous cushion where a straight one has divisions, a
+     * chesterfield has rolled arms, a daybed has one arm because it is meant to
+     * stand against a wall, and a curved sofa's back is an arc. An item that
+     * names no look draws exactly what this function drew before looks existed,
+     * so nothing already on a plan is repainted. */
     sofa(c) {
+      const v = c.p.variant || 'straight';
       const back = Math.min(c.H * 0.3, c.P.S(0.7));
       const arm = Math.min(c.W * 0.14, c.P.S(0.7));
-      const n = [{ tag: 'rect', attrs: frame(c, { rx: 4 }) }];
-      n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: back, rx: 3, fill: c.line, opacity: 0.32 } });
-      n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: arm, height: c.H, rx: 3, fill: c.line, opacity: 0.26 } });
-      n.push({ tag: 'rect', attrs: { x: c.X + c.W - arm, y: c.Y, width: arm, height: c.H, rx: 3, fill: c.line, opacity: 0.26 } });
       const seats = Math.max(1, Math.round(num(c.p.seats, (c.p.w || 6) / 2.2)));
+      const pad = (x, y, w, h, o, rx) => ({ tag: 'rect', attrs: { x, y, width: w, height: h, rx: rx === undefined ? 3 : rx, fill: c.line, opacity: o } });
+
+      if (v === 'curved') {
+        /* Two parallel quadratics, one control point apart, so the back reads
+         * as a band of even thickness rather than as a crescent. */
+        const bow = Math.min(c.H * 0.34, c.P.S(0.9));
+        const kx = c.X + c.W / 2, ky = c.Y - bow * 0.5;
+        const n = [{ tag: 'path', attrs: { d: `M ${c.X} ${c.Y + c.H} L ${c.X} ${c.Y + bow} Q ${kx} ${ky} ${c.X + c.W} ${c.Y + bow} L ${c.X + c.W} ${c.Y + c.H} Z`, fill: c.fill, stroke: c.line, 'stroke-width': 1.2, 'stroke-linejoin': 'round' } }];
+        n.push({ tag: 'path', attrs: { d: `M ${c.X} ${c.Y + bow} Q ${kx} ${ky} ${c.X + c.W} ${c.Y + bow} L ${c.X + c.W} ${c.Y + bow + back} Q ${kx} ${ky + back} ${c.X} ${c.Y + bow + back} Z`, fill: c.line, opacity: 0.3 } });
+        for (let i = 1; i < seats; i++) {
+          const x = c.X + (c.W * i) / seats;
+          n.push({ tag: 'line', attrs: { x1: x, y1: c.Y + bow + back, x2: x, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1 } });
+        }
+        return n;
+      }
+
+      const n = [{ tag: 'rect', attrs: frame(c, { rx: v === 'chesterfield' ? 7 : 4 }) }];
+      n.push(pad(c.X, c.Y, c.W, back, 0.32));
+      /* A chesterfield's arms are rolled and as tall as its back, which is the
+       * whole silhouette; every other sofa's are lower and squarer. */
+      const aw = v === 'chesterfield' ? Math.min(c.W * 0.17, c.P.S(0.85)) : arm;
+      if (v !== 'armless') {
+        n.push(pad(c.X, c.Y, aw, c.H, 0.26, v === 'chesterfield' ? 6 : 3));
+        if (v !== 'daybed') n.push(pad(c.X + c.W - aw, c.Y, aw, c.H, 0.26, v === 'chesterfield' ? 6 : 3));
+      }
+      const inner = v === 'armless' ? 0 : aw;
+      const left = c.X + inner;
+      const right = c.X + c.W - (v === 'daybed' || v === 'armless' ? 0 : inner);
+
+      if (v === 'bench_seat' || v === 'daybed') {
+        /* One cushion, drawn as an outline rather than as divisions: the point
+         * of a stretched seat is that there are no seams in it. */
+        const g = c.P.S(0.12);
+        n.push({ tag: 'rect', attrs: { x: left + g, y: c.Y + back + g, width: Math.max(1, right - left - g * 2), height: Math.max(1, c.H - back - g * 2), rx: 4, fill: 'none', stroke: c.line, 'stroke-width': 1 } });
+        /* The bolster a daybed carries against its single arm — it is what
+         * tells one from a sofa that has simply lost an arm. */
+        if (v === 'daybed' && inner > 0) n.push(pad(left + g, c.Y + back + g * 2, Math.max(1, inner * 0.8), Math.max(1, c.H - back - g * 4), 0.34, 4));
+        return n;
+      }
+
       for (let i = 1; i < seats; i++) {
-        const x = c.X + arm + ((c.W - arm * 2) * i) / seats;
+        const x = left + ((right - left) * i) / seats;
         n.push({ tag: 'line', attrs: { x1: x, y1: c.Y + back, x2: x, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1 } });
+      }
+      /* Deep buttoning, the other half of a chesterfield's identity. On the
+       * seat only, because the back is already a solid band here. */
+      if (v === 'chesterfield') {
+        const cols = Math.max(2, seats * 2), rows = 2;
+        for (let r = 0; r < rows; r++) {
+          for (let i = 0; i < cols; i++) {
+            n.push({ tag: 'circle', attrs: { cx: left + ((right - left) * (i + 0.5)) / cols, cy: c.Y + back + ((c.H - back) * (r + 0.5)) / rows, r: 1.1, fill: c.line, opacity: 0.5 } });
+          }
+        }
       }
       return n;
     },
@@ -130,40 +184,116 @@
     },
 
     /* L-shaped seating needs its actual footprint; a straight sofa with a
-     * different label is actively misleading when laying out a room. */
+     * different label is actively misleading when laying out a room.
+     *
+     * Which way the return goes is the thing a plan has to get right, so it is
+     * a look rather than a rotation: furniture `at` is the TOP-LEFT corner, and
+     * a rotated L has a bounding box neither the document nor `audit-plan.js`
+     * can describe. `l_left` is what this drew before looks existed and stays
+     * the fallback for an item that names none. */
     sectional(c) {
+      const v = c.p.variant || 'l_left';
       const back = Math.min(c.H * 0.22, c.P.S(0.7));
       const returnW = Math.max(c.W * 0.3, c.P.S(2));
-      const d = `M ${c.X} ${c.Y} H ${c.X + c.W} V ${c.Y + c.H * 0.48} H ${c.X + returnW} V ${c.Y + c.H} H ${c.X} Z`;
+      const runY = c.Y + c.H * 0.48;
+      const armW = Math.min(returnW * 0.28, back);
+      const seats = Math.max(2, Math.round(num(c.p.seats, 4)));
+      const pad = (x, y, w, h, o) => ({ tag: 'rect', attrs: { x, y, width: w, height: h, rx: 3, fill: c.line, opacity: o } });
+      const seam = (x, y1, y2) => ({ tag: 'line', attrs: { x1: x, y1, x2: x, y2, stroke: c.line, 'stroke-width': 1 } });
+      const shell = (d) => ({ tag: 'path', attrs: { d, fill: c.fill, stroke: c.line, 'stroke-width': 1.2, 'stroke-linejoin': 'round' } });
+
+      if (v === 'modular') {
+        /* No arms, and module seams the full depth of the piece: a modular run
+         * is separate pieces pushed together, and whether they fit as separate
+         * pieces is exactly what you are checking when you lay one out. */
+        const n = [{ tag: 'rect', attrs: frame(c, { rx: 3 }) }];
+        for (let i = 0; i < seats; i++) {
+          const x = c.X + (c.W * i) / seats;
+          n.push(pad(x + 1.5, c.Y + 1.5, Math.max(1, c.W / seats - 3), Math.max(1, back - 1.5), 0.3));
+          if (i) n.push(seam(x, c.Y, c.Y + c.H));
+        }
+        return n;
+      }
+
+      if (v === 'u_shaped') {
+        const d = `M ${c.X} ${c.Y} H ${c.X + c.W} V ${c.Y + c.H} H ${c.X + c.W - returnW} V ${runY} H ${c.X + returnW} V ${c.Y + c.H} H ${c.X} Z`;
+        const n = [shell(d), pad(c.X, c.Y, c.W, back, 0.3),
+          pad(c.X, c.Y, armW, c.H, 0.26), pad(c.X + c.W - armW, c.Y, armW, c.H, 0.26),
+          seam(c.X + returnW, c.Y + back, runY), seam(c.X + c.W - returnW, c.Y + back, runY)];
+        const middle = Math.max(1, seats - 2);
+        for (let i = 1; i < middle; i++) n.push(seam(c.X + returnW + ((c.W - returnW * 2) * i) / middle, c.Y + back, runY));
+        return n;
+      }
+
+      if (v === 'chaise') {
+        /* A chaise has no arm at its foot — that open end is what you put your
+         * legs on, and it is the only thing that tells a chaise-end sofa from a
+         * corner unit once both are flattened into plan. */
+        const d = `M ${c.X} ${c.Y} H ${c.X + c.W} V ${runY} H ${c.X + returnW} V ${c.Y + c.H} H ${c.X} Z`;
+        const g = c.P.S(0.12);
+        const n = [shell(d), pad(c.X, c.Y, c.W, back, 0.3), pad(c.X + c.W - armW, c.Y, armW, runY - c.Y, 0.26),
+          { tag: 'rect', attrs: { x: c.X + g, y: c.Y + back + g, width: Math.max(1, returnW - g * 2), height: Math.max(1, c.H - back - g * 2), rx: 4, fill: 'none', stroke: c.line, 'stroke-width': 1 } }];
+        const onArm = Math.max(1, seats - 1);
+        for (let i = 1; i < onArm; i++) n.push(seam(c.X + returnW + ((c.W - returnW) * i) / onArm, c.Y + back, runY));
+        return n;
+      }
+
+      /* `l_left` (the default) and its mirror. One set of coordinates read
+       * through `fx`, so the two cannot drift into different drawings. */
+      const rightHanded = v === 'l_right';
+      const fx = (x) => (rightHanded ? c.X + c.W - (x - c.X) : x);
+      const d = rightHanded
+        ? `M ${c.X + c.W} ${c.Y} H ${c.X} V ${runY} H ${c.X + c.W - returnW} V ${c.Y + c.H} H ${c.X + c.W} Z`
+        : `M ${c.X} ${c.Y} H ${c.X + c.W} V ${runY} H ${c.X + returnW} V ${c.Y + c.H} H ${c.X} Z`;
       const n = [
-        { tag: 'path', attrs: { d, fill: c.fill, stroke: c.line, 'stroke-width': 1.2, 'stroke-linejoin': 'round' } },
-        { tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: back, rx: 3, fill: c.line, opacity: 0.3 } },
-        { tag: 'rect', attrs: { x: c.X, y: c.Y, width: Math.min(returnW * 0.28, back), height: c.H, rx: 3, fill: c.line, opacity: 0.26 } },
-        { tag: 'line', attrs: { x1: c.X + returnW, y1: c.Y + back, x2: c.X + returnW, y2: c.Y + c.H * 0.48, stroke: c.line, 'stroke-width': 1 } },
+        shell(d),
+        pad(c.X, c.Y, c.W, back, 0.3),
+        pad(rightHanded ? c.X + c.W - armW : c.X, c.Y, armW, c.H, 0.26),
+        seam(fx(c.X + returnW), c.Y + back, runY),
       ];
       /* Seat divisions along the long run. `seats` counts the WHOLE piece,
        * including the one on the return, which is how a sectional is sold —
        * so the long arm carries the rest. It was declared and drawn as two
        * fixed lines regardless, which made a four-seater and an eight-seater
        * the same picture. */
-      const seats = Math.max(2, Math.round(num(c.p.seats, 4)));
       const onArm = Math.max(1, seats - 1);
-      for (let i = 1; i < onArm; i++) {
-        const x = c.X + returnW + ((c.W - returnW) * i) / onArm;
-        n.push({ tag: 'line', attrs: { x1: x, y1: c.Y + back, x2: x, y2: c.Y + c.H * 0.48, stroke: c.line, 'stroke-width': 1 } });
-      }
+      for (let i = 1; i < onArm; i++) n.push(seam(fx(c.X + returnW + ((c.W - returnW) * i) / onArm), c.Y + back, runY));
       return n;
     },
 
+    /* A recliner suite: one to three seats, with or without the drinks
+     * consoles between them.
+     *
+     * The seat count is a LOOK rather than a number, because it changes the
+     * footprint and not merely the picture — a three-seat suite is eight feet
+     * of wall where a single chair is three and a half, and a console adds most
+     * of another seat's width. Each seat draws its own headrest, arms and
+     * footrest arc, so neighbouring seats share an arm the way the real
+     * furniture does, and a one-seat suite is the chair this drew before. */
     recliner(c) {
-      const cx = c.X + c.W / 2;
-      return [
-        { tag: 'rect', attrs: frame(c, { rx: Math.min(c.W, c.H) * 0.18 }) },
-        { tag: 'rect', attrs: { x: c.X + c.W * 0.08, y: c.Y + c.H * 0.05, width: c.W * 0.84, height: c.H * 0.3, rx: 4, fill: c.line, opacity: 0.3 } },
-        { tag: 'rect', attrs: { x: c.X, y: c.Y + c.H * 0.25, width: c.W * 0.17, height: c.H * 0.5, rx: 3, fill: c.line, opacity: 0.24 } },
-        { tag: 'rect', attrs: { x: c.X + c.W * 0.83, y: c.Y + c.H * 0.25, width: c.W * 0.17, height: c.H * 0.5, rx: 3, fill: c.line, opacity: 0.24 } },
-        { tag: 'path', attrs: { d: `M ${c.X + c.W * 0.18} ${c.Y + c.H * 0.7} Q ${cx} ${c.Y + c.H * 0.78} ${c.X + c.W * 0.82} ${c.Y + c.H * 0.7} L ${c.X + c.W * 0.75} ${c.Y + c.H * 0.96} H ${c.X + c.W * 0.25} Z`, fill: 'none', stroke: c.line, 'stroke-width': 1 } },
-      ];
+      const v = c.p.variant || 'single';
+      const seats = v === 'two_seat' || v === 'console_two' ? 2
+        : (v === 'three_seat' || v === 'console_three' ? 3 : 1);
+      const consoles = v === 'console_two' ? 1 : (v === 'console_three' ? 2 : 0);
+      /* A console is a little under half a seat wide, which is what makes a
+       * two-seat-plus-console suite nearly as wide as a plain three. */
+      const seatW = c.W / (seats + consoles * 0.42);
+      const n = [{ tag: 'rect', attrs: frame(c, { rx: Math.min(c.W, c.H) * 0.18 }) }];
+      let x = c.X;
+      for (let i = 0; i < seats; i++) {
+        n.push({ tag: 'rect', attrs: { x: x + seatW * 0.08, y: c.Y + c.H * 0.05, width: seatW * 0.84, height: c.H * 0.3, rx: 4, fill: c.line, opacity: 0.3 } });
+        n.push({ tag: 'rect', attrs: { x, y: c.Y + c.H * 0.25, width: seatW * 0.17, height: c.H * 0.5, rx: 3, fill: c.line, opacity: 0.24 } });
+        n.push({ tag: 'rect', attrs: { x: x + seatW * 0.83, y: c.Y + c.H * 0.25, width: seatW * 0.17, height: c.H * 0.5, rx: 3, fill: c.line, opacity: 0.24 } });
+        n.push({ tag: 'path', attrs: { d: `M ${x + seatW * 0.18} ${c.Y + c.H * 0.7} Q ${x + seatW / 2} ${c.Y + c.H * 0.78} ${x + seatW * 0.82} ${c.Y + c.H * 0.7} L ${x + seatW * 0.75} ${c.Y + c.H * 0.96} H ${x + seatW * 0.25} Z`, fill: 'none', stroke: c.line, 'stroke-width': 1 } });
+        x += seatW;
+        if (i < consoles) {
+          const cw = seatW * 0.42;
+          n.push({ tag: 'rect', attrs: { x, y: c.Y + c.H * 0.1, width: cw, height: c.H * 0.72, rx: 3, fill: c.line, opacity: 0.2 } });
+          n.push({ tag: 'line', attrs: { x1: x + cw * 0.18, y1: c.Y + c.H * 0.46, x2: x + cw * 0.82, y2: c.Y + c.H * 0.46, stroke: c.line, 'stroke-width': 1 } });
+          x += cw;
+        }
+      }
+      return n;
     },
 
     /* Table with chairs tucked around it — reads as "dining" instantly. */
@@ -2166,6 +2296,19 @@
         /* Leaf fans are intentionally widest through the middle rather than
          * at the tip; this is a plan-view leaf, not a generic fat airfoil. */
         d = `M ${c.cx - c.R * 0.07} ${c.cy - c.R * 0.13} C ${c.cx - c.R * 0.35} ${c.cy - c.R * 0.36} ${c.cx - c.R * 0.43} ${c.cy - c.R * 0.7} ${c.cx - c.R * 0.15} ${c.cy - c.R * 0.96} Q ${c.cx} ${c.cy - c.R * 1.08} ${c.cx + c.R * 0.16} ${c.cy - c.R * 0.95} C ${c.cx + c.R * 0.43} ${c.cy - c.R * 0.69} ${c.cx + c.R * 0.34} ${c.cy - c.R * 0.35} ${c.cx + c.R * 0.07} ${c.cy - c.R * 0.13} Z`;
+      } else if (shape === 'broad') {
+        /* The wide swept blade of a fan built around a light: the motor is
+         * small because the lamp is what hangs below it, and the blades are
+         * correspondingly generous. Same reach as the standard airfoil — the
+         * sweep is a real measurement in feet and must not drift — but close
+         * to half as wide again through its outer third. */
+        d = `M ${c.cx - c.R * 0.09} ${c.cy - c.R * 0.13} C ${c.cx - c.R * 0.14} ${c.cy - c.R * 0.36} ${c.cx - c.R * 0.42} ${c.cy - c.R * 0.64} ${c.cx - c.R * 0.31} ${c.cy - c.R * 0.87} C ${c.cx - c.R * 0.23} ${c.cy - c.R * 1.02} ${c.cx + c.R * 0.1} ${c.cy - c.R * 1.02} ${c.cx + c.R * 0.18} ${c.cy - c.R * 0.89} C ${c.cx + c.R * 0.25} ${c.cy - c.R * 0.67} ${c.cx + c.R * 0.1} ${c.cy - c.R * 0.36} ${c.cx + c.R * 0.09} ${c.cy - c.R * 0.13} Z`;
+      } else if (shape === 'plank') {
+        /* A flat plank with squared corners and almost parallel edges. The
+         * BLDC fans that are now the default fitting in new houses here are
+         * pressed sheet rather than a moulded aerofoil, and in plan that reads
+         * as a straight-sided blade with a cut end, not a petal. */
+        d = `M ${c.cx - c.R * 0.09} ${c.cy - c.R * 0.15} L ${c.cx - c.R * 0.125} ${c.cy - c.R * 0.97} L ${c.cx + c.R * 0.125} ${c.cy - c.R * 0.97} L ${c.cx + c.R * 0.09} ${c.cy - c.R * 0.15} Z`;
       } else if (shape === 'industrial') {
         /* Narrow stamped-metal wings, with a slight rake and clipped end. */
         d = `M ${c.cx - c.R * 0.055} ${c.cy - c.R * 0.13} L ${c.cx - c.R * 0.13} ${c.cy - c.R * 0.91} L ${c.cx - c.R * 0.04} ${c.cy - c.R} L ${c.cx + c.R * 0.1} ${c.cy - c.R * 0.94} L ${c.cx + c.R * 0.055} ${c.cy - c.R * 0.13} Z`;
@@ -2205,6 +2348,46 @@
     scimitar3: (c) => [bladeGroup(c, 3, 'scimitar'), mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.2, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }), dot(c, c.cx, c.cy, c.R * 0.08, c.line)],
     tropical3: (c) => [bladeGroup(c, 3, 'tropical'), mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.24, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }), dot(c, c.cx, c.cy, c.R * 0.1, c.line)],
     industrial4: (c) => [bladeGroup(c, 4, 'industrial'), mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.17, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }), dot(c, c.cx, c.cy, c.R * 0.07, c.line)],
+    /* Straight planks and a ring of indicator LEDs under the motor: the BLDC
+     * fan almost every new house here is fitted with. The ring is not
+     * decoration — it is lit whenever the fan is, so it is drawn in the accent
+     * when running and in the glyph colour when it is not, which is also what
+     * makes this look read as ON from across a plan. */
+    plank3: (c) => {
+      const n = [bladeGroup(c, 3, 'plank'), mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.26, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 })];
+      for (let i = 0; i < 6; i++) {
+        const a = ((c.facing + i * 60) * Math.PI) / 180;
+        n.push(dot(c, c.cx + Math.cos(a) * c.R * 0.15, c.cy + Math.sin(a) * c.R * 0.15, c.R * 0.045, c.on ? c.accent : c.glyph));
+      }
+      return n;
+    },
+    /* A fan with the light built into it, which is a different object from a
+     * fan hung beside a separate fitting: one motor, one canopy, and the lamp
+     * under the hub rather than next to it. The disc carries `bright` for the
+     * same reason a lamp marker's bulbs do — a fan light dimmed to a fifth
+     * should not draw as brightly as one at full. */
+    lightkit3: (c) => [
+      /* Broad blades and a SMALL head. The first cut of this look gave it the
+       * largest hub of any ceiling fan here — 0.34R against 0.17–0.26 for
+       * every other — which read as a dinner plate with three little wings.
+       * It is the wrong way round: a fan built around a light has a compact
+       * motor precisely because the lamp is what hangs below it. */
+      bladeGroup(c, 3, 'broad'),
+      mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.26, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
+      /* An unlit diffuser is NOT the colour of the housing it sits in — a lens
+       * is opal whatever the fitting is made of, which is why you can still
+       * see where the light is on a black fan in a dark room. Drawing it in
+       * `fill` said the opposite, and a matte-black fan over a night scrim
+       * collapsed into one dark disc: a fan that had stopped reading as a fan.
+       * `contrastOn` derives it from the housing instead, so it is pale on a
+       * dark fan and dark on a pale one and cannot vanish into either. */
+      mk('circle', {
+        cx: c.cx, cy: c.cy, r: c.R * 0.17,
+        fill: c.on ? c.accent : contrastOn(c.fill, 0.5), stroke: c.line, 'stroke-width': 1.1,
+        opacity: c.on ? 0.4 + 0.6 * num(c.bright, 1) : 1,
+      }),
+      dot(c, c.cx, c.cy, c.R * 0.055, c.line),
+    ],
     /* The count field predates the Look grid. Keeping one variable-count look
      * makes that field truthful while the named looks keep recognisable,
      * stable silhouettes. Hand-edited values are clamped where they draw. */
@@ -3418,6 +3601,9 @@
    * copy of the list living in the UI layer. */
   const FURNITURE_VARIANTS = {
     chair: ['dining', 'office', 'stool'],
+    sofa: ['straight', 'bench_seat', 'chesterfield', 'armless', 'daybed', 'curved'],
+    sectional: ['l_left', 'l_right', 'u_shaped', 'chaise', 'modular'],
+    recliner: ['single', 'two_seat', 'three_seat', 'console_two', 'console_three'],
     car: ['sedan', 'suv', 'pickup'],
     pool: ['rectangular', 'oval', 'kidney'],
     grill: ['cart', 'kamado'],
@@ -3450,6 +3636,23 @@
    * size, so choosing a look never silently undoes a size somebody set. */
   const FURNITURE_VARIANT_SIZES = {
     screen: { flat: [4.5, 0.4], curved: [5, 0.8], crt: [3.2, 2], projector: [8, 0.6] },
+    /* Seating, where the look IS the footprint. A three-seat recliner suite is
+     * eight feet of wall and a single chair is three and a half; an L-shaped
+     * sectional is six and a half feet deep where the straight run it shares a
+     * type with is three. Choosing the look and then having to type the size in
+     * is how a plan ends up with a corner sofa drawn as a bench. */
+    sofa: {
+      straight: [6.5, 3], bench_seat: [6.5, 3], chesterfield: [7, 3.2],
+      armless: [5.5, 2.8], daybed: [6.5, 2.8], curved: [7.2, 3.4],
+    },
+    sectional: {
+      l_left: [9, 6.5], l_right: [9, 6.5], u_shaped: [9.5, 8],
+      chaise: [8.5, 5.5], modular: [9, 3.4],
+    },
+    recliner: {
+      single: [3.4, 3.4], two_seat: [5.8, 3.4], three_seat: [8.2, 3.4],
+      console_two: [6.9, 3.4], console_three: [10, 3.4],
+    },
     stairs: {
       straight: [3.5, 10], l_shaped: [7.5, 7.5], u_switchback: [8, 10],
       winder: [7, 7], spiral: [6, 6],
@@ -3482,6 +3685,230 @@
     return (m && m[variant]) || null;
   }
 
+  /* ------------------------------------------------------- colour schemes */
+
+  /* A plan drawn entirely in the theme's furniture grey says where everything
+   * is and nothing about what any of it is made of. A SCHEME paints one object
+   * — a matte-black fan, a teak sideboard, a chrome tap — without touching the
+   * theme, which is the plan's own chrome and has to stay consistent.
+   *
+   * Four colours, and each one answers a different question:
+   *
+   *   fill    the body: the disc of a marker, the whole footprint of furniture
+   *   line    its outline and trim, and the colour every detail drawn AT
+   *           reduced opacity inherits (cushions, arms, shelf edges)
+   *   glyph   the detail strokes drawn INSIDE a marker, at rest
+   *   accent  what it turns when it is live — a BLDC fan's LED ring, the warm
+   *           disc of an integrated downlight, an appliance's status light
+   *
+   * `accent` is not decoration. `plan-scene.js` paints a running marker's rim
+   * with it, so a scheme whose accent equalled its line would make ON and OFF
+   * the same picture — which is the one thing this plan may never do. The
+   * suite pins that for every scheme, default and custom alike.
+   *
+   * Two rules keep the whole feature honest:
+   *
+   *   1. A LIT FIXTURE IS NOT PAINTED. Light beats paint: a lamp that is on
+   *      still draws in the colour it is emitting, whatever its body is made
+   *      of. Same for an unavailable entity, which keeps the dead-entity
+   *      styling it needs to read as dead.
+   *   2. DEFAULTS LIVE IN THE APP, CUSTOM SCHEMES LIVE IN THE DOCUMENT. These
+   *      travel with the renderer, so they reach the editor, the exported SVG
+   *      and the generated card identically and are never written into
+   *      anyone's project. A scheme somebody makes themselves lives on the
+   *      project (`project.schemes`) and travels in the export instead — see
+   *      `resolveScheme` below for which of the two wins.
+   *
+   * The values are read off real fittings and real furniture rather than
+   * invented: the greys are the two finishes a BLDC fan is actually sold in,
+   * the metals are the tap/handle finishes a bathroom is specified in, and the
+   * woods are the ones a carpenter here would name. */
+  const SCHEMES = {
+    /* Additional material palettes are shared by every fixture and furnishing.
+     * They remain independent of shape variants and project-owned colours. */
+    satin_brass: { label: 'Satin brass', group: 'Finish', fill: '#c3a46a', line: '#857048', glyph: '#a08657', accent: '#efc782' },
+    champagne_gold: { label: 'Champagne gold', group: 'Finish', fill: '#d9c398', line: '#948567', glyph: '#b2a07d', accent: '#efc782' },
+    rose_gold: { label: 'Rose gold', group: 'Finish', fill: '#c79787', line: '#87675c', glyph: '#a37c6f', accent: '#efc782' },
+    gunmetal: { label: 'Gunmetal', group: 'Finish', fill: '#575d63', line: '#3b3f43', glyph: '#474c51', accent: '#efc782' },
+    aged_pewter: { label: 'Aged pewter', group: 'Finish', fill: '#92958f', line: '#636561', glyph: '#787a75', accent: '#efc782' },
+    blackened_steel: { label: 'Blackened steel', group: 'Finish', fill: '#343b40', line: '#23282c', glyph: '#2b3034', accent: '#efc782' },
+    aluminium: { label: 'Satin aluminium', group: 'Finish', fill: '#bfc4c6', line: '#828587', glyph: '#9da1a2', accent: '#efc782' },
+    weathered_copper: { label: 'Weathered copper', group: 'Finish', fill: '#739187', line: '#4e635c', glyph: '#5e776f', accent: '#efc782' },
+    dark_bronze: { label: 'Dark bronze', group: 'Finish', fill: '#574d3e', line: '#3b342a', glyph: '#473f33', accent: '#efc782' },
+    enamel_cream: { label: 'Cream enamel', group: 'Finish', fill: '#e5d9bd', line: '#9c9481', glyph: '#bcb29b', accent: '#efc782' },
+    ash: { label: 'Ash', group: 'Wood', fill: '#d3c2a1', line: '#8f846d', glyph: '#ad9f84', accent: '#f5d8a6' },
+    maple: { label: 'Maple', group: 'Wood', fill: '#dec49c', line: '#97856a', glyph: '#b6a180', accent: '#f5d8a6' },
+    birch: { label: 'Birch', group: 'Wood', fill: '#e2cbae', line: '#9a8a76', glyph: '#b9a68f', accent: '#f5d8a6' },
+    cherry: { label: 'Cherry', group: 'Wood', fill: '#aa7050', line: '#744c36', glyph: '#8b5c42', accent: '#f5d8a6' },
+    mahogany: { label: 'Mahogany', group: 'Wood', fill: '#864d3a', line: '#5b3427', glyph: '#6e3f30', accent: '#f5d8a6' },
+    smoked_oak: { label: 'Smoked oak', group: 'Wood', fill: '#8c7761', line: '#5f5142', glyph: '#736250', accent: '#f5d8a6' },
+    bamboo: { label: 'Bamboo', group: 'Wood', fill: '#c9ad79', line: '#897652', glyph: '#a58e63', accent: '#f5d8a6' },
+    reclaimed_pine: { label: 'Reclaimed pine', group: 'Wood', fill: '#b49871', line: '#7a674d', glyph: '#947d5d', accent: '#f5d8a6' },
+    ivory_boucle: { label: 'Ivory bouclé', group: 'Upholstery', fill: '#e4dfd3', line: '#9b988f', glyph: '#bbb7ad', accent: '#e3cda1' },
+    oatmeal_fabric: { label: 'Oatmeal fabric', group: 'Upholstery', fill: '#c5baa7', line: '#867e72', glyph: '#a29989', accent: '#e3cda1' },
+    forest_velvet: { label: 'Forest velvet', group: 'Upholstery', fill: '#365c4b', line: '#253f33', glyph: '#2c4b3e', accent: '#e3cda1' },
+    teal_velvet: { label: 'Teal velvet', group: 'Upholstery', fill: '#386c71', line: '#26494d', glyph: '#2e595d', accent: '#e3cda1' },
+    mustard_fabric: { label: 'Mustard fabric', group: 'Upholstery', fill: '#ba9348', line: '#7e6431', glyph: '#99793b', accent: '#e3cda1' },
+    blush_fabric: { label: 'Blush fabric', group: 'Upholstery', fill: '#c89e94', line: '#886b65', glyph: '#a48279', accent: '#e3cda1' },
+    terracotta_linen: { label: 'Terracotta linen', group: 'Upholstery', fill: '#b57b62', line: '#7b5443', glyph: '#946550', accent: '#e3cda1' },
+    burgundy_velvet: { label: 'Burgundy velvet', group: 'Upholstery', fill: '#6b3847', line: '#492630', glyph: '#582e3a', accent: '#e3cda1' },
+    cognac_leather: { label: 'Cognac leather', group: 'Upholstery', fill: '#995e38', line: '#684026', glyph: '#7d4d2e', accent: '#e3cda1' },
+    espresso_leather: { label: 'Espresso leather', group: 'Upholstery', fill: '#514036', line: '#372c25', glyph: '#42342c', accent: '#e3cda1' },
+    calacatta: { label: 'Calacatta marble', group: 'Stone', fill: '#e9e1cf', line: '#9e998d', glyph: '#bfb9aa', accent: '#8ec8dc' },
+    travertine: { label: 'Travertine', group: 'Stone', fill: '#d5c0a0', line: '#91836d', glyph: '#af9d83', accent: '#8ec8dc' },
+    limestone: { label: 'Limestone', group: 'Stone', fill: '#ccc5b4', line: '#8b867a', glyph: '#a7a294', accent: '#8ec8dc' },
+    slate: { label: 'Slate', group: 'Stone', fill: '#657071', line: '#454c4d', glyph: '#535c5d', accent: '#8ec8dc' },
+    soapstone: { label: 'Soapstone', group: 'Stone', fill: '#465958', line: '#303d3c', glyph: '#394948', accent: '#8ec8dc' },
+    terrazzo_cream: { label: 'Cream terrazzo', group: 'Stone', fill: '#dcd4c3', line: '#969085', glyph: '#b4aea0', accent: '#8ec8dc' },
+    quartz_white: { label: 'White quartz', group: 'Stone', fill: '#e8e9e5', line: '#9e9e9c', glyph: '#bebfbc', accent: '#8ec8dc' },
+    concrete_grey: { label: 'Concrete grey', group: 'Stone', fill: '#a5a7a1', line: '#70726d', glyph: '#878984', accent: '#8ec8dc' },
+    sage_paint: { label: 'Sage paint', group: 'Paint', fill: '#a3ae99', line: '#6f7668', glyph: '#868f7d', accent: '#e3cda1' },
+    olive_paint: { label: 'Olive paint', group: 'Paint', fill: '#82866a', line: '#585b48', glyph: '#6b6e57', accent: '#e3cda1' },
+    navy_paint: { label: 'Navy paint', group: 'Paint', fill: '#3e5264', line: '#2a3844', glyph: '#334352', accent: '#e3cda1' },
+    petrol_paint: { label: 'Petrol blue paint', group: 'Paint', fill: '#3b686c', line: '#284749', glyph: '#305559', accent: '#e3cda1' },
+    clay_paint: { label: 'Clay paint', group: 'Paint', fill: '#b48872', line: '#7a5c4e', glyph: '#94705d', accent: '#e3cda1' },
+    mushroom_paint: { label: 'Mushroom paint', group: 'Paint', fill: '#aaa08f', line: '#746d61', glyph: '#8b8375', accent: '#e3cda1' },
+    dove_paint: { label: 'Dove grey paint', group: 'Paint', fill: '#c0c3c0', line: '#838583', glyph: '#9da09d', accent: '#e3cda1' },
+    ochre_paint: { label: 'Ochre paint', group: 'Paint', fill: '#c3a064', line: '#856d44', glyph: '#a08352', accent: '#e3cda1' },
+    rattan: { label: 'Rattan', group: 'Natural fibre', fill: '#bd9b6b', line: '#816949', glyph: '#9b7f58', accent: '#e3cda1' },
+    cane: { label: 'Cane', group: 'Natural fibre', fill: '#d3b885', line: '#8f7d5a', glyph: '#ad976d', accent: '#e3cda1' },
+    seagrass: { label: 'Seagrass', group: 'Natural fibre', fill: '#a9ac83', line: '#737559', glyph: '#8b8d6b', accent: '#e3cda1' },
+    rope: { label: 'Natural rope', group: 'Natural fibre', fill: '#c7b799', line: '#877c68', glyph: '#a3967d', accent: '#e3cda1' },
+    /* Painted and metal finishes — fittings, appliances, fans, hardware. */
+    matte_black: { label: 'Matte black', group: 'Finish', fill: '#2b2f34', line: '#14171a', glyph: '#79808a', accent: '#45d3c8' },
+    graphite: { label: 'Graphite', group: 'Finish', fill: '#4a4f57', line: '#2b2f35', glyph: '#9aa2ad', accent: '#7fd8ff' },
+    pearl_white: { label: 'Pearl white', group: 'Finish', fill: '#f2f4f7', line: '#bfc7d1', glyph: '#8d95a1', accent: '#ffb765' },
+    ivory: { label: 'Ivory', group: 'Finish', fill: '#efe7d6', line: '#cfc4ac', glyph: '#9b917c', accent: '#e08a2e' },
+    /* Cream body, gold trim. Alongside matte black this is one of the two
+     * finishes almost every ceiling fan sold in India comes in, and neither
+     * `ivory` (cream and khaki) nor `antique_brass` (gold all through) is it —
+     * the whole look is the contrast between the two. The blades are the gold
+     * rather than the cream, because a cream blade on a light sheet is a blade
+     * you cannot see. */
+    cream_gold: { label: 'Cream gold', group: 'Finish', fill: '#efe4cd', line: '#a8853f', glyph: '#c9ac6e', accent: '#f2c75c' },
+    brushed_nickel: { label: 'Brushed nickel', group: 'Finish', fill: '#c6ccd3', line: '#8c949e', glyph: '#6f7883', accent: '#5fbde8' },
+    polished_chrome: { label: 'Polished chrome', group: 'Finish', fill: '#dde5ec', line: '#93a0ac', glyph: '#79848f', accent: '#3fb2ff' },
+    antique_brass: { label: 'Antique brass', group: 'Finish', fill: '#c6a463', line: '#8a6d33', glyph: '#7a6330', accent: '#ffd98a' },
+    oil_rubbed_bronze: { label: 'Oil-rubbed bronze', group: 'Finish', fill: '#6b5545', line: '#3d2f26', glyph: '#9a8271', accent: '#e8c79b' },
+    copper: { label: 'Copper', group: 'Finish', fill: '#c07a4e', line: '#8a5232', glyph: '#7d4a2c', accent: '#ffc79a' },
+    stainless: { label: 'Stainless steel', group: 'Finish', fill: '#cfd6dc', line: '#97a1ab', glyph: '#6d757e', accent: '#4fc3f7' },
+    sanitary_white: { label: 'Sanitary white', group: 'Finish', fill: '#fbfcfd', line: '#c4ccd6', glyph: '#97a0aa', accent: '#5cc8f5' },
+
+    /* Woods, named the way a carpenter names them rather than by hex. */
+    teak: { label: 'Teak', group: 'Wood', fill: '#b57f4b', line: '#7c5227', glyph: '#6d481f', accent: '#ffd7a0' },
+    walnut: { label: 'Walnut', group: 'Wood', fill: '#6f4a30', line: '#43291a', glyph: '#9d7757', accent: '#e0b68c' },
+    oak: { label: 'Oak', group: 'Wood', fill: '#cba97a', line: '#97764a', glyph: '#8a6a41', accent: '#ffe2b0' },
+    rosewood: { label: 'Rosewood', group: 'Wood', fill: '#7b3f38', line: '#4c2320', glyph: '#a56a5f', accent: '#e5a292' },
+    wenge: { label: 'Wenge', group: 'Wood', fill: '#3f342c', line: '#241d18', glyph: '#8c7b6b', accent: '#d8bb9a' },
+    whitewash: { label: 'Whitewashed oak', group: 'Wood', fill: '#e9e1d3', line: '#bdb09b', glyph: '#a2957f', accent: '#dcc39a' },
+
+    /* Upholstery. Fabric and leather read as flat colour in plan, so what
+     * distinguishes them here is tone, which is also all a plan needs. */
+    charcoal_fabric: { label: 'Charcoal fabric', group: 'Upholstery', fill: '#4d525a', line: '#33373d', glyph: '#7c828b', accent: '#b9c2cc' },
+    slate_fabric: { label: 'Slate fabric', group: 'Upholstery', fill: '#6d7683', line: '#4a515b', glyph: '#939caa', accent: '#cfd7e2' },
+    beige_linen: { label: 'Beige linen', group: 'Upholstery', fill: '#ddd2bd', line: '#b6a88e', glyph: '#9c8f76', accent: '#f0e2c4' },
+    tan_leather: { label: 'Tan leather', group: 'Upholstery', fill: '#b98455', line: '#855a33', glyph: '#7a5230', accent: '#e8c39a' },
+    oxblood_leather: { label: 'Oxblood leather', group: 'Upholstery', fill: '#7c3b3b', line: '#4e2222', glyph: '#a76a6a', accent: '#d99a9a' },
+    navy_velvet: { label: 'Navy velvet', group: 'Upholstery', fill: '#33456b', line: '#1e2a44', glyph: '#6b7ea6', accent: '#a9bde0' },
+    olive_fabric: { label: 'Olive', group: 'Upholstery', fill: '#6f7a52', line: '#4b5436', glyph: '#9aa47f', accent: '#cdd7b0' },
+    rust_fabric: { label: 'Rust', group: 'Upholstery', fill: '#a85a3c', line: '#74371f', glyph: '#cf8e73', accent: '#f0b795' },
+
+    /* Stone, for the worktops and table tops that are actually cut from it. */
+    carrara: { label: 'Carrara marble', group: 'Stone', fill: '#f0f1f2', line: '#c2c7cd', glyph: '#9aa0a8', accent: '#a8c4dc' },
+    granite_black: { label: 'Black granite', group: 'Stone', fill: '#33373b', line: '#1c1f22', glyph: '#7d848b', accent: '#b9c3cc' },
+  };
+
+  /* A colour is a colour, not free text. These end up as SVG attributes in an
+   * exported plate and inside a generated dashboard card, and a custom scheme
+   * arrives from a project document that this app did not necessarily write —
+   * so only a plain hex triple is accepted and anything else falls back. */
+  const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+  function schemeColour(v, fallback) {
+    return typeof v === 'string' && HEX.test(v.trim()) ? v.trim() : fallback;
+  }
+
+  /* A tone guaranteed to be visible ON a given colour: step away from it
+   * toward whichever end of the range is further off.
+   *
+   * This exists for details that must never disappear into the thing they are
+   * drawn on, where no scheme slot can promise it. A lamp's unlit diffuser is
+   * the case that needed it: a diffuser is opal whatever the fitting is made
+   * of, so it cannot take the body colour, and it cannot take `glyph` either —
+   * on a matte-black fan `glyph` has to stay light enough to read against the
+   * black housing, while the same fan's BLADES want to be dark enough to read
+   * against the floor. One slot, two backgrounds. Deriving the lens from the
+   * body settles it and frees `glyph` to mean one thing.
+   *
+   * Rec. 709 luma, the same weighting a contrast ratio uses, so "is this
+   * light or dark" is decided the way a person would see it rather than by
+   * averaging channels. */
+  function contrastOn(hex, amount) {
+    const m = HEX.exec(String(hex == null ? '' : hex).trim());
+    if (!m) return hex;
+    const raw = m[0].slice(1);
+    const s = raw.length === 3 ? raw.split('').map((ch) => ch + ch).join('') : raw;
+    const n = parseInt(s, 16);
+    const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const light = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255 > 0.5;
+    const k = Math.max(0, Math.min(1, num(amount, 0.5)));
+    return '#' + rgb
+      .map((v) => Math.round(light ? v * (1 - k) : v + (255 - v) * k))
+      .map((v) => v.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  /* One scheme, with every colour filled in from the ones it does declare.
+   * `fill` is the only required field: a scheme with no body colour paints
+   * nothing, and returning null there is what lets the caller fall back to the
+   * theme cleanly instead of drawing a hole. */
+  function normaliseScheme(raw, id) {
+    if (!raw || typeof raw !== 'object') return null;
+    const fill = schemeColour(raw.fill, null);
+    if (!fill) return null;
+    const line = schemeColour(raw.line, fill);
+    return {
+      id: typeof raw.id === 'string' && raw.id ? raw.id : (id || ''),
+      label: typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim().slice(0, 60) : (id || 'Scheme'),
+      group: typeof raw.group === 'string' && raw.group.trim() ? raw.group.trim().slice(0, 40) : 'Custom',
+      custom: !!raw.custom,
+      fill,
+      line,
+      glyph: schemeColour(raw.glyph, line),
+      accent: schemeColour(raw.accent, line),
+    };
+  }
+
+  /* Resolve a scheme id against the shipped defaults and a document's own
+   * schemes.
+   *
+   * THE DOCUMENT WINS. A project that carries a scheme called `teak` keeps its
+   * own teak forever, so shipping a new default can never silently repaint
+   * somebody's plan — the drawing belongs to the project, not to the version of
+   * the app that happens to be open. */
+  function resolveScheme(id, custom) {
+    if (!id || typeof id !== 'string') return null;
+    const own = Array.isArray(custom) ? custom.find((s) => s && s.id === id) : null;
+    if (own) return normaliseScheme(Object.assign({}, own, { custom: true }), id);
+    return SCHEMES[id] ? normaliseScheme(SCHEMES[id], id) : null;
+  }
+
+  /* Everything offerable, defaults first, for the editor's picker. A custom
+   * scheme that shadows a default replaces it in place rather than appearing
+   * twice, which is the same answer `resolveScheme` gives. */
+  function schemeList(custom) {
+    const out = [];
+    const shadowed = new Set((Array.isArray(custom) ? custom : []).map((s) => s && s.id).filter(Boolean));
+    for (const id of Object.keys(SCHEMES)) {
+      if (shadowed.has(id)) continue;
+      out.push(normaliseScheme(SCHEMES[id], id));
+    }
+    for (const s of Array.isArray(custom) ? custom : []) {
+      const n = normaliseScheme(Object.assign({}, s, { custom: true }), s && s.id);
+      if (n && n.id) out.push(n);
+    }
+    return out;
+  }
+
   /* The editor's rotation grip follows the drawing's front without rotating
      existing projects to compensate for a symbol's native orientation. */
   function furnitureFront(shape, variant) {
@@ -3492,8 +3919,9 @@
 
   return {
     FURNITURE, ICONS, MARKERS, MARKER_DEFAULT, FURNITURE_VARIANTS,
-    FURNITURE_VARIANT_SIZES, SWITCH_MAX_GANGS,
+    FURNITURE_VARIANT_SIZES, SWITCH_MAX_GANGS, SCHEMES,
     furniture, icon, marker, variantsOf, furnitureVariantsOf, furnitureVariantSize, furnitureFront,
+    resolveScheme, normaliseScheme, schemeList, schemeColour, contrastOn,
     names: {
       furniture: Object.keys(FURNITURE),
       icons: Object.keys(ICONS),

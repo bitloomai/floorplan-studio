@@ -57,6 +57,40 @@ module.exports = `
 .fps-surface-inline .fps-panel { position: static; width: 100%; max-height: none; box-shadow: none; border-top: 1px solid var(--divider-color, #e0e0e0); border-radius: 0; }
 .fps-surface-bar .fps-panel { left: 0; right: 0; bottom: 0; width: 100%; transform: none; border-radius: 0; padding: 8px 12px; }
 .fps-surface-bar .fps-section-label { display: none; }
+/* inlineSections: sections run ALONG the panel rather than stacking. It is
+ * what makes a one-strip surface able to carry more than a single section —
+ * stacked, the second one is already off the bottom of a 62px bar. Each
+ * section keeps its own grid; only their arrangement changes. */
+.fps-panel.fps-inline { display: flex; align-items: center; gap: 12px; overflow-x: auto; }
+.fps-panel.fps-inline .fps-section { margin-top: 0; flex: 0 0 auto; }
+.fps-panel.fps-inline .fps-panel-head { margin-bottom: 0; flex: 0 0 auto; }
+.fps-panel.fps-inline .fps-btns { margin-left: 0; flex-wrap: nowrap; }
+
+/* density: how tight the surface sits. A popover anchored to one room has
+ * room for a handful of controls and should not spend a third of it on
+ * padding; a full-screen sheet can breathe. */
+.fps-density-compact .fps-section { margin-top: 8px; }
+.fps-density-compact .fps-panel-head { margin-bottom: 6px; }
+.fps-density-compact .fps-tile { padding: 5px 7px; font-size: 12px; }
+.fps-density-compact .fps-btn { padding: 3px 8px; font-size: 12px; }
+
+/* animation: how the surface arrives, named by the design. A sheet rises, a
+ * rail slides in from its edge, a modal fades, a docked panel does neither
+ * because it never went anywhere. Every one of them is dropped wholesale for a
+ * viewer who has asked for reduced motion — the same rule the plan's own
+ * animations follow. */
+@keyframes fpsSurfaceUp { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fpsSurfaceIn { from { transform: translateX(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fpsSurfaceFade { from { opacity: 0; } to { opacity: 1; } }
+.fps-anim-slide-up { animation: fpsSurfaceUp .18s ease-out; }
+.fps-anim-slide-in { animation: fpsSurfaceIn .18s ease-out; }
+.fps-anim-fade { animation: fpsSurfaceFade .16s ease-out; }
+/* The centred designs are already translated to sit in the middle, so an
+ * animation that also transforms them would fight the positioning. */
+.fps-anchor-center .fps-anim-slide-up, .fps-anchor-center .fps-anim-slide-in { animation: fpsSurfaceFade .16s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .fps-anim-slide-up, .fps-anim-slide-in, .fps-anim-fade { animation: none; }
+}
 
 .fps-grab { width: 38px; height: 4px; border-radius: 2px; margin: 2px auto 10px; background: var(--divider-color, #ccc); cursor: pointer; }
 .fps-panel-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }

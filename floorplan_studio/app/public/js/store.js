@@ -161,8 +161,8 @@ window.Store = (function () {
 
   /* ---------- selection ---------- */
 
-  function select(kind, id) {
-    S.selection = kind ? { kind, id } : null;
+  function select(kind, id, part) {
+    S.selection = kind ? { kind, id, ...(part ? { part } : {}) } : null;
     S.multi = kind ? [{ kind, id }] : [];
     emit('selection');
   }

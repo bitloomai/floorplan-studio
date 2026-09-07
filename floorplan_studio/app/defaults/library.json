@@ -1481,6 +1481,8 @@
             "scimitar3",
             "tropical3",
             "industrial4",
+            "plank3",
+            "lightkit3",
             "custom",
             "caged"
           ],
@@ -1576,6 +1578,8 @@
             "scimitar3",
             "tropical3",
             "industrial4",
+            "plank3",
+            "lightkit3",
             "custom",
             "caged"
           ],
@@ -6920,10 +6924,24 @@
       },
       "defaults": {
         "w": 6.5,
-        "h": 3
+        "h": 3,
+        "variant": "straight"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "straight",
+            "bench_seat",
+            "chesterfield",
+            "armless",
+            "daybed",
+            "curved"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -6968,10 +6986,23 @@
       },
       "defaults": {
         "w": 9,
-        "h": 3.2
+        "h": 3.2,
+        "variant": "l_left"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "l_left",
+            "l_right",
+            "u_shaped",
+            "chaise",
+            "modular"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",
@@ -12377,6 +12408,8 @@
             "scimitar3",
             "tropical3",
             "industrial4",
+            "plank3",
+            "lightkit3",
             "custom",
             "caged"
           ],
@@ -12489,6 +12522,8 @@
             "scimitar3",
             "tropical3",
             "industrial4",
+            "plank3",
+            "lightkit3",
             "custom",
             "caged"
           ],
@@ -17690,10 +17725,23 @@
       "defaults": {
         "w": 3.4,
         "h": 3.4,
-        "rot": 0
+        "rot": 0,
+        "variant": "single"
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Look",
+          "type": "select",
+          "options": [
+            "single",
+            "two_seat",
+            "three_seat",
+            "console_two",
+            "console_three"
+          ]
+        },
         {
           "key": "w",
           "label": "Width (ft)",

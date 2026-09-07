@@ -395,9 +395,11 @@ property options and are to be read rather than guessed.
 
 The rest: ones to **read** the current plan and
 what can be placed on it (`get_project`, `get_registry`,
-`list_library`), two to **change** it (`edit_collection` for rooms/items/
+`list_library`), tools to **change** it (`edit_collection` for rooms/items/
 openings/boundaries/floors, `edit_settings` for everything else — dashboard
 settings, lighting, sun, coverage, a room's own controls),
+`edit_registry` to author shared library types, flooring, themes, boundaries
+and controls using arrays of literal path keys,
 `validate_project` to check the result
 on demand, `preview_dashboard` to see what Generate would produce, and
 `install_dashboard` — the one tool that actually writes to Home Assistant,
@@ -405,7 +407,10 @@ which is **not offered at all** unless you turn on the app option
 `mcp_allow_dashboard_install`. Until you do, an AI can build and rework the
 whole plan freely but cannot put anything on your actual dashboard.
 
-While it works, this editor (if open) reflects each change within about a
+Shared registry edits refresh an idle editor. Finish any open settings dialog
+or unsaved local edit, then reload to use external registry changes.
+
+While it works, this editor (if open) reflects each project change within about a
 second — no reload — as long as you don't have unsaved edits of your own in
 progress; if you do, you get a toast instead of having your in-progress edit
 overwritten.
@@ -504,9 +509,9 @@ A shortcut is a **label and something to do**:
 
 | You want | Set |
 |---|---|
-| A do-not-disturb button on the room's panel | label `Do not disturb`, entity `input_boolean.study_dnd`, placement **header button row** |
-| A mood the whole house shares | label `Goodnight`, entity `scene.goodnight`, on the **house** |
-| An AC's turbo switch | label `Turbo`, entity `switch.study_ac_turbo` |
+| A do-not-disturb button on the room's panel | label `Do not disturb`, entity `input_boolean.example_room_quiet`, placement **header button row** |
+| A mood the whole house shares | label `Goodnight`, entity `scene.example_goodnight`, on the **house** |
+| An AC's turbo switch | label `Turbo`, entity `switch.example_ac_turbo` |
 | A script that takes a value | label `Fan 3`, service `script.set_fan_speed`, data `{"speed": 3}` |
 
 The app has no idea what any of them mean — "Do not disturb" is your word for
@@ -719,6 +724,38 @@ What that changes depends on what the thing is:
 
 The panel still shows the number, so you can type it when you know it.
 
+### What colour it is
+
+Under **Look** sits **Colour**, and it answers a different question: not what
+shape the thing is, but what it is made of. A ceiling fan is matte black or
+ivory, a sideboard is teak or walnut, a tap is chrome, a sofa is navy velvet.
+Every item starts on **plain** — the theme's own grey — so nothing you have
+already drawn changes until you say so.
+
+Each swatch is the item itself, at its own look and size, painted in that
+scheme. Twenty-eight ship with the app, grouped Finish, Wood, Upholstery and
+Stone, and their values come off real fittings rather than a colour wheel.
+
+A scheme is four colours: the **body**, its **trim**, the **detail** strokes
+inside a marker at rest, and what it turns **when it is live** — a BLDC fan's
+LED ring, the warm disc of an integrated downlight, an appliance's status
+light. That last one is not decoration: a running marker's rim takes it, so it
+is what says *this is on* from across the room.
+
+**Light beats paint.** A lamp that is on still draws in the colour it is
+emitting, and an entity that reports itself unavailable still draws as
+unavailable — a plan's first job is to say what is happening, and paint never
+gets in the way of that.
+
+**edit colours…** opens a small editor of its own. The shipped schemes cannot
+be changed there — they are part of the app rather than part of your plan, and
+so are identical on every install — but duplicating one is a click, and is the
+quickest route to a colour that works. A scheme you make lives on the
+**project**: saved with it, undoable, carried in its export, and baked into the
+generated dashboard card, so a plan you send somebody arrives in its own
+colours with nothing to install alongside it. If a scheme you made shares its
+name with one the app ships, yours wins, permanently.
+
 ### What each device configures
 
 Every device exposes a **facing**, and most expose more. A few worth knowing:
@@ -781,12 +818,19 @@ if a spec carries one.
 
 ## Flooring
 
-Select a room → **Flooring**. 28 surfaces grouped Basic / Wood / Stone /
+Select a room → **Flooring**. 68 surfaces grouped Basic / Wood / Stone / India /
 Outdoor / Custom, plus per-room **angle** and **colour** overrides.
 
 Marble, terrazzo, gravel and grass are *field* generators: they draw across the
 room and clip to it, so veining runs through a doorway instead of restarting at
 the threshold. Everything else is a tiled pattern, which is cheaper.
+
+A field generator may also bring its own base, which is how a **marble-look
+tile** is drawn: the grid is the tile generator's, the veining is marble's, and
+neither half on its own is that floor. `veinColor2` gives it the second vein
+system a Statuario or Calacatta tile has — a grey structural one and a sparser,
+finer gold — and `veinWidth` / `veinOpacity` set how heavily it is veined,
+because a tile printed with a pattern is not as faint as the slab it imitates.
 
 Custom flooring is a script in `flooring.json`.
 

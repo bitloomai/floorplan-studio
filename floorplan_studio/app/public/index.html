@@ -133,12 +133,12 @@
 </main>
 
 <!-- dialogs -->
-<div class="modal" id="modal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <header><h2 id="modalTitle"></h2><button id="modalClose" class="btn tiny" aria-label="Close">✕</button></header>
+<dialog class="modal" id="modal" aria-labelledby="modalTitle" hidden>
+  <div class="modal-card">
+    <header><h2 id="modalTitle"></h2><div id="modalTools" class="modal-tools"></div><button id="modalClose" class="btn tiny" aria-label="Close">✕</button></header>
     <div id="modalBody"></div>
   </div>
-</div>
+</dialog>
 
 <div id="toast" class="toast" hidden></div>
 

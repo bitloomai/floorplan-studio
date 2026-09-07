@@ -223,6 +223,41 @@ ok('the README hero image matches the renderer', (() => {
   } catch (e) { return false; }
 })());
 
+/* Counts the prose quotes, against the registry it is quoting.
+ *
+ * The hero image above is pinned because a stale picture is obvious once you
+ * look; a stale NUMBER is not, and both READMEs had drifted to "258" while the
+ * generated site said 261 — because the site derives its count and the READMEs
+ * were typed. The rule this repository runs on is that a second copy of a fact
+ * is the copy that goes stale, so where prose must carry a number, the number
+ * is asserted rather than trusted. */
+{
+  const typeCount = Object.keys(lib.types).length;
+  const schemeCount = Object.keys(Shapes.SCHEMES).length;
+  const claims = [
+    ['README.md', readRoot('README.md')],
+    ['floorplan_studio/README.md', readAddon('README.md')],
+  ];
+  const wrong = [];
+  for (const [name, text] of claims) {
+    const lib_ = /(\d+)[- ](?:devices|entry library)/.exec(text);
+    if (!lib_ || Number(lib_[1]) !== typeCount) wrong.push(`${name}: library ${lib_ ? lib_[1] : 'unstated'} vs ${typeCount}`);
+  }
+  const schemes = /(\d+) colour schemes/.exec(readRoot('README.md'));
+  if (!schemes || Number(schemes[1]) !== schemeCount) wrong.push(`README.md: schemes ${schemes ? schemes[1] : 'unstated'} vs ${schemeCount}`);
+  ok('the READMEs quote the registry sizes they actually have', !wrong.length,
+    wrong.join(' | ') || `${typeCount} types, ${schemeCount} schemes`);
+  /* The MCP contract is the same problem with worse consequences: it is the
+   * text a model treats as ground truth about a house it is editing, and it
+   * had drifted furthest of the three. Asserted against the RENDERED contract
+   * — what a client actually receives — not against the source. */
+  const contract = require(path.join(APP, 'lib', 'mcp')).CONTRACT_TEXT;
+  const groups = [...new Set(Object.values(flooring.types).map((t) => t.group).filter(Boolean))];
+  const expected = `${Object.keys(flooring.types).length} finishes across ${groups.join('/')}`;
+  ok('the MCP contract quotes the flooring registry it actually ships',
+    contract.includes(expected), expected);
+}
+
 ok('the committed test house matches its generator', (() => {
   try {
     execFileSync(process.execPath, [path.join(ROOT, 'tools', 'make-test-house.js'), '--check'], { encoding: 'utf8' });
@@ -259,7 +294,7 @@ const pngBytes = (name) => fs.statSync(path.join(ADDON, name)).size;
 ok('the branding PNGs have an editable vector source', (() => (
   /^<svg[\s\S]*<\/svg>\s*$/.test(iconSvg) && /^<svg[\s\S]*<\/svg>\s*$/.test(logoSvg)
 ))());
-/* They were 868 KB and 599 KB of AI-generated raster before the redraw, for
+/* They were 868 KB and 599 KB of raster artwork before the redraw, for
  * assets Home Assistant renders at 128 and 250 wide. A cap catches a re-export
  * at 4096 or a paste of something unoptimised. */
 ok('and the PNGs are a sane size for what they are', pngBytes('icon.png') < 150 * 1024 && pngBytes('logo.png') < 150 * 1024,
@@ -618,6 +653,215 @@ for (const fam of Shapes.names.families) {
   }
 }
 ok('no two variants of a family draw the same thing', sameDrawing.length === 0, sameDrawing.join(', '));
+/* ---- colour schemes ----
+ *
+ * A scheme paints an object without touching the theme. The three things worth
+ * pinning are the three ways it could go wrong: it could be malformed and reach
+ * an SVG attribute anyway, it could paint over the state and stop the plan
+ * saying what is on, or it could quietly repaint a plan that never asked for
+ * one.
+ */
+{
+  /* Declared here rather than reaching for the file-level `theme`, which is
+   * built further down: these checks sit with the rest of the renderer ones. */
+  const planTheme = themes.themes.frosted.plan;
+  const HEXRE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+  const badScheme = [];
+  for (const [id, s] of Object.entries(Shapes.SCHEMES)) {
+    if (!s.label || !s.group) badScheme.push(`${id} has no label/group`);
+    for (const k of ['fill', 'line', 'glyph', 'accent']) {
+      if (!HEXRE.test(String(s[k]))) badScheme.push(`${id}.${k} is not a hex colour`);
+    }
+    /* `accent` is the rim a RUNNING marker draws in. One that equals the
+     * outline makes on and off the same picture — the renderer falls back to
+     * the theme rather than let that happen, but a shipped scheme should never
+     * need the safety net. */
+    if (s.accent === s.line) badScheme.push(`${id} accent equals line`);
+  }
+  ok('every shipped colour scheme is complete and well formed', badScheme.length === 0, badScheme.slice(0, 4).join(', '));
+  /* Two names for one set of colours is a picker that lies about offering a
+   * choice — the same rule this suite already applies to marker variants and
+   * to boundary treatments. */
+  {
+    const seen = new Map();
+    const twins = [];
+    for (const [id, s] of Object.entries(Shapes.SCHEMES)) {
+      const key = [s.fill, s.line, s.glyph, s.accent].join('|');
+      if (seen.has(key)) twins.push(`${id} == ${seen.get(key)}`);
+      seen.set(key, id);
+    }
+    ok('no two shipped schemes paint the same thing', twins.length === 0, twins.join(', '));
+  }
+  ok('there are schemes worth choosing between, grouped by material',
+    Object.keys(Shapes.SCHEMES).length >= 20
+    && new Set(Object.values(Shapes.SCHEMES).map((s) => s.group)).size >= 3,
+    `${Object.keys(Shapes.SCHEMES).length} schemes over ${new Set(Object.values(Shapes.SCHEMES).map((s) => s.group)).size} groups`);
+
+  /* Resolution: only a plain hex is accepted, and the DOCUMENT beats the app.
+   * That second one is what stops a future release shipping a default called
+   * `teak` and repainting somebody's plan behind their back. */
+  ok('a scheme nothing defines resolves to nothing', Shapes.resolveScheme('no_such_scheme', []) === null);
+  ok('a scheme with no body colour paints nothing rather than a hole',
+    Shapes.resolveScheme('x', [{ id: 'x', fill: 'rgb(1,2,3)' }]) === null);
+  ok('a colour that is not a hex triple falls back instead of reaching the SVG', (() => {
+    const s = Shapes.resolveScheme('x', [{ id: 'x', fill: '#123456', line: 'url(#evil)', accent: 'javascript:1' }]);
+    return s.line === '#123456' && s.accent === '#123456';
+  })());
+  ok('a project’s own scheme beats a shipped one of the same name',
+    Shapes.resolveScheme('teak', [{ id: 'teak', fill: '#010203' }]).fill === '#010203');
+  ok('and it replaces it in the picker rather than appearing twice', (() => {
+    const list = Shapes.schemeList([{ id: 'teak', label: 'Mine', fill: '#010203' }]);
+    return list.filter((s) => s.id === 'teak').length === 1 && list.find((s) => s.id === 'teak').custom === true;
+  })());
+
+  /* The state rule, through the REAL path — `scene.build`, not a hand-rolled
+   * copy of how markerNodes resolves colours. One device per marker family, so
+   * a family added later is covered the day it is added. */
+  const famType = new Map();
+  for (const [key, t] of Object.entries(lib.types)) {
+    const fam = (t.render || {}).family;
+    if ((t.kind !== 'device' && t.kind !== 'fixture') || !fam || famType.has(fam)) continue;
+    /* A type's `onRule` decides what "on" even MEANS for it — a meter's state
+     * is its reading, a climate's is an hvac mode — so the state that turns
+     * each one on has to be found rather than assumed. A `momentary` type
+     * (a scene, a button) is never on by design and has no on/off to compare,
+     * so it is skipped and counted rather than quietly passing. */
+    const live = ['on', '42', 'open', 'heat', 'home', 'cleaning'].find((s) => scene.stateOf(t, { state: s, attributes: {} }).on);
+    if (live) famType.set(fam, { key, t, live, kind: t.kind });
+  }
+  const schemeProj = (schemeId) => ({
+    name: 'schemes', ppf: 22, origin: [0, 0], activeTheme: 'frosted',
+    floors: [{
+      id: 'f', name: 'F', level_ft: 0, extent: { w: 120, h: 20 },
+      rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 120, 20], flooring: 'plain' }],
+      openings: [], boundaries: [],
+      items: [...famType.values()].map((v, i) => ({
+        id: 'i' + i, kind: v.kind, type: v.key.split('.')[1],
+        entity: (v.kind === 'fixture' ? 'light.e' : 'switch.e') + i, at: [3 + i * 3, 10],
+        scheme: schemeId, props: {},
+      })),
+    }],
+  });
+  const statesAll = (on) => Object.fromEntries(
+    [...famType.values()].map((v, i) => [(v.kind === 'fixture' ? 'light.e' : 'switch.e') + i, { state: on ? v.live : 'off', attributes: {} }]));
+  const markersFor = (schemeId, on) => {
+    const p = schemeProj(schemeId);
+    const s = scene.build(p, p.floors[0], lib, planTheme, { boundaries, flooring, states: statesAll(on) });
+    const out = new Map();
+    for (const n of s.layers.markers) {
+      if (!out.has(n.itemId)) out.set(n.itemId, []);
+      out.get(n.itemId).push(n);
+    }
+    return out;
+  };
+  const sameOnOff = [];
+  for (const id of Object.keys(Shapes.SCHEMES)) {
+    const on = markersFor(id, true);
+    const off = markersFor(id, false);
+    for (const [itemId, nodes] of on) {
+      if (JSON.stringify(nodes) === JSON.stringify(off.get(itemId))) sameOnOff.push(`${id}/${itemId}`);
+    }
+  }
+  ok('the on/off check covers every family the renderer has',
+    famType.size === Shapes.names.families.length,
+    `${famType.size} of ${Shapes.names.families.length}: missing ${Shapes.names.families.filter((x) => !famType.has(x)).join(', ')}`);
+  ok('no colour scheme makes a marker draw the same on and off',
+    sameOnOff.length === 0, `${famType.size} families x ${Object.keys(Shapes.SCHEMES).length} schemes; ${sameOnOff.slice(0, 4).join(', ')}`);
+
+  /* Light beats paint, in both directions. */
+  const lampProj = (schemeId) => ({
+    name: 'lamp', ppf: 22, origin: [0, 0], activeTheme: 'frosted',
+    floors: [{
+      id: 'f', name: 'F', level_ft: 0, extent: { w: 20, h: 20 },
+      rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 20, 20], flooring: 'plain' }],
+      openings: [], boundaries: [],
+      items: [{ id: 'l1', kind: 'fixture', type: 'spot', entity: 'light.a', at: [10, 10], scheme: schemeId, props: { watt: 9 } }],
+    }],
+  });
+  const lampFill = (schemeId, state) => {
+    const p = lampProj(schemeId);
+    const s = scene.build(p, p.floors[0], lib, planTheme, { boundaries, flooring, states: { 'light.a': { state, attributes: {} } } });
+    const disc = s.layers.markers.find((n) => n.tag === 'circle' && n.attrs.fill && n.attrs.fill !== 'none');
+    return disc && disc.attrs.fill;
+  };
+  ok('a lit lamp still draws in the colour it is emitting, however it is painted',
+    lampFill('matte_black', 'on') === lampFill(undefined, 'on'), `${lampFill('matte_black', 'on')} vs ${lampFill(undefined, 'on')}`);
+  ok('and the same lamp switched off does take its scheme',
+    lampFill('matte_black', 'off') === Shapes.SCHEMES.matte_black.fill, lampFill('matte_black', 'off'));
+  ok('an entity that reports itself unavailable keeps the styling that says so',
+    lampFill('matte_black', 'unavailable') === lampFill(undefined, 'unavailable'));
+  /* An item with NOTHING bound also resolves to the "unavailable" state — and
+   * so does every item on the plan when live states are switched off, which is
+   * most of a plan for most of the time anybody is drawing one. Refusing to
+   * paint those would mean choosing a colour did nothing until the marker was
+   * wired up, which is exactly backwards: you pick what a fan looks like while
+   * you are placing fans. */
+  ok('but a marker with no entity bound yet still takes its colour', (() => {
+    const p = lampProj('matte_black');
+    p.floors[0].items[0].entity = null;
+    const s = scene.build(p, p.floors[0], lib, planTheme, { boundaries, flooring, states: {} });
+    const disc = s.layers.markers.find((n) => n.tag === 'circle' && n.attrs.fill && n.attrs.fill !== 'none');
+    return disc.attrs.fill === Shapes.SCHEMES.matte_black.fill;
+  })());
+
+  /* Nothing already drawn is repainted: an item naming no scheme, and an item
+   * naming one that does not exist, both draw exactly as they always did. */
+  ok('an item with no scheme is untouched by the feature existing',
+    lampFill(undefined, 'off') === planTheme.offFill, lampFill(undefined, 'off'));
+  ok('and a scheme id nothing defines falls back rather than failing',
+    lampFill('gone_away', 'off') === lampFill(undefined, 'off'));
+
+  /* Furniture takes fill and line and nothing else — it has no state to have
+   * a live colour for. */
+  const sofaFill = (schemeId) => {
+    const p = lampProj(undefined);
+    p.floors[0].items = [{ id: 'furn', kind: 'furniture', type: 'sofa', at: [4, 4], scheme: schemeId, props: { w: 6, h: 3 } }];
+    const s = scene.build(p, p.floors[0], lib, planTheme, { boundaries, flooring, states: {} });
+    return s.layers.furniture[0].attrs.fill;
+  };
+  ok('furniture takes its scheme’s body colour', sofaFill('teak') === Shapes.SCHEMES.teak.fill, sofaFill('teak'));
+  ok('and furniture with no scheme still draws in the theme', sofaFill(undefined) === planTheme.furnFill);
+}
+
+/* ---- a custom scheme travels in the export and comes back ----
+ *
+ * This is the whole reason custom schemes live on the PROJECT rather than in a
+ * registry beside it: a plan that is sent somewhere has to arrive in its own
+ * colours, with nothing to install alongside it. */
+{
+  const p = JSON.parse(JSON.stringify(project));
+  p.schemes = [{ id: 'my_grey', label: 'My grey', group: 'Custom', fill: '#8d939c', line: '#5a6069', glyph: '#3f444b', accent: '#3fb2ff' }];
+  const out = exporter.build(p, lib, themes, 'bundle');
+  const doc = out.files.find((f) => f.name === 'project.json');
+  ok('the export carries the project document itself', !!doc);
+  ok('and the schemes somebody made are in it',
+    !!doc && JSON.parse(doc.content).schemes.length === 1);
+  const back = imp.fromFiles([{ name: 'project.json', text: doc.content }]);
+  ok('importing it brings those schemes back',
+    (back.schemes || []).length === 1 && back.schemes[0].id === 'my_grey');
+  ok('and a plain set of legacy floors brings none',
+    imp.fromFiles([{ name: 'ground.json', text: JSON.stringify({ rooms: [], extent: { w: 10, h: 10 } }) }]).schemes === null);
+}
+
+/* ---- what the validator says about a scheme ---- */
+{
+  const base = { floors: [{ id: 'f', name: 'F', extent: { w: 10, h: 10 }, rooms: [], openings: [], items: [] }] };
+  const withSchemes = (schemes, items) => require(path.join(APP, 'lib', 'validate-project')).validate(
+    Object.assign({}, base, { schemes, floors: [Object.assign({}, base.floors[0], { items: items || [] })] }), lib);
+  ok('a scheme with no body colour is refused',
+    !withSchemes([{ id: 'x', fill: 'red' }]).ok);
+  ok('two schemes claiming one id is refused',
+    !withSchemes([{ id: 'x', fill: '#fff' }, { id: 'x', fill: '#000' }]).ok);
+  ok('a good scheme passes', withSchemes([{ id: 'x', label: 'X', fill: '#ffffff', line: '#000000', accent: '#3fb2ff' }]).ok);
+  ok('an item naming a scheme nobody has is reported, not refused', (() => {
+    const r = withSchemes([], [{ id: 'i', kind: 'device', type: 'fan', at: [1, 1], scheme: 'ghost' }]);
+    return r.ok && r.warnings.some((w) => /ghost/.test(w.message));
+  })());
+  ok('and an item naming a shipped scheme is not reported at all', (() => {
+    const r = withSchemes([], [{ id: 'i', kind: 'device', type: 'fan', at: [1, 1], scheme: 'matte_black' }]);
+    return r.ok && !r.warnings.some((w) => /matte_black/.test(w.message));
+  })());
+}
 
 /* ---- the multi-gang wall switch ----
  *
@@ -710,8 +954,119 @@ ok('ceiling-fan variants have no stray full-sweep rim',
   ceilingFanLooks.every((v) => !Shapes.marker('fan', v, fanCtx).some((n) => n.tag === 'circle' && n.attrs.r === fanCtx.R)));
 ok('the exhaust-fan cage still has its real outer rim',
   Shapes.marker('fan', 'caged', fanCtx).some((n) => n.tag === 'circle' && n.attrs.r === fanCtx.R));
+/* A ceiling fan is mostly blades. `lightkit3` shipped with a 0.34R hub — the
+ * largest of any look by half again — and read as a dinner plate with three
+ * little wings, which is the wrong way round: a fan built around a light has a
+ * COMPACT motor precisely because the lamp is what hangs below it. Reported by
+ * somebody looking at their own master bedroom. The bound is on the family, not
+ * on the one look, because the next fan added will be tempted the same way. */
+{
+  const biggest = (v) => Shapes.marker('fan', v, fanCtx)
+    .filter((n) => n.tag === 'circle')
+    .reduce((m, n) => Math.max(m, n.attrs.r), 0) / fanCtx.R;
+  const fat = ceilingFanLooks.filter((v) => biggest(v) > 0.28);
+  ok('no ceiling fan\'s head takes more than a quarter of its own sweep',
+    fat.length === 0, fat.map((v) => `${v} ${biggest(v).toFixed(2)}R`).join(', '));
+  ok('and the fan with a light in it is no exception',
+    biggest('lightkit3') <= biggest('tropical3') + 0.03,
+    `lightkit3 ${biggest('lightkit3').toFixed(2)}R vs tropical3 ${biggest('tropical3').toFixed(2)}R`);
+  /* Its blades are broader than the standard airfoil in exchange, which is
+   * what the object actually looks like — and they reach no further, because
+   * the sweep is a real measurement in feet. */
+  /* How far the blades actually reach, as a radius: the path numbers arrive in
+   * x,y pairs, and the distance of the furthest one from the marker centre is
+   * the sweep the drawing is claiming. Taking the largest raw number instead
+   * measures the canvas offset, not the fan. */
+  const reach = (v) => {
+    let max = 0;
+    for (const b of Shapes.marker('fan', v, fanCtx)[0].children) {
+      const n = (b.attrs.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+      for (let i = 0; i + 1 < n.length; i += 2) {
+        max = Math.max(max, Math.hypot(n[i] - fanCtx.cx, n[i + 1] - fanCtx.cy));
+      }
+    }
+    return max / fanCtx.R;
+  };
+  ok('the light-kit fan\'s blades reach no further than the plain three-blade\'s',
+    Math.abs(reach('lightkit3') - reach('blades3')) < 0.05,
+    `lightkit3 ${reach('lightkit3').toFixed(2)}R vs blades3 ${reach('blades3').toFixed(2)}R`);
+  /* Broader, though — that is the trade that made the head look right. */
+  ok('but they are broader than the standard airfoil', (() => {
+    const width = (v) => {
+      const n = (Shapes.marker('fan', v, fanCtx)[0].children[0].attrs.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i + 1 < n.length; i += 2) { lo = Math.min(lo, n[i]); hi = Math.max(hi, n[i]); }
+      return hi - lo;
+    };
+    return width('lightkit3') > width('blades3');
+  })());
+}
 ok('fan family offers distinct paddle, swept, tropical, and industrial wings',
   ['paddle3', 'scimitar3', 'tropical3', 'industrial4'].every((v) => fanLooks.includes(v)), fanLooks.join(', '));
+
+/* The two fans most new houses here are actually fitted with: a BLDC fan with
+ * straight pressed-sheet blades and an LED ring under the motor, and a fan with
+ * the light built into it rather than hung beside it. Both are the same object
+ * at a glance and different objects on a plan, so each check is about the one
+ * feature that distinguishes it. */
+ok('the plank fan draws straight-sided blades, not an aerofoil', (() => {
+  const blades = Shapes.marker('fan', 'plank3', fanCtx)[0].children;
+  return blades.length === 3 && blades.every((b) => !/[CQS]/.test(b.attrs.d));
+})());
+ok('and the swept looks it sits beside still curve',
+  /[CQ]/.test(Shapes.marker('fan', 'blades3', fanCtx)[0].children[0].attrs.d));
+ok('the plank fan’s LED ring lights when the fan runs', (() => {
+  const ring = (on) => Shapes.marker('fan', 'plank3', Object.assign({}, fanCtx, { on }))
+    .filter((n) => n.tag === 'circle' && n.attrs.fill === (on ? fanCtx.accent : fanCtx.glyph)).length;
+  return ring(true) === 6 && ring(false) === 6;
+})());
+ok('the light-kit fan has a lamp under the hub that changes with its state', (() => {
+  const lamp = (on) => Shapes.marker('fan', 'lightkit3', Object.assign({}, fanCtx, { on }))
+    .find((n) => n.tag === 'circle' && n.attrs['stroke-width'] === 1.1);
+  return lamp(true) && lamp(false) && lamp(true).attrs.fill !== lamp(false).attrs.fill;
+})());
+/* And an UNLIT lamp is still visible against its own housing. It used to be
+ * drawn in the body colour, which is true of nothing — a diffuser is opal
+ * whatever the fitting is made of — and a matte-black fan over a night scrim
+ * collapsed into one dark disc. Found by painting a real house's master
+ * bedroom black and looking at it, which is the only way this kind of thing
+ * ever gets found.
+ *
+ * Measured rather than eyeballed, and measured for EVERY scheme, because the
+ * failure is silent: the lens is still drawn, it is just the same colour as
+ * what it is drawn on. */
+{
+  const srgb = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  const luma = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => srgb(v / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [luma(a), luma(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const worst = Object.keys(Shapes.SCHEMES).map((id) => {
+    const s = Shapes.resolveScheme(id);
+    const lens = Shapes.marker('fan', 'lightkit3', {
+      cx: 50, cy: 50, R: 20, fill: s.fill, line: s.line, glyph: s.glyph, accent: s.accent,
+      facing: 0, on: false, spin: false, p: {},
+    }).find((n) => n.tag === 'circle' && n.attrs['stroke-width'] === 1.1);
+    return { id, ratio: contrast(lens.attrs.fill, s.fill) };
+  }).sort((a, b) => a.ratio - b.ratio)[0];
+  ok('and its unlit lens stays visible against every housing it can have',
+    worst.ratio >= 2, `worst is ${worst.id} at ${worst.ratio.toFixed(2)}:1`);
+  ok('the tone it derives steps away from light and dark alike',
+    luma(Shapes.contrastOn('#111111', 0.5)) > luma('#111111')
+    && luma(Shapes.contrastOn('#eeeeee', 0.5)) < luma('#eeeeee'));
+  ok('and a colour it cannot read is passed through rather than mangled',
+    Shapes.contrastOn('url(#glow)', 0.5) === 'url(#glow)' && Shapes.contrastOn(undefined, 0.5) === undefined);
+}
+ok('and it dims with the light it is standing for', (() => {
+  const at = (bright) => Shapes.marker('fan', 'lightkit3', Object.assign({}, fanCtx, { on: true, bright }))
+    .find((n) => n.tag === 'circle' && n.attrs['stroke-width'] === 1.1).attrs.opacity;
+  return at(0.2) < at(1);
+})());
 ok('the custom fan look reads and clamps the blade-count property', (() => {
   const count = (blades) => Shapes.marker('fan', 'custom', Object.assign({}, fanCtx, { p: { blades } }))[0].children.length;
   return count(2) === 2 && count(7) === 7 && count(40) === 8;
@@ -822,8 +1177,11 @@ ok('no theme token reaches the SVG unresolved', tokenLeak.length === 0, tokenLea
 const m1 = Fl.build(flooring, 'marble', P, { bounds: { x0: 0, y0: 0, x1: 30, y1: 30 }, theme });
 const m2 = Fl.build(flooring, 'marble', P, { bounds: { x0: 0, y0: 0, x1: 30, y1: 30 }, theme });
 ok('field generators are deterministic', JSON.stringify(m1.nodes) === JSON.stringify(m2.nodes), m1.nodes.length + ' vein paths');
-const scripted = Object.entries(flooring.types).filter(([, t]) => t.generator === 'script');
-ok('scripted flooring runs', scripted.every(([k]) => Fl.build(flooring, k, P, { bounds: { x0: 0, y0: 0, x1: 20, y1: 20 }, theme }).nodes.length > 0), scripted.length + ' script types');
+const scriptExamples = JSON.parse(fs.readFileSync(path.join(ADDON, 'samples', 'flooring-script-examples.json'), 'utf8'));
+const scripted = Object.entries(scriptExamples.types);
+ok('scripted flooring examples run', scripted.length === 2 && scripted.every(([k]) => Fl.build(scriptExamples, k, P, { bounds: { x0: 0, y0: 0, x1: 20, y1: 20 }, theme }).nodes.length > 0), scripted.length + ' script types');
+ok('worked examples are not selectable default finishes',
+  Object.keys(flooring.types).every((k) => !k.startsWith('_script_example_')));
 const broken = Fl.build({ types: { x: { generator: 'script', options: { script: 'this is not javascript(' } } } }, 'x', P, { bounds: { x0: 0, y0: 0, x1: 5, y1: 5 }, theme });
 ok('a broken script reports instead of crashing', !!broken.error && broken.nodes.length === 0);
 const flUsed = new Set();
@@ -853,6 +1211,50 @@ ok('every flooring type actually builds', flTypes.every(([k]) => {
   const r = Fl.build(flooring, k, P, { bounds: { x0: 0, y0: 0, x1: 12, y1: 12 }, theme });
   return r && !r.error && (r.fill || (r.nodes && r.nodes.length) || (r.defs && r.defs.length));
 }), `${flTypes.length} types`);
+
+{
+  const ctx = { bounds: { x0: 0, y0: 0, x1: 12, y1: 12 }, theme };
+  const build = (key, overrides) => Fl.build(flooring, key, P, Object.assign({}, ctx, { overrides }));
+  const newPatterns = ['parquet_oak_chevron', 'parquet_oak_basket', 'hex_sage', 'cement_indigo', 'sisal_natural', 'rubber_grey', 'herringbone_oak'];
+  ok('material patterns are deterministic, finite and bounded', newPatterns.every(key => {
+    const a = build(key), b = build(key);
+    return JSON.stringify(a) === JSON.stringify(b) && !/NaN|Infinity/.test(JSON.stringify(a))
+      && a.defs[0].attrs.width > 0 && a.defs[0].attrs.height > 0 && a.defs[0].children.length < 500;
+  }));
+  ok('herringbone covers its repeat once, without holes or overlapping boards', (() => {
+    const p = build('herringbone_oak').defs[0];
+    for (let i = 0; i < 43; i++) for (let j = 0; j < 43; j++) {
+      const x = (i + 0.173) / 43 * p.attrs.width, y = (j + 0.379) / 43 * p.attrs.height;
+      const covers = p.children.filter(({ attrs: a }) => x > a.x && x < a.x + a.width && y > a.y && y < a.y + a.height);
+      if (covers.length !== 1) return false;
+    }
+    return true;
+  })());
+  ok('chevron has mitred polygons while herringbone has rectangular boards',
+    build('parquet_oak_chevron').defs[0].children.every(n => n.tag === 'polygon')
+    && build('herringbone_oak').defs[0].children.every(n => n.tag === 'rect'));
+  ok('hexagonal tile faces each have six vertices',
+    build('hex_sage').defs[0].children.every(n => n.tag === 'polygon' && n.attrs.points.split(' ').length === 6));
+  ok('tile variation changes faces and zero restores a uniform tile', (() => {
+    const p = build('porcelain_greige').defs[0], flat = build('porcelain_greige', { variation: 0 }).defs[0];
+    return new Set(p.children.map(n => n.attrs.fill)).size > 4 && flat.children.length === 2;
+  })());
+  ok('terrazzo chip shape and scale both reach the drawing', (() => {
+    const angular = build('terrazzo_blush'), round = build('terrazzo_blush', { chipSides: 0 });
+    const small = build('terrazzo_blush', { chipSides: 0, chipScale: 0.5 });
+    return angular.nodes.length > 100 && angular.nodes.every(n => n.tag === 'polygon')
+      && round.nodes.every(n => n.tag === 'ellipse') && small.nodes[0].attrs.rx < round.nodes[0].attrs.rx;
+  })());
+  ok('every stock flooring option renders finitely in every shipped plan theme',
+    Object.values(themes.themes).filter(t => t.plan).every(t => flTypes.every(([key]) => {
+      const r = Fl.build(flooring, key, P, { bounds: ctx.bounds, theme: t.plan });
+      return !r.error && !/NaN|Infinity/.test(JSON.stringify(r));
+    })));
+  ok('the material gallery and README sheet match the current registries', (() => {
+    try { execFileSync(process.execPath, [path.join(ROOT, 'tools/make-material-gallery.js'), '--check']); return true; }
+    catch { return false; }
+  })());
+}
 
 /* The model must actually USE it, or the numbers above are decoration.
  * Required locally: the shared `Lighting` binding is declared much further
@@ -1419,12 +1821,12 @@ const shortRoom = {
   name: 'Study',
   keys: ['study'],
   shortcuts: [
-    { id: 'dnd', label: 'Do not disturb', entity: 'input_boolean.study_dnd', slot: 'header' },
+    { id: 'dnd', label: 'Do not disturb', entity: 'input_boolean.example_room_quiet', slot: 'header' },
     { id: 'turbo', label: 'Turbo', entity: 'switch.study_turbo' },
     { id: 'fan3', label: 'Fan 3', service: 'script.set_fan_speed', data: { speed: 3 } },
   ],
 };
-const houseLayer = { shortcuts: [{ id: 'goodnight', label: 'Goodnight', entity: 'scene.goodnight' }] };
+const houseLayer = { shortcuts: [{ id: 'goodnight', label: 'Goodnight', entity: 'scene.example_goodnight' }] };
 const floorLayer = { shortcuts: [{ id: 'floor_off', label: 'Floor off', entity: 'script.floor_off' }] };
 
 const cuts = Controls.shortcuts(controlsDoc, houseLayer, floorLayer, shortRoom);
@@ -1436,7 +1838,7 @@ ok('a nearer layer replaces one by id', (() => {
   return out.length === 1 && out[0].entity === 'scene.bedtime';
 })());
 ok('and can hide it outright with enabled:false', (() => {
-  const room = { shortcuts: [{ id: 'goodnight', enabled: false, entity: 'scene.goodnight' }] };
+  const room = { shortcuts: [{ id: 'goodnight', enabled: false, entity: 'scene.example_goodnight' }] };
   return Controls.shortcuts(controlsDoc, houseLayer, null, room).length === 0;
 })());
 ok('slot:header claims the button row and nothing else',
@@ -1453,11 +1855,11 @@ ok('one that names a section appears only there', (() => {
 
 /* What a shortcut actually calls. */
 ok('an entity alone is called by its domain', (() => {
-  const c = Controls.shortcutCall({ entity: 'scene.goodnight' }, controlsDoc);
-  return c.service === 'scene.turn_on' && c.data.entity_id === 'scene.goodnight';
+  const c = Controls.shortcutCall({ entity: 'scene.example_goodnight' }, controlsDoc);
+  return c.service === 'scene.turn_on' && c.data.entity_id === 'scene.example_goodnight';
 })());
 ok('a boolean shortcut toggles', (() => {
-  const c = Controls.shortcutCall({ entity: 'input_boolean.study_dnd' }, controlsDoc);
+  const c = Controls.shortcutCall({ entity: 'input_boolean.example_room_quiet' }, controlsDoc);
   return c.service === 'input_boolean.toggle';
 })());
 ok('an explicit service and its data win', (() => {
@@ -1465,7 +1867,7 @@ ok('an explicit service and its data win', (() => {
   return c.service === 'script.set_fan_speed' && c.data.speed === 3;
 })());
 ok('a header button resolves its target through the shortcuts',
-  Controls.resolveTarget('dnd', cuts) === 'input_boolean.study_dnd'
+  Controls.resolveTarget('dnd', cuts) === 'input_boolean.example_room_quiet'
   && Controls.resolveTarget('light.literal', cuts) === 'light.literal'
   && Controls.resolveTarget('master', cuts, { master: 'light.group' }) === 'light.group');
 ok('a `state` entity decides the lit look when the action is elsewhere',
@@ -1488,7 +1890,7 @@ const catStates = {
   'scene.other_room': { state: 'unknown', attributes: {} },
   'script.demo_study_focus': { state: 'off', attributes: {} },
   'script.unrelated_study_thing': { state: 'off', attributes: {} },
-  'input_boolean.study_dnd': { state: 'on', attributes: {} },
+  'input_boolean.example_room_quiet': { state: 'on', attributes: {} },
   'switch.study_turbo': { state: 'off', attributes: {} },
 };
 const logicCtx = {
@@ -1503,11 +1905,11 @@ ok('a scene named after the room appears with no configuration at all',
 ok('a scene belonging to another room does not', !scenesOut.includes('scene.other_room'));
 ok('the shortcuts row takes what the scenes row left', (() => {
   const out = Controls.sectionEntities(cutsSec, logicCtx).map((c) => c.entity);
-  return out.includes('switch.study_turbo') && !out.includes('scene.goodnight');
+  return out.includes('switch.study_turbo') && !out.includes('scene.example_goodnight');
 })());
 ok('a header shortcut is not repeated in a section', (() => {
   const out = Controls.sectionEntities(cutsSec, logicCtx).map((c) => c.entity);
-  return !out.includes('input_boolean.study_dnd');
+  return !out.includes('input_boolean.example_room_quiet');
 })());
 ok('the same entity from two sources is listed once', (() => {
   const twice = JSON.parse(JSON.stringify(scenesSec));
@@ -1665,6 +2067,62 @@ ok('solar defaults to a single panel',
   (lib.types['furniture.solar'].defaults.cols === 1 && lib.types['furniture.solar'].defaults.rows === 1));
 ok('sofa seat count is configurable',
   countTag('sofa', { w: 6, h: 3, seats: 2 }, 'line') !== countTag('sofa', { w: 6, h: 3, seats: 5 }, 'line'));
+
+/* ---- seating, where the LOOK is the footprint ----
+ *
+ * A sofa, a sectional and a recliner suite are each one type with several
+ * genuinely different pieces of furniture inside them, and what separates them
+ * is mostly the shape of the floor they take up. The generic look checks above
+ * already prove every look draws something different from its siblings; these
+ * pin the specific claims each look is making, because "different" is not the
+ * same as "right" — an L-shaped sectional drawn as a bench passes the first and
+ * fails a room. */
+{
+  const size = (shape, look) => Shapes.furnitureVariantSize(shape, look);
+  ok('a three-seat recliner suite is wider than a single chair',
+    size('recliner', 'three_seat')[0] > size('recliner', 'single')[0] * 2,
+    `${size('recliner', 'three_seat')[0]} vs ${size('recliner', 'single')[0]} ft`);
+  ok('and a console adds most of another seat to it',
+    size('recliner', 'console_two')[0] > size('recliner', 'two_seat')[0]
+    && size('recliner', 'console_two')[0] < size('recliner', 'three_seat')[0]);
+  ok('the consoles are actually drawn, not merely paid for in width',
+    countTag('recliner', { w: 6.9, h: 3.4, variant: 'console_two' }, 'rect')
+    > countTag('recliner', { w: 5.8, h: 3.4, variant: 'two_seat' }, 'rect'));
+  ok('every recliner seat gets its own footrest',
+    [1, 2, 3].every((n) => countTag('recliner', { w: 3.4 * n, h: 3.4, variant: ['single', 'two_seat', 'three_seat'][n - 1] }, 'path') === n));
+
+  ok('an L-shaped sectional is deeper than the straight run it shares a type with',
+    size('sectional', 'l_left')[1] > lib.types['furniture.sectional'].defaults.h);
+  ok('and the left- and right-handed L are mirror images, not the same drawing', (() => {
+    const l = Shapes.furniture('sectional', mkCtx({ w: 9, h: 6.5, variant: 'l_left' }));
+    const r = Shapes.furniture('sectional', mkCtx({ w: 9, h: 6.5, variant: 'l_right' }));
+    return JSON.stringify(l) !== JSON.stringify(r) && l.length === r.length;
+  })());
+  /* An arm is a rect the full depth of the piece. Counting those is how many
+   * ends of it you cannot get into — which is exactly the difference between
+   * a chaise (none: that open end is what you put your legs on), a corner unit
+   * (one) and a U (two). */
+  const armsOn = (look, w, h) => Shapes.furniture('sectional', mkCtx({ w, h, variant: look }))
+    .filter((n) => n.tag === 'rect' && Math.abs(n.attrs.height - P.S(h)) < 0.01).length;
+  ok('a chaise has no arm at its foot, a corner unit has one and a U has two',
+    armsOn('chaise', 8.5, 5.5) === 0 && armsOn('l_left', 9, 6.5) === 1 && armsOn('u_shaped', 9.5, 8) === 2,
+    `${armsOn('chaise', 8.5, 5.5)}/${armsOn('l_left', 9, 6.5)}/${armsOn('u_shaped', 9.5, 8)}`);
+
+  /* "A sofa with a single stretched seat" is a real piece of furniture and the
+   * seams are the whole difference: a bench-seat sofa has none. */
+  ok('a bench-seat sofa has no cushion seams where a straight one does',
+    countTag('sofa', { w: 6.5, h: 3, variant: 'bench_seat', seats: 3 }, 'line') === 0
+    && countTag('sofa', { w: 6.5, h: 3, variant: 'straight', seats: 3 }, 'line') > 0);
+  /* The same measure on the sofa, where the body itself is a full-depth rect —
+   * so a straight sofa counts three, a daybed two and an armless one one. */
+  const sofaArms = (look, w, h) => Shapes.furniture('sofa', mkCtx({ w, h, variant: look }))
+    .filter((n) => n.tag === 'rect' && Math.abs(n.attrs.height - P.S(h)) < 0.01).length - 1;
+  ok('a daybed has one arm, a straight sofa two and an armless one none',
+    sofaArms('straight', 6.5, 3) === 2 && sofaArms('daybed', 6.5, 2.8) === 1 && sofaArms('armless', 5.5, 2.8) === 0,
+    `${sofaArms('straight', 6.5, 3)}/${sofaArms('daybed', 6.5, 2.8)}/${sofaArms('armless', 5.5, 2.8)}`);
+  ok('a curved sofa is drawn with curves rather than as a box',
+    Shapes.furniture('sofa', mkCtx({ w: 7.2, h: 3.4, variant: 'curved' })).every((n) => n.tag !== 'rect'));
+}
 ok('bookshelf shelves are configurable',
   countTag('bookshelf', { w: 3, h: 1, shelves: 3 }, 'line') !== countTag('bookshelf', { w: 3, h: 1, shelves: 7 }, 'line'));
 ok('hob burner count is configurable',
@@ -2777,6 +3235,32 @@ ok('items are ordered largest tap area first', (() => {
   const areas = hits.filter((t) => t.target === 'item').map(areaOf);
   return areas.every((a, i) => i === 0 || areas[i - 1] >= a - 1e-6) && !!P;
 })());
+/* The room's NAME is its own target, separate from the floor under it.
+ *
+ * Without one, `openOn.chipTap` and `openOn.floorTap` cannot both be honoured:
+ * a single room polygon covers the label and the floor alike, so "only the
+ * name opens the sheet" had no geometry to mean anything against. The box is
+ * recorded by the label pass rather than recomputed, because where a chip ends
+ * up is the output of a placement ladder that dodges markers — a second
+ * implementation would put the target where the label is not. */
+ok('the room name chip is its own tap target, taken from where the label was drawn', (() => {
+  const built = scene.build({ ppf: 22 }, hitFloor, lib, themes.themes[themes.active], { boundaries, states: {}, flooring });
+  const labelled = (hitFloor.rooms || []).filter((r) => !r.noLabel && !r.part_of);
+  if (!built.chips || built.chips.length !== labelled.length) return false;
+  const withChips = scene.hitTargets(hitFloor, lib, built.projector, {}, built.chips);
+  const chipHits = withChips.filter((t) => t.target === 'chip');
+  if (chipHits.length !== built.chips.length) return false;
+  /* Between the room and everything else: the label beats the floor it sits
+   * on, and a marker still beats the label. */
+  const lastRoom = withChips.findLastIndex((t) => t.target === 'room');
+  const firstChip = withChips.findIndex((t) => t.target === 'chip');
+  const firstItem = withChips.findIndex((t) => t.target === 'item');
+  return firstChip > lastRoom && (firstItem === -1 || withChips.findLastIndex((t) => t.target === 'chip') < firstItem)
+    && chipHits.every((t) => t.attrs.width > 0 && t.attrs.height > 0 && !!t.id);
+})());
+ok('and a caller that hands over no chips gets the targets it always did',
+  scene.hitTargets(hitFloor, lib, scene.makeProjector(hitProj)).every((t) => t.target !== 'chip'));
+
 /* A marker standing for something far bigger than its own disc says so. */
 ok('props.hitRect gives a marker a real tap rectangle', (() => {
   const p = JSON.parse(JSON.stringify(hitProj));
@@ -2869,6 +3353,167 @@ ok('a tap circle is bigger than the disc it covers', (() => {
   return t.render.tap > t.render.size;
 })());
 
+/* ---- the interaction options the card SHIPPED and did not read ----
+ *
+ * `openOn` and `dismiss` have been in defaults/controls.json since controls
+ * existed, and every key but `dismiss.backdrop` reached the card and was
+ * ignored — so the generated dashboard could not be closed with Escape despite
+ * shipping `escape: true`, and a design declaring `persistent` was not.
+ *
+ * A registry option nothing reads is worse than an absent one: it is
+ * documented behaviour that silently does not happen, and the person who set
+ * it concludes the setting is broken rather than missing. These pin each one
+ * to an observable difference, so deleting the code fails here rather than in
+ * somebody's house.
+ *
+ * Driven through the real class, in a sandbox with a DOM stub small enough to
+ * be obviously honest: the assertions are about which branches run, not about
+ * layout. */
+{
+  const Controls = require(path.join(APP, 'lib', 'controls'));
+  const cardSrcNow = fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8');
+  const elStub = () => {
+    const node = {
+      className: '', textContent: '', hidden: false, style: { setProperty() {} },
+      dataset: {}, children: [], listeners: {},
+      appendChild(c) { this.children.push(c); return c; },
+      append(...c) { this.children.push(...c); },
+      replaceChildren(...c) { this.children = c; },
+      setAttribute() {}, addEventListener(k, fn) { (this.listeners[k] = this.listeners[k] || []).push(fn); },
+      querySelector() { return this._surface || (this._surface = elStub()); },
+    };
+    return node;
+  };
+  const surface = elStub();
+  const doc = { createElement: () => elStub(), addEventListener() {}, removeEventListener() {} };
+  let Card;
+  require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8'), {
+    HTMLElement: class {}, customElements: { define: (_, c) => { Card = c; } }, window: {},
+    PlanScene: scene, Controls, document: doc,
+    setInterval: () => null, clearInterval: () => null,
+    FPS_DATA: { project: {}, boundaries, library: lib, controls: controlsDoc },
+  });
+
+  /* One room, one lamp, and a card wired to report what it decided rather
+   * than to paint anything. */
+  const makeCard = (roomCfg) => {
+    const card = Object.create(Card.prototype);
+    card._config = { controls: true };
+    card._floor = { id: 'f', rooms: [Object.assign({ id: 'r', name: 'Room', rect: [0, 0, 10, 10] }, roomCfg)], items: [], openings: [] };
+    card._hass = { states: {} };
+    card._open = null;
+    card._root = { querySelector: () => surface };
+    card.stateMap = () => ({});
+    card.painted = [];
+    card.paintControls = (id) => { card.painted.push(id); };
+    card.closeControls = () => { card._open = null; card.painted.push(null); };
+    return card;
+  };
+
+  const tapOpens = (roomCfg, via) => {
+    const card = makeCard(roomCfg);
+    card.toggleControls('r', false, via);
+    return card._open === 'r';
+  };
+  ok('by default a tap on the name and a tap on the floor both open the popup',
+    tapOpens({}, 'chip') && tapOpens({}, 'floor'));
+  ok('openOn.chipTap false stops the name opening it, and only the name',
+    !tapOpens({ controls: { openOn: { chipTap: false } } }, 'chip')
+      && tapOpens({ controls: { openOn: { chipTap: false } } }, 'floor'));
+  ok('openOn.floorTap false stops the floor opening it, and only the floor',
+    !tapOpens({ controls: { openOn: { floorTap: false } } }, 'floor')
+      && tapOpens({ controls: { openOn: { floorTap: false } } }, 'chip'));
+
+  /* Retap, and the docked design that must not answer to it. */
+  const retap = (roomCfg) => {
+    const card = makeCard(roomCfg);
+    card.toggleControls('r', false, 'floor');
+    card.toggleControls('r', false, 'floor');
+    return card._open;
+  };
+  ok('tapping the same room again closes it', retap({}) === null);
+  ok('dismiss.retap false leaves it open instead', retap({ controls: { dismiss: { retap: false } } }) === 'r');
+  ok('and a persistent design ignores the retap without being told to',
+    retap({ controls: { design: 'dock' } }) === 'r'
+      && Controls.designs(controlsDoc).find((d) => d.id === 'dock').persistent === true);
+
+  /* Escape. The listener is installed on connect and guarded by `_open`, so a
+   * card with nothing showing does not swallow a key another card wanted. */
+  ok('Escape closes an open surface, and dismiss.escape false does not', (() => {
+    const keys = [];
+    const docWithKeys = Object.assign({}, doc, { addEventListener: (k, fn) => keys.push([k, fn]) });
+    const run = (roomCfg) => {
+      const card = makeCard(roomCfg);
+      keys.length = 0;
+      const saved = doc.addEventListener;
+      doc.addEventListener = docWithKeys.addEventListener;
+      try { card.connectedCallback(); } finally { doc.addEventListener = saved; }
+      card._open = 'r';
+      const handler = (keys.find(([k]) => k === 'keydown') || [])[1];
+      if (!handler) return 'no listener';
+      handler({ key: 'Escape', stopPropagation() {} });
+      return card._open;
+    };
+    return run({}) === null && run({ controls: { dismiss: { escape: false } } }) === 'r';
+  })());
+
+  /* The three that change what is BUILT rather than what a tap does. */
+  ok('dismiss.grabBar false leaves the handle drawn but stops it closing',
+    cardSrcNow.includes("(cfg.dismiss || {}).grabBar !== false) bar.addEventListener")
+      /* The handle itself is appended unconditionally — it is what shows the
+       * sheet's top edge, whether or not tapping it does anything. */
+      && cardSrcNow.includes('panel.appendChild(bar)'));
+  ok('dismiss.close false drops the Close button from the header',
+    cardSrcNow.includes("b.action === 'close' && (cfg.dismiss || {}).close === false) continue"));
+  ok('inlineSections lays the sections along the bar and drops their headings',
+    cardSrcNow.includes("spec.inlineSections ? ' fps-inline' : ''")
+      && cardSrcNow.includes('!spec.flattenSections && !spec.inlineSections')
+      && require(path.join(APP, 'lib', 'card-css')).includes('.fps-panel.fps-inline')
+      && Controls.designs(controlsDoc).find((d) => d.id === 'bar').inlineSections === true,
+    'bar');
+
+  /* markerHold: what a long press on a MARKER does, as opposed to on a room. */
+  const heldMarker = (roomCfg) => {
+    const card = makeCard(roomCfg);
+    card._floor.items = [{ id: 'i', kind: 'fixture', type: 'bulb', entity: 'light.x', at: [5, 5] }];
+    const seen = [];
+    card.moreInfoForItem = (id) => { seen.push('moreInfo:' + id); };
+    card.toggleControls = (id) => { seen.push('controls:' + id); };
+    card.holdItem('i');
+    return seen.join('') || 'nothing';
+  };
+  ok('holding a marker opens more-info by default, its room on request, or nothing',
+    heldMarker({}) === 'moreInfo:i'
+      && heldMarker({ controls: { openOn: { markerHold: 'controls' } } }) === 'controls:r'
+      && heldMarker({ controls: { openOn: { markerHold: 'none' } } }) === 'nothing');
+
+  /* A design's own words for how tight it sits and how it arrives. Both were
+   * declared by all seven designs and read by nothing, so every surface came
+   * up identically however it had been described. */
+  ok('a design’s density and entry animation reach the surface it builds', (() => {
+    const css = require(path.join(APP, 'lib', 'card-css'));
+    const designs = Controls.designs(controlsDoc);
+    return cardSrcNow.includes("' fps-density-' + (spec.density || 'comfortable')")
+      && cardSrcNow.includes("' fps-anim-' + (spec.animation || 'none')")
+      /* Every value the registry actually uses has a rule, or the class is
+       * decoration. `none` and `comfortable` are the defaults and need none. */
+      && designs.every((d) => !d.density || d.density === 'comfortable' || css.includes('.fps-density-' + d.density))
+      && designs.every((d) => !d.animation || d.animation === 'none' || css.includes('.fps-anim-' + d.animation))
+      && css.includes('prefers-reduced-motion');
+  })());
+
+  /* And the registry no longer declares anything nobody reads. */
+  const declared = new Set();
+  const collect = (o) => { for (const [k, v] of Object.entries(o || {})) { if (!k.startsWith('_')) declared.add(k); if (v && typeof v === 'object' && !Array.isArray(v)) collect(v); } };
+  collect(controlsDoc.default.openOn);
+  collect(controlsDoc.default.dismiss);
+  for (const d of Object.values(controlsDoc.designs)) for (const k of Object.keys(d)) declared.add(k);
+  const unread = [...declared].filter((k) => !cardSrcNow.includes(k)
+    && !fs.readFileSync(path.join(APP, 'lib', 'card-css.js'), 'utf8').includes(k)
+    && !fs.readFileSync(path.join(APP, 'lib', 'controls.js'), 'utf8').includes(k));
+  ok('every option the controls registry declares is read by something', !unread.length, unread.join(', '));
+}
+
 /* -------------------------------------------------------- the dashboard */
 
 console.log('\n== dashboard ==');
@@ -2958,6 +3603,19 @@ ok('the bundle drops editor-only prop schemas',
   !JSON.parse(JSON.stringify(cardBuild.trimLibrary(lib))).types['fixture.spot'].props
   && cardBuild.trimLibrary(lib).types['fixture.spot'].defaults.watt > 0);
 ok('the bundle stays under a megabyte', built.bytes < 1024 * 1024, `${(built.bytes / 1024).toFixed(0)} KiB`);
+/* Colour schemes reach the dashboard by two different routes, and the help
+ * page promises both: the shipped ones ride in with `shapes.js` (which the
+ * bundle already inlines whole), and somebody's own ride in on the project.
+ * `trimProject` drops editor-only keys, so this is the check that it does not
+ * one day decide `schemes` is one of them and quietly grey out a plan that
+ * looks right in the editor. */
+{
+  const withScheme = JSON.parse(JSON.stringify(dashProj));
+  withScheme.schemes = [{ id: 'my_grey', label: 'My grey', group: 'Custom', fill: '#8d939c', line: '#5a6069', glyph: '#3f444b', accent: '#3fb2ff' }];
+  const b = cardBuild.build(Object.assign({}, cardDocs, { project: withScheme }), { version: 'test' });
+  ok('the card carries the shipped colour schemes with the renderer', /matte_black/.test(b.content));
+  ok('and the ones the project made for itself', /my_grey/.test(b.content));
+}
 /* This file leaves the repository and lands in somebody else's dashboard,
  * detached from LICENSE and NOTICE. Apache-2.0 §4(d) allows the notice to live
  * "within a display generated by the Derivative Works", which for a generated
@@ -3169,6 +3827,36 @@ ok('every seeded chip has a drawn icon',
  * nobody merges them into one rule later. */
 
 console.log('\n== room chips ==');
+
+{
+  const badgeRoom = { id: 'badge', name: 'Long studio name', shape: 'rect', rect: [1, 1, 8, 8], chip_at: [15, 5], showCount: true };
+  const floor = { id: 'badge-floor', extent: { w: 24, h: 16 }, rooms: [badgeRoom], items: [], openings: [] };
+  const p = { ppf: 22, floors: [floor], chips: { style: 'pill' } };
+  const draw = () => scene.build(p, floor, lib, themes.themes.frosted.plan, { boundaries, flooring, states: {} });
+  const normal = draw();
+  badgeRoom.chip_scale = .5;
+  const small = draw();
+  const textSizes = s => s.layers.labels.filter(n => n.tag === 'text' && n.roomId === 'badge').map(n => n.attrs['font-size']);
+  ok('a resized room badge scales its name, count and hit target together',
+    small.chips[0].width === normal.chips[0].width / 2 && small.chips[0].height === normal.chips[0].height / 2
+    && textSizes(small).length === 2 && textSizes(small).every((size, i) => size === textSizes(normal)[i] / 2));
+  ok('a badge beside its room keeps that room as its dashboard target',
+    small.chips[0].roomId === 'badge' && small.chips[0].x > small.projector.X(9)
+    && scene.hitTargets(floor, lib, small.projector, {}, small.chips).some(t => t.target === 'chip' && t.id === 'badge'));
+  badgeRoom.chip_rotate = 35;
+  ok('rotation follows the resized badge into its tap target', draw().chips[0].rot.startsWith('rotate(35 '));
+  const exportedBadge = exporter.specForFloor(p, floor, lib).spec.rooms[0];
+  const restoredBadge = require(path.join(APP, 'lib/legacy-import')).importRoom(exportedBadge);
+  ok('badge position, rotation and size survive spec export and import',
+    restoredBadge.chip_scale === .5 && restoredBadge.chip_rotate === 35
+      && JSON.stringify(restoredBadge.chip_at) === JSON.stringify(badgeRoom.chip_at));
+  badgeRoom.noLabel = true;
+  ok('hiding a moved resized badge removes its target as well as its drawing', draw().chips.length === 0);
+  delete badgeRoom.noLabel;
+  badgeRoom.chip_scale = -1;
+  ok('invalid badge scales are reported by project validation',
+    require(path.join(APP, 'lib/validate-project')).validate(p, lib).errors.some(e => e.path.endsWith('.chip_scale')));
+}
 
 const chipStates = {};
 for (const i of f2.items) if (i.entity) chipStates[i.entity] = { state: 'on', attributes: {} };
@@ -3892,6 +4580,27 @@ const dispatchScenario = [
   '  const registry = toolJson(await call("tools/call", { name: "get_registry", arguments: { name: "boundaries" } }, 14));',
   '  t("get_registry reads the boundaries document", !!registry.openingTypes && !!registry.openingTypes.door);',
   '',
+  "const regEvents = [];",
+  "  const unsubReg = store.onRegistryChange(n => regEvents.push(n));",
+  "  const regCall = args => call(\"tools/call\", {name:\"edit_registry\",arguments:args}, 201);",
+  "  t(\"MCP advertises shared registry authoring\", names.includes(\"edit_registry\"));",
+  "  const fullLib = toolJson(await call(\"tools/call\", {name:\"get_registry\",arguments:{name:\"library\"}},202));",
+  "  t(\"MCP reads complete library registry\", !!fullLib.types[\"fixture.bulb\"]);",
+  "  const custom = {label:\"Example clay\",generator:\"tile\",reflectance:0.4};",
+  "  t(\"MCP adds a shared flooring finish\", toolJson(await regCall({name:\"flooring\",path:[\"types\",\"example_clay\"],value:custom})).ok);",
+  "  await Promise.all([regCall({name:\"flooring\",path:[\"types\",\"example_clay\",\"label\"],value:\"Clay\"}),regCall({name:\"flooring\",path:[\"types\",\"example_clay\",\"reflectance\"],value:0.5})]);",
+  "  let fdoc = await store.readFlooring();",
+  "  t(\"concurrent registry patches preserve both changes\", fdoc.types.example_clay.label === \"Clay\" && fdoc.types.example_clay.reflectance === 0.5);",
+  "  const beforeReject = JSON.stringify(fdoc);",
+  "  const badReg = await regCall({name:\"flooring\",path:[\"types\",\"example_clay\",\"generator\"],value:\"missing_generator\"});",
+  "  t(\"invalid registry edits do not persist\", badReg.result.isError && JSON.stringify(await store.readFlooring()) === beforeReject);",
+  "  const unsafeReg = await regCall({name:\"flooring\",path:[\"__proto__\",\"polluted\"],value:true});",
+  "  const unsafeValue = await regCall({name:\"flooring\",path:[\"types\",\"bad\"],value:JSON.parse('{\"__proto__\":{\"polluted\":true}}')});",
+  "  t(\"registry authoring rejects prototype keys in paths and values\", unsafeReg.result.isError && unsafeValue.result.isError && !({}).polluted);",
+  "  t(\"only saved registry edits notify editors\", regEvents.length === 3 && regEvents.every(n=>n === \"flooring\"));",
+  "  unsubReg();",
+  "  const dotEdit = await regCall({name:\"library\",path:[\"types\",\"fixture.bulb\",\"label\"],value:\"Example bulb\"});",
+  "  t(\"registry paths preserve dotted type keys\", !dotEdit.result.isError && (await store.readLibrary()).types[\"fixture.bulb\"].label === \"Example bulb\");",
   '  const validation = toolJson(await call("tools/call", { name: "validate_project", arguments: {} }, 15));',
   '  t("validate_project reports a clean project as ok", validation.ok === true && validation.errors.length === 0);',
   '',
@@ -4515,6 +5224,118 @@ ok('every option a shipped finish sets is reachable from the editor', (() => {
   return bad.length === 0;
 })());
 
+/* ---- a veined TILE ----
+ *
+ * `tile` had a grid and no veins; `marble` had veins and no grid; and a
+ * marble-look glazed vitrified tile — the commonest bedroom floor in a modern
+ * house here — is both. The generator contract widened rather than a third
+ * generator being added: a FIELD generator may now bring its own base instead
+ * of taking a flat colour.
+ *
+ * The regression that matters is the other half of that sentence: everything
+ * which returns only nodes must still get exactly the plain base it always
+ * got, or every marble slab in every existing plan changes at once.
+ */
+{
+  const P2 = { X: (x) => x * 22, Y: (y) => y * 22, S: (l) => l * 22 };
+  const fctx = { bounds: { x0: 0, y0: 0, x1: 20, y1: 15 }, theme: themes.themes.frosted.plan };
+  const built = (key, over) => {
+    const doc = JSON.parse(JSON.stringify(flooringDefaults));
+    if (over) Object.assign(doc.types[key].options, over);
+    return Fl.build(doc, key, P2, fctx);
+  };
+  const slab = built('marble');
+  const tiled = built('vitrified_marble');
+  ok('a marble slab still takes the plain base it always took',
+    typeof slab.fill === 'string' && slab.fill[0] === '#' && slab.defs.length === 0 && slab.nodes.length > 0);
+  ok('and a marble-look TILE brings its own grid as well as its veins',
+    /^url\(#/.test(tiled.fill) && tiled.defs.length === 1 && tiled.nodes.length > 0);
+  ok('the grid it brings is the same one the tile generator lays', (() => {
+    const grid = built('tile_large', { color: '#f4f5f7', grout: '#dee1e6', groutPx: 0.5 });
+    const shape = (r) => r.defs[0].attrs.width + 'x' + r.defs[0].attrs.height;
+    return shape(tiled) === shape(grid);
+  })());
+
+  /* Two vein systems, because a Statuario or Calacatta tile has a grey
+   * structural vein and a sparser gold one, and drawing both in one colour is
+   * what makes a printed tile read as a flat grey slab. */
+  /* Read off the registry rather than written in here, so tuning the finish's
+   * colours cannot fail a check that is about the MECHANISM. */
+  const vmOpts = flooringDefaults.types.vitrified_marble.options;
+  ok('a second vein colour draws a second set of veins', (() => {
+    const cols = new Set(tiled.nodes.map((n) => n.attrs.stroke));
+    return cols.size === 2 && cols.has(vmOpts.veinColor) && cols.has(vmOpts.veinColor2);
+  })());
+  ok('and adding it does not move a single vein of the first set', (() => {
+    const one = built('vitrified_marble', { veinColor2: undefined });
+    const greys = (r) => JSON.stringify(r.nodes.filter((n) => n.attrs.stroke === vmOpts.veinColor));
+    return greys(one) === greys(tiled) && one.nodes.length < tiled.nodes.length;
+  })());
+  ok('the gold veins are finer than the grey ones they run through', (() => {
+    const w = (col) => tiled.nodes.filter((n) => n.attrs.stroke === col)
+      .reduce((m, n) => Math.max(m, n.attrs['stroke-width']), 0);
+    return w(vmOpts.veinColor2) < w(vmOpts.veinColor);
+  })());
+  /* A printed tile is not a natural slab: the pattern is inked onto every tile
+   * and has to read from across the room, where the slab's sub-pixel hairlines
+   * at a third opacity are drawn and invisible. The multipliers exist for that,
+   * and default to 1 so no existing finish moved. */
+  ok('a printed tile veins more strongly than the slab defaults', (() => {
+    const plain = built('marble');
+    const heaviest = (r) => r.nodes.reduce((m, n) => Math.max(m, n.attrs['stroke-width']), 0);
+    return vmOpts.veinWidth > 1 && vmOpts.veinOpacity > 1 && heaviest(tiled) > heaviest(plain);
+  })());
+  ok('and the multipliers leave a finish that does not set them alone', (() => {
+    const a = built('marble');
+    const b = built('marble', { veinWidth: 1, veinOpacity: 1 });
+    return JSON.stringify(a.nodes) === JSON.stringify(b.nodes);
+  })());
+
+  /* A wooden-finish TILE is not laminate and not a wood floor: it is ceramic,
+   * it is grouted, and it throws back less light than either. The joint is
+   * what you actually see, so it is what this checks. */
+  /* A plank pattern with no figure in it is a grid of uniform blocks with a
+   * dark line round each — a drawing of BRICKWORK, and it reads as brickwork
+   * the moment the joints are anything but hairline. That is what the first
+   * wooden-finish tile looked like, reported as exactly that. Grain is the
+   * feature that says timber: it runs ALONG the plank and nothing else does. */
+  ok('a wooden-finish tile has grain running along its planks', (() => {
+    const withGrain = built('wood_tile');
+    const without = built('wood_tile', { grain: 0 });
+    const kids = (r) => r.defs[0].children;
+    const streaks = kids(withGrain).filter((n) => n.tag === 'path');
+    return streaks.length > 0 && kids(withGrain).length > kids(without).length;
+  })());
+  ok('the grain is drawn in the board\'s own colour, never in the joint\'s', (() => {
+    const kids = built('wood_tile').defs[0].children;
+    const jointColours = new Set(kids.filter((n) => n.tag === 'line').map((n) => n.attrs.stroke));
+    return kids.filter((n) => n.tag === 'path').every((n) => !jointColours.has(n.attrs.stroke));
+  })());
+  ok('and a plank finish that asks for none draws exactly as it always did', (() => {
+    const a = built('wood');
+    const b = built('wood', { grain: 0 });
+    return JSON.stringify(a) === JSON.stringify(b) && !a.defs[0].children.some((n) => n.tag === 'path');
+  })());
+  ok('a wooden-finish tile is grouted where a wood floor is butt-jointed', (() => {
+    const joint = (key) => (flooringDefaults.types[key].options || {}).jointPx || 0.8;
+    return joint('wood_tile') > joint('laminate') && joint('wood_tile') > joint('wood');
+  })());
+  ok('and it reflects less than the timber it imitates',
+    flooringDefaults.types.wood_tile.reflectance < flooringDefaults.types.laminate.reflectance);
+
+  /* Two names for one floor is a picker that lies about offering a choice —
+   * the same rule the marker looks and the wall treatments already live by. */
+  const seen = new Map();
+  const twins = [];
+  for (const key of Object.keys(flooringDefaults.types)) {
+    const r = Fl.build(flooringDefaults, key, P2, fctx);
+    const sig = JSON.stringify([r.fill, r.defs, r.nodes]);
+    if (seen.has(sig)) twins.push(`${key} == ${seen.get(sig)}`);
+    seen.set(sig, key);
+  }
+  ok('no two shipped finishes draw the same floor', twins.length === 0, twins.slice(0, 3).join(', '));
+}
+
 ok('every shipped finish declares a reflectance', (() => {
   /* Both light models read it and a finish that omits it reflects NOTHING, so
    * an omission is not a default — it is a dark floor nobody chose. */
@@ -4531,6 +5352,7 @@ await okAsync('the upgrade fills reflectance without touching what the user set'
     fs.writeFileSync(path.join(dir, 'flooring.json'), JSON.stringify({
       schemaVersion: 1,
       fallback: 'plain',
+      generatorOptions: { tile: [{ key: 'color', kind: 'color', label: 'My custom colour label' }] },
       types: {
         plain: { label: 'Plain', group: 'Basic', generator: 'plain', options: { color: '@floorDefault' } },
         solid: { label: 'Solid colour', group: 'Basic', generator: 'plain', reflectance: 0, options: {} },
@@ -4547,6 +5369,9 @@ await okAsync('the upgrade fills reflectance without touching what the user set'
           solid: d.types.solid.reflectance,
           mine: d.types.mine.reflectance,
           hasSchema: !!d.generatorOptions,
+          hasNewPattern: !!d.types.hex_sage && !!d.generatorOptions.hexagon,
+          addedOption: d.generatorOptions.tile.some(s => s.key === 'variation'),
+          customLabel: d.generatorOptions.tile.find(s => s.key === 'color').label,
           gained: Object.values(d.types).filter((t) => t.reflectance === undefined).length,
         }));
       });
@@ -4555,7 +5380,8 @@ await okAsync('the upgrade fills reflectance without touching what the user set'
     return r.plain === 0.35            // filled from the shipped default
       && r.solid === 0                 // a deliberate 0 is DEFINED and left alone
       && r.mine === undefined          // a finish the user invented is not guessed at
-      && r.hasSchema === true;         // the new top-level key reaches an old document
+      && r.hasSchema === true && r.hasNewPattern && r.addedOption
+      && r.customLabel === 'My custom colour label';
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -5343,6 +6169,10 @@ console.log('\n== help ==');
   ok('every help page uses the favicon built from the canonical app icon',
     [...pages.values()].every((html) => html.includes('rel="icon" type="image/svg+xml" href="favicon.svg"'))
       && fs.readFileSync(path.join(siteRoot, 'favicon.svg'), 'utf8') === fs.readFileSync(path.join(ROOT, 'branding', 'icon.svg'), 'utf8'));
+  ok('the material gallery shares the Pages shell, theme, navigation and search',
+    pages.get('materials.html').includes('href="help.css"') && pages.get('materials.html').includes('id="themeBtn"')
+      && pages.get('materials.html').includes('id="material-gallery"')
+      && [...pages.values()].every(html => html.includes('href="materials.html#material-gallery"')));
   ok('there is help to show at all', written.length >= 15, `${written.length} written topics`);
 
   /* Every place the editor puts a "?" has to answer with something. An empty
@@ -5367,6 +6197,191 @@ console.log('\n== help ==');
     }
   }
   ok('no topic points at a type or shape that stopped existing', dangling.length === 0, dangling.join(', '));
+
+  /* The reverse rot, and the one that had actually happened: a place in the UI
+   * that nothing is written about. `dialog:logic` was a top-bar button with no
+   * topic, invisible because the check below only ever asked about panels. A
+   * location nobody documented is a feature nobody can look up — in the editor,
+   * on the site or through get_help, all three at once. */
+  const applied = new Set();
+  for (const t of all) for (const s of t.applies || []) applied.add(Nav.aliases[s] || s);
+  const undocumented = Object.keys(Nav.locations).filter((id) => !applied.has(id));
+  ok('every place the UI can send you to is written about', !undocumented.length, undocumented.join(', '));
+
+  /* Advanced has to be declared where the UI hides it, not only where the
+   * library does. A section gated behind `S.advanced` in the panels but absent
+   * from ui-navigation is one the docs describe as though it were on screen —
+   * and the reader goes looking for a control that is one tick away with
+   * nothing saying so. Each of these is gated in the file named beside it. */
+  const ADVANCED_UI = [
+    ['section:item.tap', 'panels.js'], ['section:item.hold', 'panels.js'],
+    ['field:item.room', 'panels.js'], ['section:room.curved', 'panels.js'],
+    ['section:room.label', 'panels.js'], ['section:room.daylight', 'panels.js'],
+    ['section:opening.overhead', 'panels-extra.js'], ['section:sun.model', 'panels-extra.js'],
+    ['section:lighting.model', 'panels-dashboard.js'],
+  ];
+  const notAdvanced = ADVANCED_UI.filter(([id]) => !Nav.route(id).advanced);
+  ok('every advanced part of the UI is declared advanced', !notAdvanced.length,
+    notAdvanced.map(([id]) => id).join(', ') || `${ADVANCED_UI.length} places`);
+  /* And the declaration reaches the reader: the access path for each says so. */
+  const unsaid = ADVANCED_UI.filter(([id]) => !Help.sheet(id, lib).topics.length
+    || !Help.sheet(id, lib).topics.some((t) => Help.topicBody(t).includes('Advanced')));
+  ok('and the help for each of them says so', !unsaid.length, unsaid.map(([id]) => id).join(', '));
+  /* The panel really does gate it. A location declared advanced that the UI
+   * shows unconditionally is the same drift pointing the other way. */
+  const uiSrc = Object.fromEntries(['panels.js', 'panels-extra.js', 'panels-dashboard.js']
+    .map((f) => [f, fs.readFileSync(path.join(APP, 'public', 'js', f), 'utf8')]));
+  const ungated = ADVANCED_UI.filter(([id, file]) => !uiSrc[file].includes(id));
+  ok('and the panel that hides it names the same location', !ungated.length,
+    ungated.map(([id]) => id).join(', '));
+
+  /* ---- the registry catalogues ----
+   *
+   * The library registry documented itself and the other four did not, so the
+   * prose quoted them from memory: "a flat list of 68", "about thirty others",
+   * and a promise that you could "see the whole table in the controls
+   * registry" when nothing showed that table. Each of those was a second copy
+   * of a fact, and the second copy is the one that goes stale.
+   *
+   * The catalogues are now generated from the registries, so what is checked
+   * here is coverage: every entry present, and the numbers matching the
+   * registry rather than a figure typed a year ago. */
+  const catalogued = (id) => Help.topicBody(Help.corpus(lib).byId.get(id));
+  const missingRows = [];
+  const check = (id, keys, what) => {
+    const body = catalogued(id);
+    const absent = keys.filter((k) => !body.includes('`' + k + '`'));
+    if (absent.length) missingRows.push(`${what}: ${absent.slice(0, 4).join(', ')}`);
+  };
+  check('walls-boundaries', Object.keys(boundaries.types), 'wall treatments');
+  check('opening-coverings', Object.keys(boundaries.coverings), 'coverings');
+  check('walls-openings', Object.keys(boundaries.openingTypes), 'opening types');
+  check('room-flooring', Object.keys(flooring.types), 'floor finishes');
+  check('item-colour', Object.keys(Shapes.SCHEMES), 'stock colour schemes');
+  check('room-controls', Object.keys(controlsDoc.designs), 'control designs');
+  check('room-controls', Object.keys(controlsDoc.domainActions.byDomain), 'domain actions');
+  ok('every registry entry appears in its generated catalogue', !missingRows.length,
+    missingRows.join(' | ')
+      || `${Object.keys(boundaries.types).length} treatments, ${Object.keys(boundaries.coverings).length} coverings, `
+        + `${Object.keys(flooring.types).length} finishes, ${Object.keys(controlsDoc.domainActions.byDomain).length} domains`);
+
+  /* And the numbers in them are the registry's, not a restatement of it. A
+   * transmission typed into prose is exactly the kind of thing that is right
+   * on the day it is written. */
+  const wallsBody = catalogued('walls-boundaries');
+  const jali = boundaries.types.jali;
+  ok('a catalogue quotes the registry’s own figures',
+    !!jali && wallsBody.includes(`\`jali\` | ${Math.round(jali.transmission * 100)}%`)
+      && catalogued('room-flooring').includes(`\`plain\` | ${flooring.types.plain.generator || '—'}`));
+
+  /* The prose must not re-state what the catalogue derives. These were the
+   * exact phrases that had gone stale. */
+  const proseFiles = ['walls-boundaries.md', 'room-flooring.md', 'room-controls.md']
+    .map((f) => fs.readFileSync(path.join(APP, 'help', f), 'utf8')).join('\n');
+  ok('and the prose beside it no longer counts the registry by hand',
+    !/flat list of \d+/.test(proseFiles) && !/about thirty others/.test(proseFiles)
+      && !/`glass_full`, `louvre`/.test(proseFiles));
+
+  /* Both readers hand the corpus all four LIVE registries. Passing only
+   * boundaries — which is what both did — meant the flooring and controls
+   * catalogues silently described the shipped defaults instead of the house's
+   * own, which is the same staleness one level down. */
+  for (const [where, file] of [['the editor', path.join(APP, 'server.js')], ['MCP', path.join(APP, 'lib', 'mcp.js')]]) {
+    const src = fs.readFileSync(file, 'utf8');
+    ok(`${where} builds help from the live registries, not the shipped ones`,
+      ['readBoundaries', 'readFlooring', 'readControls'].every((r) => src.includes('store.' + r + '()')));
+  }
+
+  /* Derived, not baked: a house that has edited its own registry gets a
+   * catalogue describing THAT registry. This is the property the whole
+   * arrangement exists for — the same one the type reference already has, and
+   * the reason none of it can go stale. */
+  ok('a catalogue describes the registry it was handed, not the shipped one', (() => {
+    const custom = JSON.parse(JSON.stringify(boundaries));
+    custom.types.jali = Object.assign({}, custom.types.jali, { label: 'Test screen', transmission: 0.31 });
+    custom.types.test_only = { label: 'Test treatment', group: 'Test group', transmission: 0.5, thicknessFt: 0.4 };
+    const body = Help.topicBody(Help.corpus(lib, { boundaries: custom, reload: true }).byId.get('walls-boundaries'));
+    return body.includes('Test screen') && body.includes('`test_only`')
+      && body.includes('Test group') && body.includes('31%');
+  })());
+
+  /* Advanced is an APP-WIDE setting, and a dialog is a full-screen overlay
+   * that covers the top bar's copy of the tick. So the frame carries it, and
+   * carries it for every dialog rather than for the two that happened to need
+   * it first — a per-dialog opt-in is how the next dialog to grow an advanced
+   * section quietly repeats the bug.
+   *
+   * `rebuild` is what makes it work: the dialog hands `modal` the function that
+   * opened it, so toggling flips the app-wide setting and re-runs the dialog.
+   * A dialog that passes none gets no tick, which is right only when it has
+   * nothing to configure. */
+  const panelsSrc = uiSrc['panels.js'];
+  ok('the dialog frame, not each dialog, is what carries the Advanced tick',
+    panelsSrc.includes('if (opts.rebuild)') && panelsSrc.includes('Store.setAdvanced(e.target.checked); opts.rebuild();')
+      && panelsSrc.includes("UINavigation.label('field:ui.advanced')"));
+  ok('and dialogs hide settings through the same adv()/note() the panels use',
+    panelsSrc.includes('function dialogAdvanced()')
+      && ['panels-extra.js', 'panels-dashboard.js'].every((f) => uiSrc[f].includes('dialogAdvanced()')
+        && /A\.adv\(body, \(\) => \{/.test(uiSrc[f]) && /A\.note\(body,/.test(uiSrc[f])));
+
+  /* Every dialog that can configure anything passes one. Listed rather than
+   * discovered, because the point is that the list is COMPLETE: a new settings
+   * dialog has to be added here, which is the moment to notice it needs a
+   * rebuild. The four excluded ones carry no settings at all. */
+  const SETTINGS_DIALOGS = [
+    ['panels.js', 'editLibrary'], ['panels.js', 'editTheme'], ['panels.js', 'importDialog'],
+    ['panels.js', 'exportDialog'], ['panels-extra.js', 'sunDialog'], ['panels-extra.js', 'logicDialog'],
+    ['panels-extra.js', 'editFlooring'], ['panels-extra.js', 'editSchemes'],
+    ['panels-extra.js', 'editRoomButtons'], ['panels-extra.js', 'editFilter'],
+    ['panels-extra.js', 'editBoundaries'], ['panels-extra.js', 'editControls'],
+    ['panels-dashboard.js', 'dashboardDialog'], ['panels-dashboard.js', 'lightingDialog'],
+    ['panels-dashboard.js', 'houseCardDialog'], ['panels-dashboard.js', 'floorCardDialog'],
+    ['panels-dashboard.js', 'appearanceDialog'],
+  ];
+  const noRebuild = SETTINGS_DIALOGS.filter(([file, fn]) =>
+    !new RegExp('rebuild: (?:' + fn + '|\\(\\) => ' + fn + ')\\b').test(uiSrc[file]));
+  ok('every settings dialog hands the frame the function that opened it', !noRebuild.length,
+    noRebuild.map(([, fn]) => fn).join(', ') || `${SETTINGS_DIALOGS.length} dialogs`);
+  /* And every one of them is a real function, so a rename cannot leave a
+   * `rebuild` pointing at nothing. */
+  const missingFn = SETTINGS_DIALOGS.filter(([file, fn]) => !new RegExp('function ' + fn + '\\b').test(uiSrc[file]));
+  ok('and each of those dialogs exists under that name', !missingFn.length, missingFn.map(([, fn]) => fn).join(', '));
+
+  /* ---- nothing the app reads is unreachable from the app ----
+   *
+   * A model input that exists, is read on every render, and can only be changed
+   * by hand-editing project.json is a setting that effectively does not exist —
+   * and worse, one the documentation describes as though it did. These were the
+   * full list of them, and each is now somewhere a person can get to.
+   *
+   * Checked against the SOURCE rather than a rendered panel, because what
+   * matters is that the editor names the key at all; whether the control ends
+   * up a slider or a box is not something a test should pin. */
+  const editorSrc = Object.values(uiSrc).join('\n');
+  const REACHABLE = [
+    ['weather.factors', 'SunModel.DEFAULTS.weather.factors'],
+    ['chips.hideRooms', "setChip('hideRooms'"],
+    ['boundary thickness', "'thicknessFt'"],
+    ['boundary height', "'heightFt'"],
+    ['boundary tint', "'tint'"],
+    ['openTransmission', "'openTransmission'"],
+    ['header.countFormat', 'countFormat'],
+    ['section readOnly', 'sec.readOnly'],
+    ['section shortLabels', 'sec.shortLabels'],
+    ['showAllShortcuts', 'showAllShortcuts'],
+  ];
+  const unreachable = REACHABLE.filter(([, needle]) => !editorSrc.includes(needle));
+  ok('every option the renderers read can be reached from the editor', !unreachable.length,
+    unreachable.map(([name]) => name).join(', ') || `${REACHABLE.length} once-unreachable options`);
+
+  /* The two registry endpoints that existed and were called by nothing. A write
+   * API with no caller is the same failure as an unread option pointing the
+   * other way: the server can store it and the app cannot say it. */
+  const apiSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'api.js'), 'utf8');
+  const savers = ['saveThemes', 'saveFlooring', 'saveBoundaries', 'saveControls'];
+  const uncalled = savers.filter((s) => apiSrc.includes(s) && !editorSrc.includes('API.' + s));
+  ok('every registry the server will store, the editor can edit', !uncalled.length,
+    uncalled.join(', ') || savers.join(', '));
 
   /* The renderer is hand-rolled, so the one thing it must not do is emit markup
    * it was handed. The corpus ships with the app rather than coming from a

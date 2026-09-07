@@ -4,7 +4,7 @@ title: Doors, windows and openings
 summary: Holes cut in a wall — where they sit, how wide they are, and what light they let through.
 category: walls
 tags: opening, door, window, swing, sill, transmission, gate, garage, shutter, folding, sliding, villa
-applies: panel:opening, section:opening.mechanism, field:opening.at, field:opening.wall, concept:opening
+applies: panel:opening, section:opening.mechanism, section:opening.overhead, field:opening.at, field:opening.wall, concept:opening
 see: walls-boundaries, opening-coverings, concept-daylight
 order: 35
 ---
@@ -86,3 +86,10 @@ passes most; a grill vent passes some; a solid closed gate passes almost none.
 Gate and garage types interpolate from their closed transmission to full
 transmission as they open. Existing indoor types retain their configured
 transmission. Bind a sensor or cover entity to follow a gate's state.
+
+## Overhead openings (Advanced)
+
+A skylight, a light well or a double-height void is a hole in the **ceiling**,
+not a gap in a wall. Marking an opening **overhead** stops it cutting a gap in
+the wall it names and stops it being offered to the room next door, while its
+area and transmission still count toward daylight.

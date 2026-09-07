@@ -308,6 +308,12 @@ footer{margin-top:4rem;padding:1.2rem 0 0;border-top:1px solid var(--line2);colo
 .group-head h2{margin:0;font-size:1.1rem}
 .clear-filter{font:inherit;font-size:.85rem;padding:.5rem .75rem;border:1px solid var(--line);border-radius:9px;background:var(--solid);color:var(--ink);cursor:pointer}
 .empty-state{padding:1.2rem}
+.material-gallery{scroll-margin-top:5rem}.material-gallery .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem}
+.material-gallery figure{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--solid)}
+.material-gallery figure svg{display:block;width:100%;aspect-ratio:4/3}
+.material-gallery figcaption{padding:.8rem}.material-gallery figcaption :is(strong,code,small){display:block;overflow-wrap:anywhere}
+.material-gallery figcaption strong{font-size:.9rem}.material-gallery figcaption :is(code,small){font-size:.75rem;color:var(--soft)}
+.material-gallery section{scroll-margin-top:5rem}.material-gallery .palette{display:flex;height:76px}.material-gallery .palette span{flex:1}.material-gallery .palette span:first-child{flex:3}
 .filter input{min-width:0;background:var(--solid);min-height:42px}
 @media(max-width:860px){.shell{padding:0 1rem;gap:1rem}.type{scroll-margin-top:4.5rem}.top .row{gap:.55rem}.side a{min-height:46px}}
 @media print{.top,.side,.scrim,.filter,footer,.skip{display:none!important}.shell{display:block}.glass{box-shadow:none;background:white;color:black}body{background:white}}

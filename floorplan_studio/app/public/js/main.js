@@ -87,6 +87,7 @@
     $('btnShortcuts').addEventListener('click', () => Panels.shortcutsDialog());
     $('btnSave').addEventListener('click', save);
     $('modalClose').addEventListener('click', () => Panels.closeModal());
+    $('modal').addEventListener('cancel', (ev) => { ev.preventDefault(); Panels.closeModal(); });
     $('modal').addEventListener('click', (ev) => { if (ev.target.id === 'modal') Panels.closeModal(); });
 
     $('themePick').addEventListener('change', (e) => {
@@ -130,13 +131,13 @@
     window.addEventListener('keydown', (ev) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if (ev.key === 'Escape') {
-        if (!$('modal').hidden) return Panels.closeModal();
+        if (!$('modal').hidden) { ev.preventDefault(); return Panels.closeModal(); }
         Canvas.cancelPoly();
         if (S.armed) Store.arm(null);
         else Store.select(null);
         return;
       }
-      if (typing) return;
+      if (!$('modal').hidden || typing) return;
       if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') {
         ev.preventDefault();
         (ev.shiftKey ? Store.redo() : Store.undo()) || Panels.toast(ev.shiftKey ? 'Nothing to redo' : 'Nothing to undo');
@@ -330,6 +331,18 @@
     let fetchTimer = null;
     let lastNudge = 0;
     const es = new EventSource('api/project/stream');
+    es.addEventListener('registry', async () => {
+      if (S.dirty || !$('modal').hidden) {
+        Panels.toast('Shared settings changed elsewhere. Finish your edit, then reload to use them.', true);
+        return;
+      }
+      try {
+        const data = await API.bootstrap();
+        if (S.dirty || !$('modal').hidden) return;
+        for (const key of ['library','themes','flooring','boundaries','controls']) S[key] = data[key];
+        Panels.applyUiTheme(); Panels.renderThemePicker(); Panels.renderLibrary(); Panels.renderInspector(); Canvas.paint();
+      } catch { Panels.toast('Shared settings changed. Reload to use them.', true); }
+    });
     es.addEventListener('project', (ev) => {
       /* Our OWN autosave reaches this stream like any other write, and the
        * server notifies before it answers the PUT — so this tab hears its own

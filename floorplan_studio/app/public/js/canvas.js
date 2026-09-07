@@ -174,6 +174,12 @@ window.Canvas = (function () {
       e.dataset.opening = op.id;
       hits.appendChild(e);
     }
+    for (const chip of scene.chips || []) {
+      const e = el('rect', { x: chip.x, y: chip.y, width: chip.width, height: chip.height,
+        transform: chip.rot, fill: 'transparent', class: 'hit room-label-hit', style: 'cursor:move' });
+      e.dataset.roomLabel = chip.roomId;
+      hits.appendChild(e);
+    }
     frag.appendChild(hits);
 
     frag.appendChild(el('g', { id: 'fps-overlay', 'pointer-events': 'none' }));
@@ -183,6 +189,31 @@ window.Canvas = (function () {
   }
 
   function overlay() { return svg.querySelector('#fps-overlay'); }
+
+  function selectedLabel() {
+    return S.selection?.kind === 'room' && S.selection.part === 'label' ? Store.selected() : null;
+  }
+
+  function labelBox(room) { return scene?.chips.find(c => c.roomId === room.id); }
+
+  // Use the renderer's placed box, including its automatic collision avoidance.
+  // Starting at the room centroid instead makes the first drag jump.
+  function labelCentre(room) {
+    const b = labelBox(room), P = scene.projector;
+    return b ? [P.invX(b.x + b.width / 2), P.invY(b.y + b.height / 2)] : (room.chip_at || PlanScene.roomCentroid(room));
+  }
+
+  function keepLabelOnFloor(room, at, scale) {
+    const b = labelBox(room), extent = Store.floor().extent || { w: 40, h: 40 };
+    const factor = scale / Math.max(.25, Math.min(4, Number(room.chip_scale) || 1));
+    const angle = (room.chip_rotate || 0) * Math.PI / 180;
+    const w = b ? b.width * factor / scene.projector.ppf : 0;
+    const h = b ? b.height * factor / scene.projector.ppf : 0;
+    const rx = (Math.abs(w * Math.cos(angle)) + Math.abs(h * Math.sin(angle))) / 2;
+    const ry = (Math.abs(w * Math.sin(angle)) + Math.abs(h * Math.cos(angle))) / 2;
+    const clamp = (value, half, limit) => half * 2 >= limit ? limit / 2 : Math.max(half, Math.min(limit - half, value));
+    return [round4(clamp(at[0], rx, extent.w)), round4(clamp(at[1], ry, extent.h))];
+  }
 
   function drawAlignGuides(ov, P) {
     if (!alignGuides || !scene) return;
@@ -300,6 +331,21 @@ window.Canvas = (function () {
 
     const sel = Store.selected();
     if (!sel) return;
+
+    if (selectedLabel()) {
+      const b = labelBox(sel);
+      if (!b) return;
+      const g = el('g', { transform: b.rot, 'pointer-events': 'all' });
+      g.appendChild(el('rect', { x: b.x, y: b.y, width: b.width, height: b.height, class: 'sel-outline', 'pointer-events': 'none' }));
+      for (const [dx, dy] of [[-1,-1], [1,-1], [-1,1], [1,1]]) {
+        const handle = el('circle', { cx: b.x + b.width * (dx + 1) / 2, cy: b.y + b.height * (dy + 1) / 2,
+          r: 5.5, class: 'handle', style: 'cursor:nwse-resize' });
+        handle.dataset.labelResize = sel.id;
+        g.appendChild(handle);
+      }
+      ov.appendChild(g);
+      return;
+    }
 
     if (S.selection.kind === 'opening') {
       const floor = Store.floor();
@@ -452,6 +498,13 @@ window.Canvas = (function () {
   /* Keyboard resize, for the same reason rotation has one: a 7px square is not
    * a target on a touch screen. */
   function nudgeSize(mul) {
+    const label = selectedLabel();
+    if (label) {
+      const scale = Math.max(.25, Math.min(4, (label.chip_scale || 1) * mul));
+      const at = keepLabelOnFloor(label, labelCentre(label), scale);
+      Store.mutate(() => { label.chip_scale = scale; label.chip_at = at; }, 'resize room label');
+      return;
+    }
     if (!scene) return;
     const P = scene.projector;
     if (S.multi.length > 1) {
@@ -545,6 +598,11 @@ window.Canvas = (function () {
   /* Keyboard rotation, so a marker can be turned without hunting for a 6px
    * knob on a phone. Same undo granularity as the drag: one step, one entry. */
   function nudgeRotation(delta) {
+    const label = selectedLabel();
+    if (label) {
+      Store.mutate(() => { label.chip_rotate = norm360((label.chip_rotate || 0) + delta); }, 'rotate room label');
+      return;
+    }
     if (S.multi.length > 1) {
       const floor = Store.floor();
       const targets = S.multi.filter((m) => m.kind === 'item').map((m) => floor.items.find((i) => i.id === m.id))
@@ -576,6 +634,13 @@ window.Canvas = (function () {
    * Works for a room too, unlike rotation/resize, because dragging a whole
    * room a few inches is just as fiddly as dragging one marker. */
   function nudgePosition(dx, dy) {
+    const label = selectedLabel();
+    if (label) {
+      const at = labelCentre(label);
+      const next = keepLabelOnFloor(label, [at[0] + dx, at[1] + dy], label.chip_scale || 1);
+      Store.mutate(() => { label.chip_at = next; }, 'move room label');
+      return;
+    }
     const floor = Store.floor();
     if (S.multi.length > 1) {
       Store.mutate(() => {
@@ -614,6 +679,7 @@ window.Canvas = (function () {
    * into place immediately, the same "ready without another click" promise
    * placeType()/onSelectedHandleOrBody() already make for a fresh placement. */
   function duplicateSelected() {
+    if (selectedLabel()) { toast('Each room has one name badge.'); return; }
     const OFFSET = 1;
     if (S.multi.length > 1) {
       const floor = Store.floor();
@@ -787,7 +853,7 @@ window.Canvas = (function () {
     const sel = S.selection;
     if (!sel || !target.dataset) return false;
     const d = target.dataset;
-    if (sel.kind === 'room') return d.vertex !== undefined || d.room === sel.id;
+    if (sel.kind === 'room') return d.vertex !== undefined || d.room === sel.id || d.roomLabel === sel.id || d.labelResize === sel.id;
     return d.rotate === sel.id || d.resize === sel.id || d.item === sel.id;
   }
 
@@ -836,6 +902,18 @@ window.Canvas = (function () {
     }
 
     /* select tool */
+    if (target.dataset?.roomLabel || target.dataset?.labelResize) {
+      const id = target.dataset.roomLabel || target.dataset.labelResize;
+      const room = Store.floor().rooms.find(r => r.id === id);
+      if (!room) return;
+      const centre = labelCentre(room), pt = toScene(ev), P = scene.projector;
+      drag = { mode: target.dataset.labelResize ? 'label-resize' : 'label', id,
+        before: Store.clone(room), grabFt: raw, origin: centre,
+        radius: Math.max(1, Math.hypot(pt.x - P.X(centre[0]), pt.y - P.Y(centre[1]))) };
+      Store.select('room', id, 'label');
+      svg.setPointerCapture(ev.pointerId);
+      return;
+    }
     if (target.dataset && target.dataset.vertex !== undefined) {
       const room = Store.selected();
       drag = { mode: 'vertex', index: +target.dataset.vertex, room: room.id, before: Store.clone(room) };
@@ -948,6 +1026,21 @@ window.Canvas = (function () {
 
     const ft = feetAt(ev);
     const P = scene.projector;
+
+    if (drag.mode === 'label' || drag.mode === 'label-resize') {
+      const label = Store.floor().rooms.find(r => r.id === drag.id);
+      const oldScale = drag.before.chip_scale || 1;
+      const pt = toScene(ev);
+      const scale = drag.mode === 'label' ? oldScale : Math.max(.25, Math.min(4, oldScale *
+        Math.hypot(pt.x - P.X(drag.origin[0]), pt.y - P.Y(drag.origin[1])) / drag.radius));
+      const at = drag.mode === 'label'
+        ? [drag.origin[0] + raw.x - drag.grabFt.x, drag.origin[1] + raw.y - drag.grabFt.y] : drag.origin;
+      label.chip_at = keepLabelOnFloor(label, at, scale);
+      if (drag.mode === 'label-resize') label.chip_scale = scale;
+      drag.moved = true;
+      paint();
+      return;
+    }
 
     if (drag.mode === 'rect') {
       const x = Math.min(drag.from.x, ft.x), y = Math.min(drag.from.y, ft.y);
@@ -1128,6 +1221,16 @@ window.Canvas = (function () {
     try { svg.releasePointerCapture(ev.pointerId); } catch {}
 
     if (d.mode === 'pan') return;
+
+    if ((d.mode === 'label' || d.mode === 'label-resize') && d.moved) {
+      const room = Store.floor().rooms.find(r => r.id === d.id);
+      const after = Store.clone(room);
+      for (const key of ['chip_at', 'chip_scale']) {
+        if (d.before[key] === undefined) delete room[key]; else room[key] = d.before[key];
+      }
+      Store.mutate(() => Object.assign(room, after), d.mode === 'label' ? 'move room label' : 'resize room label');
+      return;
+    }
 
     if (d.mode === 'rect') {
       const ft = feetAt(ev);
@@ -1410,6 +1513,8 @@ window.Canvas = (function () {
   }
 
   function deleteSelected() {
+    const label = selectedLabel();
+    if (label) { Store.mutate(() => { label.noLabel = true; }, 'hide room label'); Store.select('room', label.id); return; }
     if (S.multi.length > 1) {
       const roomIds = new Set(S.multi.filter((m) => m.kind === 'room').map((m) => m.id));
       const itemIds = new Set(S.multi.filter((m) => m.kind === 'item').map((m) => m.id));

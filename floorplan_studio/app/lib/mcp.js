@@ -65,6 +65,7 @@ const dashboard = require('./dashboard');
 const cardBuild = require('./card-build');
 const planScene = require('./plan-scene');
 const validator = require('./validate-project');
+const Shapes = require('./shapes');
 
 const fs = require('fs');
 const path = require('path');
@@ -86,7 +87,7 @@ function readSkill() {
   } catch (e) {
     SKILL_CACHE = 'The guide file (SKILL.md) is not readable in this install. '
       + 'Use get_contract for the project schema, list_library for placeable types '
-      + 'and their props, and get_registry for themes/flooring/boundaries/controls.';
+      + 'and their props, and get_registry for themes/flooring/boundaries/controls/schemes.';
   }
   return SKILL_CACHE;
 }
@@ -112,7 +113,7 @@ function skillBody() {
  *
  * All four serve the same bytes from SKILL.md. A second inline copy of the
  * guidance would drift within one release. */
-const INSTRUCTIONS = `Floorplan Studio holds ONE project — the same one a human has open in the editor. Every write saves immediately and their canvas updates live; there is no draft copy and no apply step.
+const INSTRUCTIONS = `Floorplan Studio holds ONE project — the same one a human has open in the editor. Every write saves immediately; there is no draft copy and no apply step. An idle editor updates live; unsaved edits or open registry dialogs require finishing the local edit and reloading.
 
 Before editing anything, call get_guide once. It is the working guide: the order to read things in, what each registry answers, and the mistakes that cost the most. get_contract is the project's schema and id conventions.
 
@@ -120,7 +121,7 @@ Four things are worth knowing before the first call, because getting them wrong 
 - Everything is in FEET, from each floor's own origin.
 - Walls are SCREEN-relative. n/e/s/w mean top/right/bottom/left of the drawing, not compass directions. The compass lives only in sun.screenUpBearing. Convert before writing coordinates.
 - An item is kind + type: item.type is the bare name ("spot", not "fixture.spot"), and the two together look up "<kind>.<type>".
-- Never invent a type key, a wall treatment, a flooring name or a prop. list_library and get_registry list what exists, and the editing tools refuse anything else rather than guessing.
+- Read list_library and get_registry before choosing a type, material or prop. Use edit_registry to author a new shared entry before referencing it in a project.
 
 Ask the human about their building when the answer is not in the project — which way the house faces, what a balcony is fronted in, whether a stair light climbs or simply comes on. These are visible facts about a place they can see, and a confident wrong one is worse than a question.`;
 
@@ -308,7 +309,14 @@ tool({
     const help = require('./help');
     const a = args || {};
     const library = await store.readLibrary();
-    const helpOptions = { boundaries: await store.readBoundaries() };
+    /* All four live registries, so `get_help` describes this house's finishes
+     * and treatments rather than the ones that shipped — same reason as
+     * server.js's copy. */
+    const helpOptions = {
+      boundaries: await store.readBoundaries(),
+      flooring: await store.readFlooring(),
+      controls: await store.readControls(),
+    };
     const brief = (t) => ({ id: t.id, title: t.title, summary: t.summary, category: t.category, applies: t.applies });
 
     if (a.index) {
@@ -345,17 +353,32 @@ tool({
 
 tool({
   name: 'get_registry',
-  description: 'Read one of the shared registries a project draws from: themes, flooring, boundaries (wall treatments and opening types), or controls (room control-surface designs and shortcut vocabulary). Use list_library for placeable device/fixture/furniture/logic types instead.',
+  description: 'Read a complete shared registry: library, themes, flooring, boundaries (wall/opening types and coverings), controls, or schemes. Use list_library for filtered placeable types. Use edit_registry to author shared registry fields and edit_settings for project-owned schemes.',
   inputSchema: {
     type: 'object',
-    properties: { name: { type: 'string', enum: ['themes', 'flooring', 'boundaries', 'controls'] } },
+    properties: { name: { type: 'string', enum: ['library', 'themes', 'flooring', 'boundaries', 'controls', 'schemes'] } },
     required: ['name'],
     additionalProperties: false,
   },
   async run(args) {
-    const readers = { themes: store.readThemes, flooring: store.readFlooring, boundaries: store.readBoundaries, controls: store.readControls };
+    /* Colour schemes are the one registry that is not a /data document, and
+     * the split is the point rather than an implementation detail: the shipped
+     * ones live in the renderer, so they are identical on every install and are
+     * never written into anybody's project, and the rest live ON the project,
+     * so they travel with it. Both are returned, labelled, because setting
+     * `item.scheme` needs ids from either half — and an id the project defines
+     * WINS over a shipped one of the same name. */
+    if (args && args.name === 'schemes') {
+      const project = await store.readProject();
+      return {
+        shipped: Shapes.SCHEMES,
+        project: Array.isArray(project.schemes) ? project.schemes : [],
+        _note: 'Set item.scheme to one of these ids. A project scheme of the same id beats the shipped one. Shipped schemes are part of the app and cannot be edited; add to project.schemes with edit_settings instead.',
+      };
+    }
+    const readers = { library: store.readLibrary, themes: store.readThemes, flooring: store.readFlooring, boundaries: store.readBoundaries, controls: store.readControls };
     const reader = readers[args && args.name];
-    if (!reader) throw new ToolError('name must be one of themes/flooring/boundaries/controls');
+    if (!reader) throw new ToolError('name must be one of library/themes/flooring/boundaries/controls/schemes');
     return reader();
   },
 });
@@ -515,6 +538,7 @@ function editItems(project, library, floor, a) {
     const item = {
       id, kind: v.kind, type: v.type, at: v.at, room: autoRoom,
       entity: v.entity !== undefined ? v.entity : null, name: v.name || null,
+      scheme: v.scheme !== undefined ? v.scheme : undefined,
       props: JSON.parse(JSON.stringify(Object.assign({}, typeDef.defaults || {}, v.props || {}))),
     };
     floor.items.push(item);
@@ -643,6 +667,55 @@ tool({
 });
 
 /* ------------------------------------------------------ Home Assistant */
+tool({
+  name: 'edit_registry',
+  description: 'Set a field in a shared registry, matching the editor registry controls. Read get_registry first. Path is an array of literal keys (so device.fan stays one key). Replaces the value at that path; preserves unrelated fields. Affects every project use of the edited entry. For project-owned colour schemes use edit_settings on project.schemes. Open editor dialogs must be closed/reloaded after an external registry edit.',
+  inputSchema: { type: 'object', properties: {
+    name: { type: 'string', enum: ['library', 'themes', 'flooring', 'boundaries', 'controls'] },
+    path: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'string' } },
+    value: { description: 'Replacement JSON value. Read and preserve the surrounding object when editing a collection.' },
+  }, required: ['name', 'path', 'value'], additionalProperties: false },
+  async run(a) {
+    if (!a || !['library','themes','flooring','boundaries','controls'].includes(a.name)) throw new ToolError('unknown editable registry');
+    if (!Array.isArray(a.path) || !a.path.length || a.path.length > 32
+      || a.path.some(k => typeof k !== 'string' || !k || ['__proto__','prototype','constructor'].includes(k))) throw new ToolError('path must contain safe literal keys');
+    if (!Object.prototype.hasOwnProperty.call(a, 'value')) throw new ToolError('value is required');
+    const object = x => x && typeof x === 'object' && !Array.isArray(x);
+    const safe = x => { if (x && typeof x === 'object') for (const k of Object.keys(x)) {
+      if (['__proto__','prototype','constructor'].includes(k)) throw new ToolError('unsafe property in value'); safe(x[k]);
+    } };
+    safe(a.value);
+    await store.editRegistry(a.name, async doc => {
+      const arrayKey = (at, key) => { if (Array.isArray(at) && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= at.length)) throw new ToolError('array path must address an existing index; replace the array to add entries'); };
+      let at = doc;
+      for (const key of a.path.slice(0, -1)) {
+        arrayKey(at, key);
+        if (!object(at[key]) && !Array.isArray(at[key])) throw new ToolError('parent path does not exist; set the complete new entry at its parent');
+        at = at[key];
+      }
+      arrayKey(at, a.path[a.path.length - 1]);
+      at[a.path[a.path.length - 1]] = a.value;
+      const required = a.name === 'themes' ? ['themes'] : a.name === 'controls' ? ['default','designs'] : ['types'];
+      for (const key of required) if (!object(doc[key])) throw new ToolError(`${a.name}.${key} must remain an object`);
+      for (const key of ['types','themes','designs','openingTypes','coverings']) if (doc[key] !== undefined) {
+        if (!object(doc[key]) || Object.values(doc[key]).some(entry => !object(entry))) throw new ToolError(`${key} must contain objects`);
+      }
+      if (a.name === 'flooring') {
+        if (!object(doc.generatorOptions)) throw new ToolError('flooring.generatorOptions must remain an object');
+        const Fl = require('./flooring'), known = [...Fl.generators.tile, ...Fl.generators.field, 'script'];
+        for (const [key, entry] of Object.entries(doc.types)) {
+          if (!object(entry) || !known.includes(entry.generator || 'plain')) throw new ToolError(`invalid flooring generator for ${key}`);
+          if (entry.reflectance !== undefined && (typeof entry.reflectance !== 'number' || entry.reflectance < 0 || entry.reflectance > 1)) throw new ToolError(`reflectance for ${key} must be 0..1`);
+        }
+      }
+      if (a.name === 'library') {
+        const validation = validator.validate(await store.readProject(), doc);
+        if (validation.errors.length) throw new ToolError('library edit makes the project invalid: ' + JSON.stringify(validation.errors));
+      }
+    });
+    return { ok: true, registry: a.name, path: a.path };
+  },
+});
 
 async function dashboardDocs(project) {
   const [library, themes, boundaries, flooring, controls] = await Promise.all([
@@ -718,6 +791,19 @@ tool({
   },
 });
 
+/* Counted, not typed. The contract used to say "65 finishes across
+ * Basic/Wood/Stone/India/Outdoor" while the registry had grown to 68 in six
+ * groups — and this is the text a model treats as ground truth, so a stale
+ * number here is worse than a stale number in a README. The shipped registry
+ * is the right one to count: it is what every install starts from, and a house
+ * that has edited its own is told to read `get_registry` two lines later. */
+const SHIPPED_FLOORING = require('../defaults/flooring.json');
+const FLOORING_SUMMARY = (() => {
+  const types = Object.values(SHIPPED_FLOORING.types || {});
+  const groups = [...new Set(types.map((t) => t.group).filter(Boolean))];
+  return `${types.length} finishes across ${groups.join('/')}`;
+})();
+
 const CONTRACT_TEXT = `Floorplan Studio project — MCP contract
 
 You are editing the SAME project the human's editor has open. Every write
@@ -760,7 +846,7 @@ and FOUR arrays: rooms, openings, items, boundaries.
 
 A ROOM: { id, name, shape: "rect"|"poly", rect: [x,y,w,h] (if rect),
 points: [[x,y],...] (if poly, >= 3 points), flooring (a key from the flooring
-registry — 65 finishes across Basic/Wood/Stone/India/Outdoor), flooringOptions
+registry — ${FLOORING_SUMMARY}), flooringOptions
 (per-room overrides of that generator's own options, e.g. {color:"#e9e0ce"} to
 make marble cream rather than grey, or {reflectance:0.6} to say this tile was
 laid in gloss rather than matte),
@@ -768,7 +854,7 @@ master (an entity id this room's "all on/off" targets), ganged, outdoor (no
 roof: lit from above, not through its walls), noLabel, showCount, part_of
 (this rect is a piece of another room — no seam is drawn between them and
 their light pools together), chip_at / chip_rotate (where the room's badge
-sits), daylight ({referenceExposure} to override the house's), boost (AC
+sits), chip_scale (0.25 to 4, default 1; scales badge, text and count together), daylight ({referenceExposure} to override the house's), boost (AC
 turbo/eco switches), dnd (an input_boolean shown as a header toggle),
 controls (this room's control-surface design/sections/filters — read
 app/defaults/controls.json via get_registry for the vocabulary), keys
@@ -798,8 +884,11 @@ library), at: [x,y] in feet, room: the room id it's tagged with (this is
 just a label, not computed from position — an item CAN sit outside its own
 room's polygon on purpose, e.g. a solar array overhanging a roof edge),
 entity: the bound Home Assistant entity id or null, name: an optional label
-override, props: the type's own configurable properties (call list_library
-to see a type's defaults and prop schema before placing one).
+override, scheme: the id of a colour scheme to paint it in (call
+get_registry({name:"schemes"}) — omit it and the item draws in the theme,
+which is what everything already on a plan does), props: the type's own
+configurable properties (call list_library to see a type's defaults and prop
+schema before placing one).
 
 Three props are UNIVERSAL rather than per-type: 'rot' (facing, in SCREEN
 degrees — 0 is up, clockwise, same frame as walls and the sun), 'holdEntity'
@@ -856,13 +945,15 @@ WHICH TOOL FOR WHAT:
                       own controls/keys/shortcuts/daylight.
   - validate_project  run the structural check on demand
   - list_library      valid item type keys and the 47 room presets
-  - get_registry      themes / flooring / boundaries / controls documents
+  - get_registry      library / themes / flooring / boundaries / controls / schemes
+  - edit_registry     shared registry fields, by array of literal keys;
+                      read first, replaces that value, preserves other fields
   - preview_dashboard what Generate would produce, no Home Assistant write
   - install_dashboard the one tool that writes to Home Assistant — only
                       present in this list if a human has turned it on
 
 SAFETY: nothing here can call a Home Assistant SERVICE (turn on a light,
-run a script) — this server only ever reads/writes its own project file and,
+run a script) — this server only ever reads/writes its own project and registry files and,
 if enabled, one Lovelace dashboard it stamps as its own.`;
 
 /* ------------------------------------------------------------------ JSON-RPC */
@@ -1000,4 +1091,4 @@ async function handleRequest(req, res, opts) {
   return sendJson(res, 200, reply);
 }
 
-module.exports = { handleRequest, checkToken, dispatch, TOOLS };
+module.exports = { handleRequest, checkToken, dispatch, TOOLS, CONTRACT_TEXT };

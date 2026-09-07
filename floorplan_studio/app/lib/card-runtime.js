@@ -63,10 +63,27 @@ class FpsFloorplanCard extends HTMLElement {
     /* The theme cache goes with it: someone switching Home Assistant to dark
      * mode changes no entity state, so nothing else would ever invalidate it. */
     if (!this._clock) this._clock = setInterval(() => { this._sig = null; this._themeCache = null; this.render(); }, 120000);
+    /* Escape closes the open control surface. On DOCUMENT, because the surface
+     * is not focusable and a keystroke aimed at "the dialog" arrives at the
+     * body; guarded by `_open` so a card with nothing showing never swallows a
+     * key another card wanted. The room's own `dismiss.escape` decides. */
+    if (!this._onKey) {
+      this._onKey = (ev) => {
+        if (ev.key !== 'Escape' || !this._open) return;
+        const room = (this._floor.rooms || []).find((r) => r.id === this._open);
+        if (!room) return;
+        const cfg = Controls.resolve(FPS_DATA.controls, FPS_DATA.project, this._floor, room);
+        if ((cfg.dismiss || {}).escape === false) return;
+        ev.stopPropagation();
+        this.closeControls();
+      };
+      document.addEventListener('keydown', this._onKey);
+    }
   }
 
   disconnectedCallback() {
     if (this._clock) { clearInterval(this._clock); this._clock = null; }
+    if (this._onKey) { document.removeEventListener('keydown', this._onKey); this._onKey = null; }
     /* In-flight retries go with the card. A timer that outlived it would fire a
      * service call from a card nobody is looking at, and a retry only makes
      * sense as the tail of a tap that is still on screen. */
@@ -529,7 +546,7 @@ class FpsFloorplanCard extends HTMLElement {
      * PlanScene.hitTargets — so a marker that was easy to grab while placing it
      * is easy to hit here. */
     const hits = el('g', { class: 'fps-hits' });
-    for (const t of PlanScene.hitTargets(this._floor, FPS_DATA.library, scene.projector, states)) {
+    for (const t of PlanScene.hitTargets(this._floor, FPS_DATA.library, scene.projector, states, scene.chips)) {
       const e = el(t.tag, Object.assign({ fill: t.tag === 'line' ? 'none' : 'transparent' }, t.attrs));
       e.setAttribute('class', 'fps-hit fps-hit-' + t.target);
       e.dataset.target = t.target;
@@ -690,9 +707,24 @@ class FpsFloorplanCard extends HTMLElement {
     if (!p) return;
     const held = Date.now() - p.at > FPS_TAP_MS;
     ev.preventDefault();
-    if (p.target === 'item') return held ? this.moreInfoForItem(p.id) : this.primaryForItem(p.id);
+    if (p.target === 'item') return held ? this.holdItem(p.id) : this.primaryForItem(p.id);
     if (p.target === 'opening') return this.moreInfoForOpening(p.id);
-    if (p.target === 'room') return this.toggleControls(p.id, held);
+    if (p.target === 'chip') return this.toggleControls(p.id, held, 'chip');
+    if (p.target === 'room') return this.toggleControls(p.id, held, 'floor');
+  }
+
+  /* What a LONG PRESS on a marker does, which is a per-house choice rather
+   * than a constant: `moreInfo` (the default, and what this always did),
+   * `controls` for a plan where the sheet is the thing you actually want, and
+   * `none` for a wall tablet where a resting hand should not open anything. */
+  holdItem(id) {
+    const it = this.item(id);
+    const room = it && this.roomOf(it);
+    const cfg = room ? Controls.resolve(FPS_DATA.controls, FPS_DATA.project, this._floor, room) : {};
+    const mode = (cfg.openOn || {}).markerHold || 'moreInfo';
+    if (mode === 'none') return undefined;
+    if (mode === 'controls') return this.toggleControls(this.roomIdOf(it), false, 'floor');
+    return this.moreInfoForItem(id);
   }
 
   item(id) { return (this._floor.items || []).find((i) => i.id === id); }
@@ -815,16 +847,34 @@ class FpsFloorplanCard extends HTMLElement {
     return r ? (PlanScene.primaryRoom(this._floor, r) || r) : null;
   }
 
-  toggleControls(roomId, held) {
+  /* `via` is 'chip' (the room's name label) or 'floor' (anywhere else in it).
+   * They are separately switchable because they mean different things on a
+   * touch screen: a plan you mostly pan around wants only the label to open a
+   * sheet, so a stray thumb on the floor does not; a wall tablet nobody pans
+   * wants the whole room to be the button. */
+  toggleControls(roomId, held, via) {
     if (!roomId || this._config.controls === false) return;
     const room = (this._floor.rooms || []).find((r) => r.id === roomId);
     if (!room) return;
     const cfg = Controls.resolve(FPS_DATA.controls, FPS_DATA.project, this._floor, room);
     if (!cfg.enabled) return;
+    const openOn = cfg.openOn || {};
+    if (via === 'chip' && openOn.chipTap === false) return;
+    if (via === 'floor' && openOn.floorTap === false) return;
     /* Hold on a room is "all on" without going through the sheet, because that
      * is the one action worth a shortcut — the openOn config decides. */
-    if (held && (cfg.openOn || {}).chipHold === 'allOn') return this.roomAction(room, 'allOn', null, cfg);
-    this._open = this._open === roomId ? null : roomId;
+    if (held && openOn.chipHold === 'allOn') return this.roomAction(room, 'allOn', null, cfg);
+    /* Tapping the room that is already open closes it — unless the surface
+     * says otherwise. A docked panel is `persistent`: it lives beside the plan
+     * rather than over it, so closing it on a second tap would make the plan
+     * jump about while you are using it. */
+    if (this._open === roomId) {
+      const spec = cfg.designSpec || {};
+      if ((cfg.dismiss || {}).retap === false || spec.persistent) return this.paintControls(roomId, this.stateMap());
+      this._open = null;
+    } else {
+      this._open = roomId;
+    }
     this._sig = null;
     if (this._open) this.paintControls(this._open, this.stateMap());
     else this.closeControls();
@@ -876,11 +926,23 @@ class FpsFloorplanCard extends HTMLElement {
     }
 
     const panel = document.createElement('div');
-    panel.className = 'fps-panel' + (spec.tiles ? ' fps-tiles' : '');
+    /* `inlineSections` is the compact bar's shape: sections run along one row
+     * instead of stacking, which is the only way a 62 px strip can carry more
+     * than one of them. It implies flattening — a heading above a row that is
+     * one line tall is most of the strip. */
+    panel.className = 'fps-panel' + (spec.tiles ? ' fps-tiles' : '') + (spec.inlineSections ? ' fps-inline' : '')
+      /* `density` and `animation` are the design's own words for how tight it
+       * sits and how it arrives. Both are carried as classes rather than
+       * inline styles so a house's own CSS can override either. */
+      + ' fps-density-' + (spec.density || 'comfortable')
+      + ' fps-anim-' + (spec.animation || 'none');
     if (spec.grabBar) {
       const bar = document.createElement('div');
       bar.className = 'fps-grab';
-      bar.addEventListener('click', () => this.closeControls());
+      /* The bar is a handle whether or not it closes: it is what tells you the
+       * sheet is draggable-looking and where its top edge is. Only the CLICK
+       * is conditional. */
+      if ((cfg.dismiss || {}).grabBar !== false) bar.addEventListener('click', () => this.closeControls());
       panel.appendChild(bar);
     }
 
@@ -921,6 +983,9 @@ class FpsFloorplanCard extends HTMLElement {
     const row = document.createElement('div');
     row.className = 'fps-btns';
     for (const b of (cfg.header || {}).buttons || []) {
+      /* A surface with no way out is a trap, so Close is only droppable when
+       * something else can still dismiss it. */
+      if (b.action === 'close' && (cfg.dismiss || {}).close === false) continue;
       const target = Controls.resolveTarget(b.target, cfg.shortcuts, room);
       const btn = document.createElement('button');
       btn.className = 'fps-btn' + (target && this.isOn(target) ? ' on' : '');
@@ -1026,7 +1091,7 @@ class FpsFloorplanCard extends HTMLElement {
   controlSection(section, cfg, room, items, ctx, spec) {
     const wrap = document.createElement('div');
     wrap.className = 'fps-section';
-    if (section.label && !spec.flattenSections) {
+    if (section.label && !spec.flattenSections && !spec.inlineSections) {
       const h = document.createElement('div');
       h.className = 'fps-section-label';
       h.textContent = section.label;

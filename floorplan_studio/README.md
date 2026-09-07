@@ -13,7 +13,7 @@ renderer that drew the plan.
 
 - Multi-floor plans with rectangular and polygonal rooms, doors,
   windows, openings, walls and railings.
-- A 258-entry library of devices, fixtures and furniture, each drawn as the
+- A 261-entry library of devices, fixtures and furniture, each drawn as the
   object it is rather than as a labelled dot.
 - Entity binding, with live state drawn on the plan — including templated value
   labels, per-gang wall switches, daylight and artificial-light modelling.

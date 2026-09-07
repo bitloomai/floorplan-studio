@@ -39,6 +39,7 @@ function roomOut(room, warnings, floorId) {
   if (room.noLabel) out.noLabel = true;
   if (room.chip_at) out.chip_at = room.chip_at;
   if (room.chip_rotate) out.chip_rotate = room.chip_rotate;
+  if (room.chip_scale !== undefined) out.chip_scale = room.chip_scale;
   if (room.part_of) out.part_of = room.part_of;
   /* The old format has a home for exactly two kinds of shortcut: `dnd`, one
    * entity, and `ac_boost`, a list of labelled ones. A room whose shortcuts
@@ -209,6 +210,22 @@ function build(project, library, themesDoc, format, floorId) {
   }
 
   if (format === 'bundle') {
+    /* The editor's OWN document, alongside the legacy-shaped spec.
+     *
+     * The spec files are what the old render/build pipeline consumes and they
+     * describe a building; they have nowhere to put anything this editor knows
+     * that the old format never had a word for. Colour schemes somebody made
+     * are exactly that — they live on the project, and without this file an
+     * export would drop them on the floor. This is also the file the Import
+     * dialog reads back, so the round trip is a real one. */
+    files.push({
+      name: 'project.json',
+      type: 'application/json',
+      content: JSON.stringify(
+        floorId ? Object.assign({}, project, { floors }) : project,
+        null, 2,
+      ),
+    });
     files.push({
       name: 'manifest.json',
       type: 'application/json',

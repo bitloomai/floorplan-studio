@@ -247,8 +247,9 @@ async function handleApi(req, res, pathname, query) {
     const unsubscribe = store.onProjectChange((project, origin) => {
       res.write(`event: project\ndata: ${JSON.stringify({ savedAt: project.savedAt, origin })}\n\n`);
     });
+    const unsubscribeRegistry = store.onRegistryChange(name => res.write(`event: registry\ndata: ${JSON.stringify({ name })}\n\n`));
     const heartbeat = setInterval(() => { try { res.write(':\n\n'); } catch (e) { /* client gone */ } }, 25000);
-    req.on('close', () => { clearInterval(heartbeat); unsubscribe(); });
+    req.on('close', () => { clearInterval(heartbeat); unsubscribe(); unsubscribeRegistry(); });
     return;
   }
 
@@ -296,7 +297,16 @@ async function handleApi(req, res, pathname, query) {
   if (pathname === '/api/help' && method === 'GET') {
     const help = require('./lib/help');
     const library = await store.readLibrary();
-    const helpOptions = { boundaries: await store.readBoundaries() };
+    /* The LIVE registries, all four of them. Each one now generates a
+     * catalogue into the topic that explains it, and a catalogue built from
+     * the shipped defaults would describe a house's finishes and treatments as
+     * they arrived rather than as they are — which is the exact staleness the
+     * generated documentation exists to avoid. */
+    const helpOptions = {
+      boundaries: await store.readBoundaries(),
+      flooring: await store.readFlooring(),
+      controls: await store.readControls(),
+    };
     const topicId = query.get('id');
     if (topicId) {
       const result = help.sheetHtml([], library, { ...helpOptions, id: topicId });

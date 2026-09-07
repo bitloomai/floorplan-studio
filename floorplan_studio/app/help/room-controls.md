@@ -4,7 +4,7 @@ title: What a room's popup offers
 summary: Tap a room on the dashboard and this is what you get — sections, filters and shortcuts.
 category: controls
 tags: controls, popup, room, sections, shortcuts, presets
-applies: section:room.controls, registry:controls, dialog:room-buttons, field:room.controls
+applies: section:room.controls, registry:controls, dialog:controls, dialog:room-buttons, field:room.controls
 see: panel-room, dashboard-install
 order: 55
 ---
@@ -39,5 +39,12 @@ scrolling.
 ## What a tap does
 
 That depends on the entity's domain, and the mapping is a registry rather than a
-guess: a light toggles, a cover opens, a sensor opens more-info. You can see the
-whole table in the controls registry.
+guess: a light toggles, a cover opens, a sensor opens more-info. The whole table
+is at the foot of this page, and in the editor under **Room controls → edit the
+house defaults…**.
+
+## Editing the defaults
+
+The house-wide starting point every room inherits — the header, which sections
+exist, whether a section is read-only — is editable in that same dialog. A room
+still overrides any of it in its own panel.

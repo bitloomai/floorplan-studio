@@ -19,6 +19,7 @@ same renderer — not a design tool that exports to something else.
 
 [Read the help guide](https://bitloomai.github.io/floorplan-studio/) ·
 [Browse all types](https://bitloomai.github.io/floorplan-studio/library.html) ·
+[Explore materials](https://bitloomai.github.io/floorplan-studio/materials.html#material-gallery) ·
 [Find a control](https://bitloomai.github.io/floorplan-studio/navigation.html)
 
 <img src="./docs/hero-plan.svg" alt="A furnished home rendered by Floorplan Studio: living room, kitchen and dining room, bedroom and studio with multiple floor materials, live light counts, warm lamp pools, a ceiling fan, sensors and plan-view furniture." width="860">
@@ -45,12 +46,51 @@ floor based on the house the test suite runs against.</sub>
 |  | |
 |---|---|
 | 🏠 **Multi-floor plans** | Rectangular and polygonal rooms, doors, windows, openings, walls, railings and boundary segments. |
-| 🛋️ **A library that looks like the thing** | 258 devices, fixtures and furniture, each drawn as the object it is — a bed has pillows, a hob has burners, a 3-gang wall switch has three rockers — rather than a labelled dot. |
+| 🏷️ **Place the room names yourself** | Drag a room badge inside or beside its room. Resize it with corner handles; the name and live count scale together. Undo, keyboard controls and automatic placement are included. |
+| 🛋️ **A library that looks like the thing** | 261 devices, fixtures and furniture, each drawn as the object it is — a bed has pillows, a hob has burners, a 3-gang wall switch has three rockers — rather than a labelled dot. |
+| 🪵 **Floors with character** | 178 stock finishes across 14 material groups: grained timber, herringbone, mitred chevron, basket parquet, marble, terrazzo, hexagonal and patterned cement tiles, woven fibres, concrete, resilient flooring and outdoor paving. Edit the pattern, palette, scale and reflectance. |
+| 🎨 **Materials for every item** | 76 colour schemes for metal finishes, timber, upholstery, stone, paint and natural fibres. Apply colours independently of shape, or create project-owned schemes that travel with your exported plan. |
 | 🔌 **Bound to your entities** | Pick an entity per marker, or type one offline. Live state is drawn on the plan: lamps pool light, a fan spins, a camera shows its cone, each gang of a switch reads its own entity. |
 | ☀️ **Daylight and lamps modelled** | Real solar position per your coordinates, light through openings, artificial-light levels in foot-candles, and a night scrim that thins as the sun comes up. |
 | 📊 **One press to a dashboard** | Generates a Lovelace dashboard, one view per floor, from the same renderer — installed as a resource by the app itself. No HACS, nothing copied into `config/www/`. |
 | 🤖 **Drivable by an AI** | An MCP endpoint, so a model can draw and edit the plan while your editor updates live. |
-| 📦 **No dependencies at all** | No `dependencies`, no lockfile, no `node_modules`. Distroless image with no shell or package manager. |
+| 📖 **Help that follows the data** | Contextual help and generated catalogues describe the same registries the editor uses. Advanced settings are marked, and the shared dialog frame keeps them reachable. |
+| 📦 **No runtime dependencies** | No third-party runtime packages or lockfile. The production image is distroless, with no shell or package manager. |
+
+## A material library, built into the framework
+
+<img src="./docs/flooring-materials.svg" alt="Twelve actual flooring renders: honey oak, walnut chevron, oak basket parquet, Calacatta and black marble, blush terrazzo, sage hexagons, indigo cement tile, woven sisal, porcelain, clay pavers and weathered decking." width="960">
+
+These are the floor generators themselves, shown at a consistent scale—not
+stock photography. The [complete material gallery](https://bitloomai.github.io/floorplan-studio/materials.html#material-gallery)
+shows every shipped floor finish and item colour scheme, with its registry key.
+
+- **Choose a material and a laying pattern.** Chevron has mitred ends;
+  herringbone has rectangular boards; basket parquet alternates its blocks.
+  Hexagons, floral cement tiles, woven fibres and rubber studs have distinct
+  geometry rather than being renamed square tiles.
+- **Make it your own.** Tune grout, tile dimensions and variation, wood grain,
+  marble veins, terrazzo chip colours and size, thread spacing or board angle.
+  Duplicate a finish in the editor and adjust it without writing code.
+- **Carry the result through.** The editor, SVG export, preview and generated
+  dashboard use the same surface generators. Seeded textures stay stable on
+  repaint; new stock finishes and option controls reach existing registries
+  without replacing custom entries.
+
+Materials are stylised for readable floor plans. Reflectance values are
+adjustable lighting-model estimates, not measured product specifications or
+a simulation of polished reflections.
+
+## From a drawing to a home you can control
+
+1. **Draw** floors, rooms and boundaries; place recognisable furniture and devices.
+2. **Style** the home with material finishes, shape variants and colour schemes.
+3. **Bind** Home Assistant entities and configure room controls, shortcuts and summaries.
+4. **Preview and generate** a Lovelace dashboard using the same drawing engine.
+
+The app also backs up dashboard configuration, stamps its own deployments and
+can reopen an embedded editable project. See [reopening a generated dashboard](#reopening-a-generated-dashboard)
+for the portability and ownership rules.
 
 ## Install
 
@@ -145,11 +185,11 @@ Implemented and covered by the local suite:
 node test/verify.js
 ```
 
-Current result on a fresh clone: **462 passed, 0 failed, 3 skipped**. The three
-skips are the optional checks below, and each prints how to enable it. With all
-three enabled: **471 passed, 0 failed, 1 skipped**.
+The suite checks every shipped type, finish and colour scheme, the renderer,
+registry upgrades, generated documentation and dashboard pipeline. Optional
+integration checks print their own prerequisites when skipped.
 
-It runs against `test/house/` — a five-floor, sixteen-room building that is
+It runs against `test/house/` — a five-floor synthetic building that is
 committed, so a clone runs everything with no setup. That house is **invented**,
 geometry included, and generated by `node tools/make-test-house.js`; the suite
 pins the committed copy to its generator. Everyone therefore runs the same
@@ -186,6 +226,17 @@ the output into an issue does not paste your home into it.
 Passing the suite validates the data model, renderer, card builder, safety
 guards, and browser-client primitives. It does not replace real Home Assistant
 Supervisor, Ingress, OAuth, or end-to-end browser UI testing.
+
+After changing materials or their renderer, regenerate the visual references:
+
+```bash
+node tools/make-material-gallery.js
+node tools/make-readme-image.js
+node tools/make-docs.js
+```
+
+Each generator supports `--check` to detect stale output. The material gallery
+and README sheet are derived from the framework's shipped registries.
 
 ## Delivery
 
@@ -252,7 +303,9 @@ filesystem-aware client can also load directly as a skill.
 **Tools:** `get_contract` (read this first — the project schema and which
 tool reaches what), `get_project`, `get_registry`, `list_library` to read;
 `edit_collection` (floors/rooms/items/openings — add/update/remove) and
-`edit_settings` (everything else, by dot path) to write; `validate_project`
+`edit_settings` (other project settings, by dot path) and `edit_registry`
+(shared library, flooring, theme, boundary and control fields, by literal key
+path) to write; `validate_project`
 on demand (every write already runs the same check and refuses to save on
 error); `preview_dashboard` to see what Generate would produce; and
 `install_dashboard`, which actually writes to Home Assistant and is **only
@@ -288,7 +341,7 @@ declares `ports`.
 Reopening must use the editable Floorplan Studio project, not attempt to
 reverse-engineer arbitrary Lovelace dashboards.
 
-The target contract is:
+The implemented contract is:
 
 - every Floorplan Studio deployment writes a small `floorplan_studio`
   provenance stamp;
@@ -465,9 +518,13 @@ a Floorplan Studio version.
 ## Documentation map
 
 - [The help site](https://bitloomai.github.io/floorplan-studio/) — the
-  published guide. Every page is generated by `tools/make-docs.js` from the
+  published guide. Its topic pages are generated by `tools/make-docs.js` from the
   same help topics the editor shows behind its **?** buttons, so the site and
   the app can never drift apart. GitHub Pages serves it from `docs/`.
+- [The material gallery](https://bitloomai.github.io/floorplan-studio/materials.html#material-gallery)
+  — all stock flooring renders and colour palettes, in the same Pages navigation,
+  theme and search. `tools/make-docs.js` hosts the gallery using material
+  figures from `tools/make-material-gallery.js`.
 - [`floorplan_studio/DOCS.md`](./floorplan_studio/DOCS.md) — detailed editor
   usage; Home Assistant shows this in the app's Documentation tab.
 - [`floorplan_studio/CHANGELOG.md`](./floorplan_studio/CHANGELOG.md) —
@@ -507,7 +564,7 @@ CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 
 Floorplan Studio bundles no third-party source code: `package.json` declares no
-dependencies, there is no lockfile, and every `require()` resolves to a file in
+runtime dependencies, there is no lockfile, and every app `require()` resolves to a file in
 this repository or a Node.js built-in. The container image adds an unmodified
 Node.js runtime and Debian base, each keeping its own licence and copyright
 files inside the image. `THIRD_PARTY_NOTICES.md` is the full inventory,

@@ -467,6 +467,12 @@ footer{margin-top:4rem;padding:1.2rem 0 0;border-top:1px solid var(--line2);colo
 .group-head h2{margin:0;font-size:1.1rem}
 .clear-filter{font:inherit;font-size:.85rem;padding:.5rem .75rem;border:1px solid var(--line);border-radius:9px;background:var(--solid);color:var(--ink);cursor:pointer}
 .empty-state{padding:1.2rem}
+.material-gallery{scroll-margin-top:5rem}.material-gallery .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem}
+.material-gallery figure{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--solid)}
+.material-gallery figure svg{display:block;width:100%;aspect-ratio:4/3}
+.material-gallery figcaption{padding:.8rem}.material-gallery figcaption :is(strong,code,small){display:block;overflow-wrap:anywhere}
+.material-gallery figcaption strong{font-size:.9rem}.material-gallery figcaption :is(code,small){font-size:.75rem;color:var(--soft)}
+.material-gallery section{scroll-margin-top:5rem}.material-gallery .palette{display:flex;height:76px}.material-gallery .palette span{flex:1}.material-gallery .palette span:first-child{flex:3}
 .filter input{min-width:0;background:var(--solid);min-height:42px}
 @media(max-width:860px){.shell{padding:0 1rem;gap:1rem}.type{scroll-margin-top:4.5rem}.top .row{gap:.55rem}.side a{min-height:46px}}
 @media print{.top,.side,.scrim,.filter,footer,.skip{display:none!important}.shell{display:block}.glass{box-shadow:none;background:white;color:black}body{background:white}}
@@ -542,6 +548,7 @@ ${THEME_BOOT}
     <a href="https://github.com/bitloomai/floorplan-studio" aria-label="Floorplan Studio source on GitHub"><span aria-hidden="true">↗</span><span>Source on GitHub</span></a>
     <hr>
     <div class="lbl">Browse</div>
+    <a href="materials.html#material-gallery"${current === 'materials' ? ' aria-current="page"' : ''}>${categoryGlyph('rooms')}<span>Material gallery</span></a>
     <a href="navigation.html"${current === 'navigation' ? ' aria-current="page"' : ''}>${categoryGlyph('plan')}<span>Find a control</span></a>
     <a href="library.html"${current === 'library-ref' ? ' aria-current="page"' : ''}>${categoryGlyph("library")}<span>Every type you can place</span></a>
     </nav>
@@ -705,6 +712,8 @@ for (const c of help.categories()) {
 }
 
 /* ---- every type ---- */
+files['materials.html'] = page('Material gallery', require('./make-material-gallery').body, 'materials');
+
 {
   const routes = Object.keys(navigation.locations).filter((id) => navigation.locations[id].parent || id.startsWith('panel:'));
   const rows = routes.map((id) => {
@@ -779,6 +788,7 @@ for (const c of help.categories()) {
     rows.push({ t: navigation.label(id), s: navigation.route(id).steps.map((s) => s.label).join(' → '),
       u: 'navigation.html#nav-' + id.replace(/[:.]/g, '-'), k: id, g: 'navigation control access', n: '' });
   }
+  rows.push({ k: 'material-gallery', t: 'Material gallery', s: 'All stock flooring and furniture/device colour schemes.', g: 'flooring materials palettes colours', u: 'materials.html#material-gallery', n: 'floors furniture devices colour schemes swatches' });
   files['search.json'] = JSON.stringify(rows);
 }
 

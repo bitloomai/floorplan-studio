@@ -4,14 +4,16 @@ title: What a wall is made of
 summary: Every run of wall can be glass, a railing, a louvre or a jali — and each passes a different amount of light.
 category: walls
 tags: wall, boundary, glass, railing, transmission, daylight
-applies: section:room.walls, registry:boundaries, concept:boundary
+applies: section:room.walls, registry:boundaries, dialog:boundaries, concept:boundary
 see: concept-daylight, walls-curved, walls-openings
 order: 30
 ---
 
 By default every edge of a room is a wall. A **boundary** overrides a run of one
-edge with something else: `glass_full`, `louvre`, `metal_railing`, `jali`,
-`parapet_glass`, `open_edge` and about thirty others.
+edge with something else — glass, a louvre, a metal railing, a jali, a glazed
+parapet, or simply nothing at all. The full list, with what each one passes and
+how thick it is drawn, is the catalogue at the foot of this page; it is built
+from the registry, so it is whatever your install actually has.
 
 This is not styling. Each treatment carries a **transmission** — the fraction of
 daylight it passes — so replacing a solid wall with glass genuinely lights the
@@ -40,3 +42,19 @@ because there is no straight axis to measure the range along.
 **`open_edge` is not a door.** It says there is no wall at all — the boundary
 between a car port and its drive, or between two halves of one space. Openings
 are for holes cut in a wall that exists.
+
+## Editing a treatment
+
+**Room → Walls & railings → edit treatments…** opens what a treatment *is*, as
+opposed to which one a run has: its name, its group, and the daylight it passes.
+Under **Advanced** it also carries how thick and how high it is drawn, and its
+**tint** — the colour light takes on crossing it, which is what makes bronze
+glazing and a green polycarbonate sheet different from clear glass rather than
+merely differently labelled.
+
+The same dialog holds the opening types and the coverings, on their own tabs. An
+opening carries two figures rather than one: what it passes shut, and what it
+passes open. That is the whole point of a door.
+
+Changes apply everywhere that type is used, on every floor, and are saved as you
+make them.

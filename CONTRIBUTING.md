@@ -60,6 +60,12 @@ check skips unless `FPS_LEGACY_DIR` is set; that skip is expected.
 
 Then, as applicable:
 
+- **Changed floor materials or colour schemes?** Run
+  `node tools/make-material-gallery.js` and `node tools/make-docs.js` to update
+  the complete material gallery, README sheet and catalogue. Regenerate the
+  hero plan with `node tools/make-readme-image.js` when its rendering changes.
+  All three support `--check`.
+
 - **Changed `tools/make-test-house.js`, or how plans are rendered?** Run
   `node tools/make-test-house.js` and `node tools/make-readme-image.js`, and
   commit `test/house/` and `docs/hero-plan.svg`. The suite pins both to their

@@ -31,6 +31,7 @@
     <a href="https://github.com/bitloomai/floorplan-studio" aria-label="Floorplan Studio source on GitHub"><span aria-hidden="true">↗</span><span>Source on GitHub</span></a>
     <hr>
     <div class="lbl">Browse</div>
+    <a href="materials.html#material-gallery"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><rect x="-5.6" y="-3" width="11.2" height="6" rx="3" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="2.5" cy="0" r="1.8" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Material gallery</span></a>
     <a href="navigation.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="0" cy="0" r="5.2" fill="none" stroke-width="1.3" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="0" cy="0" r="2.2" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Find a control</span></a>
     <a href="library.html"><svg class="glyph cat-glyph" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false"><circle cx="-4.2" cy="-3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="-3.4" x2="5.2" y2="-3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="0" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="0" x2="5.2" y2="0" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><circle cx="-4.2" cy="3.4" r="1" stroke-width="0" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/><line x1="-1.8" y1="3.4" x2="5.2" y2="3.4" stroke-width="1.2" stroke-linecap="round" fill="currentColor" stroke="currentColor" transform="translate(20 20) scale(1.45)"/></svg><span>Every type you can place</span></a>
     </nav>
@@ -46,7 +47,7 @@
 <p class="summary">Where the sun is, how much of it reaches each room, and what the plan needs from you to know.</p>
 
 <div class="body"><h3>How to access</h3>
-<ul><li><strong>Find it:</strong> Top bar → Sun.</li></ul>
+<ul><li><strong>Find it:</strong> Top bar → Sun → The daylight model. Enable Advanced in the top bar.</li><li><strong>Find it:</strong> Room → Room daylight. Enable Advanced in the top bar. Choose Select, then click inside a room to open its inspector on the right.</li></ul>
 <p>The plan computes the sun's real position for your <strong>location and the current time</strong>, then works out how much of it reaches each room.</p>
 <h2>What it needs</h2>
 <p><strong>A latitude and longitude.</strong> Without them there is no sun at all — the model refuses to guess rather than lighting your house as though it were somewhere else. This is the single most common reason daylight appears to do nothing.</p>
@@ -55,7 +56,21 @@
 <p>Roughly: how much glass the room has, relative to its floor area, weighted by how much light each piece of glass passes. That is why boundaries and opening types matter — a wall of <code>glass_full</code> and a wall of masonry are different rooms to this model.</p>
 <p>An <strong>outdoor</strong> room is exempt. It is lit from above, and the glass-to-area question is meaningless for a terrace.</p>
 <h2>Weather and solar</h2>
-<p>You can bind a <strong>weather entity</strong>, and an overcast sky will dim the whole model. You can also bind a <strong>solar production sensor</strong> — but note it can only ever pull the estimate <em>down</em>. A quiet inverter is evidence of cloud; a busy one is not evidence of extra sun, and letting it brighten things would make the plan lie on a cold clear morning.</p></div>
+<p>You can bind a <strong>weather entity</strong>, and an overcast sky will dim the whole model. You can also bind a <strong>solar production sensor</strong> — but note it can only ever pull the estimate <em>down</em>. A quiet inverter is evidence of cloud; a busy one is not evidence of extra sun, and letting it brighten things would make the plan lie on a cold clear morning.</p>
+<h2>Per-room glazing (Advanced)</h2>
+<p>&quot;Enough glass&quot; is a judgement about a room, not about a house: a stairwell and a living room with identical glazed-to-floor ratios are not equally well lit in practice. A room can carry its own <strong>fully-daylit glazing ratio</strong>; left blank it inherits the house's.</p>
+<p>An outdoor room ignores it entirely — it is lit from above and takes the open-sky share instead.</p>
+<h2>The daylight model (Advanced)</h2>
+<p>The constants the model runs on, none of which a house needs to touch:</p>
+<ul><li><strong>the ambient wash</strong> — the darkest a lit room gets at night, the brightest by</li></ul>
+<p>  day, the share a room with no glazing of its own still receives, and how much   sky an outdoor room takes.</p>
+<ul><li><strong>the sky curve</strong> — how sky strength follows the sun's elevation. It peaks</li></ul>
+<p>  well before the zenith on purpose: a plan cares how much light gets <em>through</em>   a window, and a high sun enters a vertical opening at a poor angle.</p>
+<ul><li><strong>sun patches</strong> — the geometry of the beam a window throws on the floor.</li></ul>
+<p>They are behind <strong>Advanced</strong> because &quot;never needs to&quot; is not &quot;cannot&quot;.</p>
+<h2>What the weather does to the sky (Advanced)</h2>
+<p>With a weather entity set, each condition it can report carries a multiplier: 1 is a clear sky at full strength, and a third of that is heavy overcast. They are listed in the Sun dialog under Advanced, one row per condition the model knows, and only a changed one is stored — so the rest keep tracking the shipped values as those improve.</p>
+<p>With no weather entity, none of them apply and the single fallback beside the entity picker is used for everything.</p></div>
 <div class="related">Read next: <a href="reference.html#concept-units">Feet, and which way is north</a> · <a href="walls.html#walls-boundaries">What a wall is made of</a> · <a href="light.html#concept-artificial-light">Lamps, lumens and how bright a room reads</a></div>
 </article>
 <article class="topic glass" id="concept-artificial-light">
@@ -63,7 +78,7 @@
 <p class="summary">Watts become lumens become a foot-candle level — which is why a lamp's wattage is worth filling in.</p>
 
 <div class="body"><h3>How to access</h3>
-<ul><li><strong>Find it:</strong> Top bar → Light.</li><li><strong>Find it:</strong> Item inspector → Light output. Choose Select, then click an item on the plan to open its inspector on the right.</li></ul>
+<ul><li><strong>Find it:</strong> Top bar → Light → The light model. Enable Advanced in the top bar.</li><li><strong>Find it:</strong> Item inspector → Light output. Choose Select, then click an item on the plan to open its inspector on the right.</li></ul>
 <p>At night the plan darkens under a <strong>scrim</strong>, and each lit room is cut back out of it. How far back depends on a real calculation rather than a fixed opacity.</p>
 <h2>The chain</h2>
 <pre><code>watts  -&gt;  lumens  -&gt;  spread over the room's area
@@ -77,7 +92,19 @@
 <h2>Brightness follows the entity</h2>
 <p>A dimmable light's brightness attribute scales its contribution live. You do not need to model dim levels; bind the entity and the plan follows it.</p>
 <h2>Cove and strip lighting</h2>
-<p>A cove is a <strong>line</strong>, not a point, and it washes the surface it is set into. Its length is part of its output, and its <code>rot</code> is the <strong>axis it runs along</strong> — not a direction it points. A strip drawn across its wall instead of along it is a common and completely silent mistake.</p></div>
+<p>A cove is a <strong>line</strong>, not a point, and it washes the surface it is set into. Its length is part of its output, and its <code>rot</code> is the <strong>axis it runs along</strong> — not a direction it points. A strip drawn across its wall instead of along it is a common and completely silent mistake.</p>
+<h2>The light model (Advanced)</h2>
+<p>Settings both light models read that a plan needs none of to look right:</p>
+<ul><li><strong>light zones</strong> — clip a lamp's glow to its room and let it out through each</li></ul>
+<p>  opening by that opening's own transmission, so a blackout blind stops the   spill and a sheer curtain does not. Off, every lamp draws a plain circle that   washes straight through walls.</p>
+<ul><li><strong>floor bounce</strong> — how much of a flooring's own reflectance counts. 0 is</li></ul>
+<p>  arithmetically the model as it was before floors had a say.</p>
+<ul><li><strong>the glow pool</strong> — how a lamp's pool of light grows with its output. It grows</li></ul>
+<p>  slowly on purpose: a 20 W tube is not four times the radius of a 5 W spot.</p>
+<ul><li><strong>a fitting that says nothing</strong> — what a lamp marker counts as when its type</li></ul>
+<p>  carries no figure. Raising these brightens every unspecified fitting at once.</p>
+<ul><li><strong>room name chips</strong> — whether the name is drawn, whether it carries a live</li></ul>
+<p>  count, and the room size below which the count is not worth saying.</p></div>
 <div class="related">Read next: <a href="rooms.html#room-flooring">Floor finish</a> · <a href="light.html#concept-daylight">Daylight</a></div>
 </article>
 <article class="topic glass" id="room-lighting">

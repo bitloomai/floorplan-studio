@@ -4,7 +4,7 @@ title: The room panel
 summary: Everything a room is — its shape, its floor, its walls, and what its popup offers.
 category: rooms
 tags: room, panel, inspector
-applies: panel:room
+applies: panel:room, section:room.label
 see: room-flooring, room-lighting, room-controls, walls-boundaries
 order: 10
 ---
@@ -28,6 +28,15 @@ The name is what the dashboard shows. **Hiding the label** is worth doing for
 small service rooms — a 3 ft cupboard with its name across it reads as clutter,
 not information.
 
+In **Select** mode, drag the name badge to put it anywhere on the floor,
+including just outside its room. This moves the badge, not the room. Its
+corner handles resize it, and the name and on/total count shrink or grow with
+it. The badge stays associated with its original room on the dashboard.
+
+With a badge selected, arrow keys move it, **+ / −** resize it, **[ / ]** rotate
+it and **Delete** hides it. Dragging or resizing makes one undo step. Enable
+the room's label again in its inspector if you hide it.
+
 ## Part of another room
 
 `part_of` says "this rectangle is a piece of that room, drawn separately".
@@ -42,3 +51,17 @@ more than it sounds: the daylight model asks "how much glass does this room
 have, relative to its area", which is the right question for a bedroom and a
 meaningless one for a terrace. Without this flag, the largest open space in a
 house can come out darker than its own stairwell.
+
+## Name position (Advanced)
+
+Left alone, the label finds its own clear spot — the room's centre when nothing
+is there, and the nearest clear place when something is, which is usually the
+ceiling fan sitting exactly where the centre is.
+
+Nudging it writes a position, and a position set by hand is a decision: nothing
+second-guesses it afterwards. **Auto** hands the choice back. The name can also
+be rotated, which is what a long, narrow corridor usually wants.
+
+The numeric **Badge size (%)**, rotation, nudges and **Reset badge position and
+size** controls live under **Advanced → Name position**. Size ranges from 25%
+to 400%. Direct dragging and resizing do not require Advanced.

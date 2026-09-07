@@ -2,6 +2,263 @@
 
 ## Unreleased
 
+### Prompt-based registry authoring
+
+- MCP now reads the complete library and edits shared library, flooring, theme,
+  boundary and control registries with atomic field updates and safe key paths.
+- Idle editors refresh after registry edits; active local edits are preserved
+  with a reload notice. The shipped guide covers custom finishes, schemes and
+  room badge placement and sizing.
+
+
+### Material gallery navigation and movable room badges
+
+- The complete material gallery now lives in the GitHub Pages guide's shared
+  shell, sidebar, theme switcher and search. README links open its Materials
+  section; the material generator supplies figures rather than a second site.
+- Drag room badges independently of their rooms, including to adjacent floor
+  space. Corner handles and keyboard sizing scale the text and count together.
+  Moves/resizes are undoable; Delete hides the selected badge. Advanced offers
+  a numeric size and a reset to automatic position and default size.
+- Badge position, rotation and scale carry through rendering, dashboard hit
+  targets, project persistence and spec export/import.
+
+### Flooring materials and shared colour palettes
+
+- Expanded stock flooring from 66 to 178 finishes across 14 groups, including
+  timber species, parquet layouts, porcelain, marble, natural stone, terrazzo,
+  cement tiles, woven fibres, resilient floors, oxide cement and decking.
+- Added chevron, basketweave, hexagon, encaustic, weave and stud generators.
+  Herringbone now fills its repeating cell; chevron has its own mitred joints.
+  Tile shades can vary and terrazzo supports sized, angular chips.
+- Expanded shared item colours from 28 to 76 schemes. A generated stock
+  colour catalogue accompanies the existing project-owned scheme editor.
+- New flooring entries and missing generator controls merge into saved
+  registries while preserving existing entries and edited field definitions.
+- Added a complete generated material gallery and flooring sheet for the
+  repository README. Reflectance defaults are documented as model estimates.
+
+### Dialog keyboard access and stock floor finishes
+
+- Dialogs use native modal focus containment and background inertness, return
+  focus on close, and keep the Advanced toggle focused when rebuilding.
+  Editor shortcuts stay inactive while a dialog is open.
+- The tatami and radial-inlay script examples live in
+  `samples/flooring-script-examples.json`, outside the selectable defaults.
+
+### The other four registries document themselves now
+
+- **Choice registries generate their own catalogues.** The library's 261 types have
+  always written their own reference; the wall treatments, opening types,
+  coverings, floor finishes and control surfaces did not — so the prose beside
+  them quoted them from memory, and it had already drifted ("a flat list of
+  68", "about thirty others", and a promise that you could "see the whole table
+  in the controls registry" when nothing showed that table). Each of those
+  topics now carries a catalogue built from the registry itself, including the
+  **31-domain** table of what a tap does. The hand-typed restatements are gone,
+  and the suite fails if one comes back.
+- **Built from the LIVE registries.** The editor and MCP were handing the help
+  corpus only the boundaries document, so a catalogue would have described the
+  finishes a house shipped with rather than the ones it has. All four are
+  passed now — a house that edits its own registry gets documentation about
+  that registry, in the editor, in `get_help` and on the site.
+
+### Advanced is honoured everywhere, by the frame rather than by each dialog
+
+- **The dialog frame carries the tick.** A dialog is a full-screen overlay, so
+  the top bar's copy is covered while one is open. Every settings dialog now
+  hands the frame the function that opened it, and the frame renders the
+  app-wide toggle and re-runs the dialog when it changes. Doing it once, in the
+  frame, is the point: the next dialog to grow an advanced section inherits a
+  working toggle instead of quietly repeating the bug.
+- **One `adv()`/`note()` for panels and dialogs alike**, so a dialog cannot
+  drift from the panels' wording or, worse, hide a section with no sign it
+  exists. Both say what is behind the tick, not just how many things.
+
+### Nothing the renderers read is unreachable from the editor
+
+- **Two registry editors.** `saveBoundaries` and `saveControls` existed in the
+  API and were called by nothing, so wall treatments and the house's control
+  defaults were read-only in the app while writable by the server and by MCP.
+  **Room → Walls & railings → edit treatments…** now edits treatments, opening
+  types and coverings — including thickness, height, tint and what an opening
+  passes when *open*, which is the whole point of a door. **Room controls →
+  edit the house defaults…** edits the header, the sections and their read-only
+  and short-label settings, and shows the domain-action table.
+- **The weather's effect on daylight is editable.** Sixteen per-condition
+  multipliers the model has always read and nothing could reach, listed from
+  the registry so a new condition appears with no code change.
+- Also reachable at last: the rooms that never show a live count
+  (`chips.hideRooms`), how the popup header counts (`countFormat`), and whether
+  the house card carries every shortcut in the plan.
+- The suite now asserts both directions — that every once-unreachable option is
+  named by the editor, and that every registry the server will store is one the
+  editor can edit.
+
+### Eleven shipped options that nothing read, and the places help could not reach
+
+- **The generated dashboard honours `openOn` and `dismiss`.** Both have been in
+  `defaults/controls.json` since controls existed, and every key but
+  `dismiss.backdrop` reached the card and was ignored — so a popup could not be
+  closed with Escape despite the registry shipping `escape: true`. A room's
+  **name** and the **floor around it** are now separate tap targets, each
+  switchable on its own; `retap`, `escape`, `grabBar` and `close` each do what
+  they say; and a long press on a marker opens more-info, opens its room's
+  popup, or does nothing, per `markerHold`. All of it is editable under
+  **Dashboard… → Appearance & behaviour** and cascades house → floor → room.
+- **A design's own description of itself now reaches the surface it builds.**
+  `persistent` (the docked panel does not close when you tap its room again),
+  `inlineSections` (the compact bar runs its sections along the strip instead
+  of stacking them off the bottom), `density` and `animation` were declared by
+  the shipped designs and read by nothing, so every surface came up identically
+  however it had been described. Entry animations drop wholesale for a viewer
+  who has asked for reduced motion.
+- The suite now asserts that **every option the controls registry declares is
+  read by something**, so a declared behaviour that silently does not happen
+  fails here rather than in somebody's house.
+
+### Help that reaches the places it describes
+
+- **Dialogs have a "?".** Panels have had one since they existed; the thirteen
+  dialogs never did, so topics written about the Sun, Light, Logic, Dashboard,
+  Import and Export dialogs were reachable from everywhere except the thing
+  they describe. The dialog frame now carries it, from the same
+  `ui-navigation.js` record the docs derive their access paths from — which
+  also means a dialog's heading and the written path to it can no longer be two
+  different names for one place.
+- **Advanced is reachable from inside a dialog.** A dialog is a fixed
+  full-screen overlay, so the top bar's Advanced tick was *covered* while one
+  was open: the daylight model's constants and the light model's were reachable
+  only by someone who had ticked it beforehand, with nothing on screen saying
+  they existed. Both dialogs now carry the tick in their own header and say
+  what is being withheld when it is off — the rule the panels already followed.
+- **Six advanced areas are declared where the docs can see them.** Room name
+  position, per-room daylight, a marker's long-press target, a manual room
+  override, overhead openings and the two model sections were gated behind
+  `S.advanced` in the panels and absent from `ui-navigation.js`, so the
+  documentation described them as though they were on screen. The suite now
+  checks both directions: that each is declared advanced, and that the panel
+  hiding it names the same location.
+- **The Logic dialog is documented.** It was the one UI location nothing was
+  written about, and the check that would have caught it only ever asked about
+  panels. It asks about every location now.
+
+### Counts that are counted rather than typed
+
+- The MCP contract said "65 finishes across Basic/Wood/Stone/India/Outdoor"
+  while the registry had grown to 68 in six groups — and that is the text a
+  model treats as ground truth about a house it is editing. It is derived now.
+  Both READMEs said 258 library types against an actual 261, and quoted suite
+  totals from several hundred checks ago. The suite asserts all of them.
+
+### Two drawings corrected by looking at them
+
+- **A ceiling fan is mostly blades.** `lightkit3` shipped with a 0.34R hub, the
+  largest of any fan look by half again, and read as a dinner plate with three
+  little wings — the wrong way round, since a fan built around a light has a
+  compact motor precisely because the lamp is what hangs below it. The head is
+  0.26R now, its lens is proportionate, and the blades are a broader profile of
+  their own. They reach exactly as far as before: the sweep is a real
+  measurement in feet and must not drift. The bound is checked on the whole
+  family rather than on the one look, because the next fan added will be
+  tempted the same way.
+- **`plank` can draw grain.** Without it a plank pattern is a grid of uniform
+  blocks with a dark line round each, which is a drawing of *brickwork* — and
+  reads as brickwork the moment the joints are anything but hairline, as the
+  first wooden-finish tile did. `grain` (default 0, off, so no existing floor
+  moved) draws lengthwise figure inside each board, in the board's own colour
+  rather than the joint's. It runs ALONG the plank, and nothing else in the
+  pattern does; that is what tells timber from masonry at a glance. The
+  wooden-finish tile now sets it, with a thinner joint and real tone variation
+  between boards.
+
+### A veined tile, and a wooden-finish one
+
+- **A marble-look tile can now be drawn at all.** `tile` had a grid and no
+  veins, `marble` had veins and no grid, and a glazed vitrified tile printed
+  with a marble pattern — the commonest bedroom floor in a modern house here —
+  is both. A field generator may now bring its own base instead of taking a
+  flat colour, so `marble` lays the same grid the tile generator does when a
+  finish gives it a `tileW`. Anything that returns only nodes still gets
+  exactly the plain base it always got.
+- **`veinColor2` draws a second vein system.** Statuario and Calacatta carry a
+  grey structural vein and a sparser, finer gold one, and drawing both in one
+  colour is what makes a printed tile read as a flat grey slab. Adding it moves
+  no vein of the first set.
+- **`veinWidth` and `veinOpacity` make veining as strong as the material
+  actually is.** The defaults are a natural slab's, deliberately faint; a
+  printed tile is not faint. Both default to 1, so every existing finish keeps
+  exactly the veining it had, and both are editable in the finish editor.
+- **Two finishes ship using them** — `vitrified_marble` ("Marble-look tile 4×2,
+  grey & gold veins", India) and `wood_tile` ("Wooden-finish tile", Wood): a
+  ceramic plank with a real grout joint, which is neither laminate nor timber
+  and reflects less light than either. 68 finishes now.
+- **No two shipped finishes may draw the same floor**, checked the same way no
+  two marker looks, wall treatments or colour schemes may.
+
+### Colour schemes, and the seating and fans they are most worth having on
+
+- **An item can now say what it is made of.** A new **Colour** section in the
+  item inspector paints any fixture, device or piece of furniture in a colour
+  scheme: a matte-black ceiling fan, a teak sideboard, a chrome tap, a navy
+  velvet sofa. Every item starts on **plain**, so nothing already drawn
+  changes until you say so.
+- **28 schemes ship with the app**, grouped Finish / Wood / Upholstery /
+  Stone and taken off real fittings and real timber rather than invented —
+  matte black, graphite, ivory, **cream gold**, brushed nickel, polished
+  chrome, antique brass, oil-rubbed bronze, copper, stainless, sanitary
+  white, teak, walnut, oak, rosewood, wenge, whitewashed oak, and eight
+  upholstery tones. Cream gold is the cream-body/gold-trim finish almost every
+  ceiling fan sold in India comes in alongside matte black, and neither ivory
+  (cream and khaki) nor antique brass (gold throughout) was it — the whole
+  look is the contrast between the two.
+- **No two shipped schemes may paint the same thing**, checked the same way
+  no two marker looks and no two wall treatments may.
+- **A scheme is four colours, and each answers a different question**: the
+  body, its trim, the detail strokes inside a marker at rest, and what it
+  turns when it is live — an LED ring, a lit downlight, a status light.
+- **Light beats paint.** A lit lamp still draws in the colour it is emitting
+  and an entity that reports itself unavailable still draws as unavailable,
+  whatever either is painted. The suite pins that no scheme, shipped or
+  invented, can make a marker draw the same on as off.
+- **Make your own, in a mini editor of its own** — the *edit colours…* link
+  beside the picker. Duplicate a shipped scheme (which cannot be edited: it is
+  part of the app, not part of your plan), rename it, set its four colours
+  against a live preview of the thing you are painting, and delete it when
+  nothing is wearing it.
+- **Your own schemes live on the project**, so they are saved, undoable,
+  carried in the export and baked into the generated dashboard card — a plan
+  you send somebody arrives in its own colours with nothing to install
+  alongside it. Importing an exported project brings them back.
+- **A project's own scheme beats a shipped one of the same name, permanently.**
+  A future release adding a default called `teak` cannot silently repaint a
+  plan somebody already drew.
+- **The export now includes the editor's own `project.json`** alongside the
+  legacy-shaped floor specs, which is what makes that round trip real: the old
+  format has nowhere to put anything it never had a word for.
+- **`get_registry({name:"schemes"})`** lists both halves over MCP, and an item
+  may be placed with a `scheme`.
+- **Sofas, sectionals and recliners are now several pieces of furniture each,
+  not one.** Sixteen looks where there were three, and each carries its own
+  real footprint, because with seating the look IS the floor it takes up:
+  - Sofa — straight, **bench seat** (one continuous stretched cushion),
+    chesterfield, armless, **daybed** (one arm, meant for a wall) and curved.
+  - Sectional — **left- and right-handed L**, **U-shaped**, **chaise** (no arm
+    at its foot, which is what tells it from a corner unit) and modular.
+  - Recliner — **single, two-seat and three-seat suites**, and two- and
+    three-seat with the drinks consoles between them.
+- **Two fans most new houses here actually have.** `plank3` is a BLDC fan:
+  straight pressed-sheet blades with squared tips and the ring of indicator
+  LEDs under the motor, lit whenever the fan is. `lightkit3` is a fan with the
+  light built into it — swept blades around a lit disc that dims with the lamp
+  it stands for.
+- **An unlit fan light no longer disappears into a dark fan.** The lens was
+  drawn in the housing's own colour, which is true of nothing — a diffuser is
+  opal whatever the fitting is made of — so a matte-black fan on a night plan
+  collapsed into one dark disc. It is derived from the housing now: pale on a
+  dark fan, dark on a pale one, and measured against every scheme so it cannot
+  vanish into any of them.
+
 ### Configuration layout and working-tree audit
 
 - Align checkboxes with their labels throughout inspectors and dialogs. Group
@@ -1143,7 +1400,7 @@ The user's own actions, on the house, a floor or a room. A shortcut is a label
 and something to call:
 
 ```jsonc
-{ "id": "dnd",  "label": "Do not disturb", "entity": "input_boolean.study_dnd", "slot": "header" },
+{ "id": "dnd",  "label": "Do not disturb", "entity": "input_boolean.example_room_quiet", "slot": "header" },
 { "id": "fan3", "label": "Fan 3", "service": "script.set_fan_speed", "data": { "speed": 3 } }
 ```
 

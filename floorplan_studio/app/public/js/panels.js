@@ -168,12 +168,82 @@ window.Panels = (function () {
 
   /* ---------- modal ---------- */
 
-  function modal(title, bodyEl) {
-    $('modalTitle').textContent = title;
+  /* One dialog frame, and the three things a dialog needs from it.
+   *
+   * `location` is a UI-navigation id. Given one, the TITLE comes from the same
+   * label the docs and the top-bar button use — a dialog headed "Lighting"
+   * while every written path calls it "Light" is two names for one place — and
+   * the header gains the "?" for that selector. Panels have had a "?" since
+   * they existed; dialogs never did, which meant the topics written about them
+   * were reachable from everywhere except the thing they describe.
+   *
+   * `rebuild` is the one that was an outright trap. Advanced is an APP-WIDE
+   * setting, but a dialog is a fixed full-screen overlay, so the top bar's tick
+   * is COVERED while one is open: anything a dialog hid behind it could only be
+   * reached by someone who ticked it beforehand, and nothing on screen said so.
+   *
+   * So every settings dialog hands `modal` the function that opened it, and the
+   * frame carries the tick. Toggling it flips the app-wide setting and re-runs
+   * that function, which is why a dialog needs no per-dialog refresh logic to
+   * honour it. A dialog that passes no `rebuild` is one with nothing to
+   * configure — the help sheet, the entity picker, the shortcut list — and gets
+   * no tick, because a control that changes nothing visible is worse than
+   * absent.
+   *
+   * Doing it here rather than per dialog is the point: the next dialog that
+   * grows an advanced section inherits a working toggle instead of quietly
+   * repeating the bug. */
+  function modal(title, bodyEl, opts) {
+    opts = opts || {};
+    const dialog = $('modal');
+    const rebuildingAdvanced = dialog.open && document.activeElement.matches('.modal-adv input');
+    const id = opts.location;
+    $('modalTitle').textContent = id ? UINavigation.label(id) : title;
+    const tools = $('modalTools');
+    tools.replaceChildren();
+    if (opts.rebuild) {
+      tools.appendChild(h('label', { class: 'inline modal-adv', title: 'Show the settings most plans never need' },
+        h('input', {
+          type: 'checkbox', checked: S.advanced,
+          onchange: (e) => { Store.setAdvanced(e.target.checked); opts.rebuild(); },
+        }), ' ', UINavigation.label('field:ui.advanced')));
+    }
+    if (id || opts.help) tools.appendChild(helpBtn(opts.help || id, 'Help: ' + $('modalTitle').textContent));
     $('modalBody').replaceChildren(bodyEl);
-    $('modal').hidden = false;
+    dialog.hidden = false;
+    // The native modal owns focus containment, background inertness and return
+    // focus. Rebuilding its contents must not replace the original opener.
+    if (!dialog.open) dialog.showModal();
+    else if (rebuildingAdvanced) tools.querySelector('.modal-adv input')?.focus();
+    if (!dialog.contains(document.activeElement)) $('modalClose').focus();
   }
-  function closeModal() { $('modal').hidden = true; }
+  function closeModal() {
+    $('modal').close();
+    $('modal').hidden = true;
+  }
+
+  /* The panels' `adv()`/`advNote()`, for dialogs.
+   *
+   * Same rule, same words, one implementation: draw it when Advanced is on,
+   * COUNT it when it is not, and say how many are being withheld. A dialog that
+   * rolls its own note drifts from the panels' wording, and one that simply
+   * omits the section hides a setting silently — which is the thing this whole
+   * mechanism exists to prevent. Scoped per dialog build, so the count belongs
+   * to the dialog you are looking at. */
+  function dialogAdvanced() {
+    let hidden = 0;
+    return {
+      adv(box, build) { if (S.advanced) build(box); else hidden++; },
+      /* `what` names what is behind the tick, because "3 more settings" tells
+       * you a number and not whether it is the thing you came looking for. */
+      note(box, what) {
+        if (S.advanced || !hidden) return;
+        box.appendChild(h('p', { class: 'hint adv-note' },
+          `${hidden} more setting${hidden === 1 ? '' : 's'} here${what ? ' — ' + what : ''}. `
+          + 'Tick Advanced above to show them.'));
+      },
+    };
+  }
 
   /* One list, not a shortcut hidden in each tooltip's own corner — a person
    * who already knows to reach for one probably knows there are more, and
@@ -275,18 +345,39 @@ window.Panels = (function () {
    * like the fan you are about to place, not a guess at one. */
   const numOr = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 
-  function typeIcon(typeKey, t) {
+  /* One small drawing of a library type.
+   *
+   * `scheme` paints it in a colour scheme instead of in the theme, and `px`
+   * sizes the box — the palette wants an 18px chip, the colour picker and its
+   * editor want a swatch you can actually judge a finish by. The drawing is the
+   * same `Shapes` call the plan makes either way, so a swatch cannot drift from
+   * what lands on the plan; the colour resolution mirrors `markerNodes`, which
+   * is why a lamp swatch shows the fitting's body rather than its light. */
+  function typeIcon(typeKey, t, opts) {
+    const o = opts || {};
+    const scheme = o.scheme || null;
+    const px = o.px || 18;
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     const VB = 40, cx = 20, cy = 20, R = 12;
     svg.setAttribute('viewBox', `0 0 ${VB} ${VB}`);
-    svg.setAttribute('width', '18'); svg.setAttribute('height', '18');
+    svg.setAttribute('width', String(px || 18)); svg.setAttribute('height', String(px || 18));
     const theme = Store.theme();
     const r = t.render || {};
-    const defs = t.defaults || {};
-    const stroke = PlanScene.colour((t.states && t.states.on && t.states.on.stroke) || '@offRim', theme, '#888');
-    const fill = PlanScene.colour((t.states && t.states.on && t.states.on.fill) || '@offFill', theme, '#eee');
-    const glyphColour = PlanScene.colour((t.states && t.states.on && t.states.on.glyph) || '@glyphOff', theme, '#9aa4b6');
+    /* An item already on the plan is previewed with ITS look and size, not
+     * the type's: picking a colour for a three-seat recliner has to show a
+     * three-seat recliner. */
+    const defs = Object.assign({}, t.defaults || {}, o.props || {});
+    const stroke = scheme ? scheme.line : PlanScene.colour((t.states && t.states.on && t.states.on.stroke) || '@offRim', theme, '#888');
+    const fill = scheme ? scheme.fill : PlanScene.colour((t.states && t.states.on && t.states.on.fill) || '@offFill', theme, '#eee');
+    const glyphColour = scheme ? scheme.glyph : PlanScene.colour((t.states && t.states.on && t.states.on.glyph) || '@glyphOff', theme, '#9aa4b6');
+    const accent = scheme ? scheme.accent : stroke;
+    /* A schemed marker drawn as if it were running: its rim takes the accent,
+     * which is the same rule `markerNodes` applies on the plan. The colour
+     * editor previews both states side by side, because a scheme whose accent
+     * does not read as live is the one thing a scheme must not be. */
+    const on = !!o.on;
+    const rim = on && scheme ? accent : stroke;
     const nodes = [];
 
     if (t.kind === 'furniture') {
@@ -302,33 +393,33 @@ window.Panels = (function () {
         x: 0, y: 0, w, h, p: defs, t: theme,
         P: { X: (wx) => X + wx * scale, Y: (wy) => Y + wy * scale, S: (len) => len * scale },
         X, Y, W, H,
-        fill: PlanScene.colour(r.fill || '@furnFill', theme, theme.furnFill),
-        line: PlanScene.colour(r.line || '@furnLine', theme, theme.furnLine),
+        fill: scheme ? scheme.fill : PlanScene.colour(r.fill || '@furnFill', theme, theme.furnFill),
+        line: scheme ? scheme.line : PlanScene.colour(r.line || '@furnLine', theme, theme.furnLine),
       };
       nodes.push(...(Shapes.furniture(r.shape || 'rect', c) || []));
     } else if (r.family && Shapes.MARKERS[r.family]) {
       nodes.push(...Shapes.marker(r.family, defs.variant, {
         cx, cy, R,
-        fill, line: stroke, glyph: glyphColour, accent: stroke,
-        facing: 0, on: false, pct: 60, spin: false, p: defs,
+        fill, line: rim, glyph: glyphColour, accent,
+        facing: 0, on, pct: 60, spin: false, p: defs,
       }));
     } else if (r.shape === 'label') {
-      nodes.push({ tag: 'rect', attrs: { x: 4, y: 11, width: 32, height: 18, rx: 4, fill: 'none', stroke, 'stroke-width': 1.4 } });
+      nodes.push({ tag: 'rect', attrs: { x: 4, y: 11, width: 32, height: 18, rx: 4, fill: 'none', stroke: rim, 'stroke-width': 1.4 } });
       nodes.push({ tag: 'text', text: '23°', attrs: { x: cx, y: cy + 4, 'font-size': 10, 'font-weight': 700, 'text-anchor': 'middle', fill: glyphColour } });
     } else if (r.shape === 'line') {
-      nodes.push({ tag: 'line', attrs: { x1: cx - R, y1: cy, x2: cx + R, y2: cy, stroke, 'stroke-width': numOr(r.thickness, 4), 'stroke-linecap': 'round' } });
+      nodes.push({ tag: 'line', attrs: { x1: cx - R, y1: cy, x2: cx + R, y2: cy, stroke: rim, 'stroke-width': numOr(r.thickness, 4), 'stroke-linecap': 'round' } });
     } else if (r.shape === 'channelBox') {
       const w = R * 2.2, h = R * 1.1;
-      nodes.push({ tag: 'rect', attrs: { x: cx - w / 2, y: cy - h / 2, width: w, height: h, rx: numOr(r.radius, 3), fill, stroke, 'stroke-width': 1.2 } });
-      for (let i = 0; i < 4; i++) nodes.push({ tag: 'circle', attrs: { cx: cx - w / 2 + (w / 4) * (i + 0.5), cy, r: 1.6, fill: stroke } });
+      nodes.push({ tag: 'rect', attrs: { x: cx - w / 2, y: cy - h / 2, width: w, height: h, rx: numOr(r.radius, 3), fill, stroke: rim, 'stroke-width': 1.2 } });
+      for (let i = 0; i < 4; i++) nodes.push({ tag: 'circle', attrs: { cx: cx - w / 2 + (w / 4) * (i + 0.5), cy, r: 1.6, fill: rim } });
     } else if (r.shape === 'perimeter') {
-      nodes.push({ tag: 'rect', attrs: { x: cx - R, y: cy - R, width: R * 2, height: R * 2, rx: 3, fill: 'none', stroke, 'stroke-width': 1.5 } });
-      nodes.push({ tag: 'circle', attrs: { cx, cy, r: 4, fill, stroke, 'stroke-width': 1.2 } });
+      nodes.push({ tag: 'rect', attrs: { x: cx - R, y: cy - R, width: R * 2, height: R * 2, rx: 3, fill: 'none', stroke: rim, 'stroke-width': 1.5 } });
+      nodes.push({ tag: 'circle', attrs: { cx, cy, r: 4, fill, stroke: rim, 'stroke-width': 1.2 } });
     } else if (r.shape === 'camera') {
-      nodes.push({ tag: 'circle', attrs: { cx, cy, r: R * 0.7, fill, stroke, 'stroke-width': 1.4 } });
+      nodes.push({ tag: 'circle', attrs: { cx, cy, r: R * 0.7, fill, stroke: rim, 'stroke-width': 1.4 } });
       nodes.push(...Shapes.icon('camera', cx, cy, glyphColour, 0.72 * (R / 8.5)));
     } else {
-      nodes.push({ tag: 'circle', attrs: { cx, cy, r: R * 0.7, fill, stroke, 'stroke-width': 1.4 } });
+      nodes.push({ tag: 'circle', attrs: { cx, cy, r: R * 0.7, fill, stroke: rim, 'stroke-width': 1.4 } });
       if (r.icon) nodes.push(...Shapes.icon(r.icon, cx, cy, glyphColour, numOr(r.iconScale, 0.8) * (R / 8.5)));
       else if (r.glyph) nodes.push({ tag: 'text', text: r.glyph, attrs: { x: cx, y: cy + 4, 'font-size': 12, 'text-anchor': 'middle', fill: glyphColour } });
     }
@@ -362,7 +453,7 @@ window.Panels = (function () {
             ev.dataTransfer.effectAllowed = 'copy';
           },
         }, h('span', { class: 'lbl' }, t.label || key));
-        btn.prepend(typeIcon(key, t));
+        btn.prepend(typeIcon(key, t, { scheme: Shapes.resolveScheme((t.render || {}).scheme, S.project.schemes) }));
         items.appendChild(btn);
       }
       box.appendChild(h('div', { class: 'lib-cat' }, h('h3', {}, cat.label), items));
@@ -711,6 +802,14 @@ window.Panels = (function () {
      * overrides that outright: a position set by hand is a decision, so nothing
      * second-guesses it afterwards. Nudging simply writes the first one. */
     if (!room.noLabel) adv(box, () => {
+      box.appendChild(locationTitle('section:room.label'));
+      box.appendChild(h('p', { class: 'hint' }, 'In Select mode, drag the name badge anywhere on this floor, including beside its room. Drag a corner to resize it; its text and count scale together. Arrow keys move it, +/− resize it, and Delete hides it.'));
+      box.appendChild(field('Badge size (%)', h('input', { type: 'number', min: 25, max: 400, step: 5,
+        value: Math.round((room.chip_scale || 1) * 100),
+        onchange: e => Store.mutate(() => { room.chip_scale = Math.max(.25, Math.min(4, (Number(e.target.value) || 100) / 100)); }, 'resize room label') })));
+      box.appendChild(h('button', { class: 'btn tiny', onclick: () => Store.mutate(() => {
+        delete room.chip_at; delete room.chip_scale; delete room.chip_rotate;
+      }, 'reset room label') }, 'Reset badge position and size'));
       const centre = PlanScene.roomCentroid(room);
       const nudge = (dx, dy) => Store.mutate(() => {
         const from = room.chip_at || centre;
@@ -759,7 +858,7 @@ window.Panels = (function () {
      * a house: a stairwell and a living room with identical glazed-to-floor
      * ratios are not equally well lit in practice. Blank inherits the house. */
     adv(box, () => {
-      box.appendChild(h('div', { class: 'subhead' }, 'Daylight'));
+      box.appendChild(locationTitle('section:room.daylight'));
       const dl = room.daylight || {};
       box.appendChild(field('Fully-daylit glazing ratio (blank = use the house)', h('input', {
         type: 'number', step: 0.01, min: 0.01, max: 1, value: dl.referenceExposure ?? '',
@@ -830,7 +929,7 @@ window.Panels = (function () {
       adv(box, () => {
         const holdCur = (item.props || {}).holdEntity;
         box.appendChild(h('div', { class: 'field' },
-          h('label', {}, 'Long press opens'),
+          h('label', { 'data-ui-location': 'section:item.hold' }, UINavigation.label('section:item.hold')),
           h('div', { class: 'entity-pick' },
             h('span', { class: 'cur mono', title: holdCur || '' }, holdCur || '(this entity, or a guess)'),
             h('button', { class: 'btn tiny', onclick: () => pickEntity(null, (id) => Store.mutate(() => {
@@ -850,7 +949,7 @@ window.Panels = (function () {
       /* Membership is worked out from where the marker stands; naming a room
        * by hand is for the cases geometry cannot answer — a pillar-mounted
        * array that overhangs its own slab. */
-      adv(box, () => box.appendChild(field('Room', h('input', {
+      adv(box, () => box.appendChild(field(UINavigation.label('field:item.room'), h('input', {
         type: 'text', value: item.room || '', placeholder: 'auto from position',
         onchange: (e) => Store.mutate(() => { item.room = e.target.value || null; }, 'room'),
       }))));
@@ -973,6 +1072,54 @@ window.Panels = (function () {
         grid.appendChild(btn);
       }
       box.appendChild(grid);
+    }
+
+    /* ---- Colour ----
+     *
+     * What the thing is made of, as opposed to what shape it is (the Look grid
+     * above) or what it is doing (its entity). Every kind gets this: a fan is
+     * matte black or ivory, a sideboard is teak or walnut, a tap is chrome.
+     *
+     * Each swatch is the SAME `Shapes` drawing the plan makes, in that
+     * scheme's own colours and at this item's own look and size — the point of
+     * a colour picker is judging the colour on the object, and a row of plain
+     * chips cannot do that.
+     *
+     * "Plain" is first and is a real choice rather than a blank: it clears the
+     * item's scheme, which drops it back to the theme (or to whatever the
+     * library type names as its own default), and that is what everything
+     * already on a plan is. */
+    {
+      const custom = Array.isArray(S.project.schemes) ? S.project.schemes : [];
+      const typeKey = item.kind + '.' + item.type;
+      box.appendChild(locationTitle('section:item.colour'));
+      const grid = h('div', { class: 'variant-grid schemes' });
+      const swatch = (id, scheme, label, title) => {
+        const btn = h('button', {
+          class: 'variant' + ((item.scheme || '') === (id || '') ? ' on' : ''),
+          title,
+          onclick: () => Store.mutate(() => {
+            if (id) item.scheme = id; else delete item.scheme;
+          }, 'colour'),
+        });
+        btn.appendChild(typeIcon(typeKey, t, { scheme, px: 36, props: item.props }));
+        btn.appendChild(h('span', {}, label));
+        return btn;
+      };
+      const typeDefault = (t.render || {}).scheme
+        ? Shapes.resolveScheme((t.render || {}).scheme, custom) : null;
+      grid.appendChild(swatch(null, typeDefault, 'plain',
+        typeDefault ? `the type's own default — ${typeDefault.label}` : 'drawn in the theme, like everything else'));
+      for (const s of Shapes.schemeList(custom)) {
+        grid.appendChild(swatch(s.id, s, s.label, `${s.group} — ${s.label}${s.custom ? ' (yours)' : ''}`));
+      }
+      box.appendChild(grid);
+      box.appendChild(h('div', { class: 'field' },
+        h('button', {
+          class: 'link',
+          title: 'Make your own colour scheme, or change one you made',
+          onclick: () => PanelsExtra.editSchemes(item, t),
+        }, UINavigation.label('dialog:schemes'))));
     }
 
     if (item.kind === 'furniture' || props.some((p) => SIZE.has(p.key))) {
@@ -1250,7 +1397,7 @@ window.Panels = (function () {
       ));
     }
     body.appendChild(table);
-    modal('Device library', body);
+    modal('Device library', body, { help: 'dialog:library', rebuild: editLibrary });
   }
 
   let libTimer;
@@ -1282,7 +1429,7 @@ window.Panels = (function () {
       grid.appendChild(col);
     }
     body.appendChild(grid);
-    modal('Theme', body);
+    modal('Theme', body, { help: 'field:project.activeTheme', rebuild: editTheme });
   }
 
   let themeTimer;
@@ -1410,12 +1557,24 @@ window.Panels = (function () {
           ...res.warnings.map((w) => h('p', { class: 'hint', style: 'margin:2px 4px' },
             (w.path ? w.path + ' — ' : '') + w.message))]
         : [];
-      out.replaceChildren(table, ...renamed, ...warned, ...skippedList(res.skipped),
+      /* Colour schemes made in the plan that produced this file. They live on
+       * the project rather than in a registry so that they travel with it, and
+       * they come back the same way — otherwise every item in the imported plan
+       * would name a scheme that did not exist here and quietly fall back to
+       * the theme. */
+      const schemes = Array.isArray(res.schemes) ? res.schemes : [];
+      const withSchemes = schemes.length
+        ? [h('p', { class: 'hint' }, `Carries ${schemes.length} colour scheme${schemes.length === 1 ? '' : 's'} of its own: ${schemes.map((s) => s.label || s.id).slice(0, 6).join(', ')}${schemes.length > 6 ? '…' : ''}. These come in with the floors.`)]
+        : [];
+      out.replaceChildren(table, ...renamed, ...withSchemes, ...warned, ...skippedList(res.skipped),
         h('button', {
           class: 'btn primary', style: 'margin-top:10px',
           onclick: () => {
             if (!confirm(`Replace every floor in the current project with these ${res.floors.length}?`)) return;
-            Store.mutate(() => { S.project.floors = res.floors; }, 'import');
+            Store.mutate(() => {
+              S.project.floors = res.floors;
+              if (schemes.length) S.project.schemes = schemes;
+            }, 'import');
             S.activeFloorId = res.floors[0] && res.floors[0].id;
             closeModal(); Store.emit('floor');
             toast(`Imported ${res.floors.length} floor${res.floors.length === 1 ? '' : 's'}`);
@@ -1488,12 +1647,12 @@ window.Panels = (function () {
       h('p', { class: 'hint' }, `Upload a plan exported from this editor, or hand-written floor specs in the older format, and they are converted on the way in. Up to ${IMPORT_MAX_MB} MB. Anything this editor does not model is preserved verbatim and re-emitted on export, so the import is not lossy. Importing REPLACES every floor in the current project.`),
       h('div', { class: 'field' }, h('label', {}, 'Plan files (.json)'), input),
       drop, picked, go, out);
-    modal('Import existing floor plans', body);
+    modal('Import existing floor plans', body, { help: 'dialog:import', rebuild: importDialog });
   }
 
   async function exportDialog() {
     const body = h('div', {}, h('p', { class: 'hint' }, 'Generating…'));
-    modal('Export', body);
+    modal('Export', body, { help: 'dialog:export', rebuild: exportDialog });
     try {
       const res = await API.exportBundle(S.project, 'bundle');
       body.replaceChildren();
@@ -1539,7 +1698,8 @@ window.Panels = (function () {
     toast, modal, closeModal, applyUiTheme, shortcutsDialog,
     editLibrary, editTheme, importDialog, exportDialog, flashAperture, pickEntity, helpDialog,
     // shared with panels-extra.js so both build controls the same way
-    helpBtn, panelTitle, sectionTitle, locationTitle, showHelp,
+    helpBtn, panelTitle, sectionTitle, locationTitle, showHelp, dialogAdvanced,
+    typeIcon,
     h, field, numInput,
   };
 }());
