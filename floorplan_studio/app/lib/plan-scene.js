@@ -2510,16 +2510,26 @@
       });
     }
 
-    /* ---- grid, last so it can sit under everything but above the sheet ---- */
+    /* ---- grid, last so it can sit under everything but above the sheet ----
+     *
+     * Semi-transparent, because it is drawn OVER the flooring. The grid colour
+     * is picked to read on the pale sheet, and at full strength on a dark
+     * material — bare soil, black granite, a charcoal deck — it stops being a
+     * guide and becomes the strongest thing on that floor: a pale lattice at
+     * one-foot centres, which anyone looking at it reads as brickwork. It has
+     * to lose to the material and still be followable on the sheet, so the
+     * majors keep more of their weight than the minors. */
     if (opts.grid && opts.grid.show) {
       const step = num(opts.grid.size, 1);
+      const line = (major, attrs) => layers.grid.push({ tag: 'line', attrs: Object.assign({
+        stroke: major ? theme.gridLineStrong : theme.gridLine,
+        'stroke-width': major ? 1 : 0.6, opacity: major ? 0.6 : 0.35,
+      }, attrs) });
       for (let gx = 0; gx <= ext.w + 1e-6; gx += step) {
-        const major = Math.abs(gx % 5) < 1e-6;
-        layers.grid.push({ tag: 'line', attrs: { x1: P.X(gx), y1: P.Y(0), x2: P.X(gx), y2: P.Y(ext.h), stroke: major ? theme.gridLineStrong : theme.gridLine, 'stroke-width': major ? 1 : 0.6 } });
+        line(Math.abs(gx % 5) < 1e-6, { x1: P.X(gx), y1: P.Y(0), x2: P.X(gx), y2: P.Y(ext.h) });
       }
       for (let gy = 0; gy <= ext.h + 1e-6; gy += step) {
-        const major = Math.abs(gy % 5) < 1e-6;
-        layers.grid.push({ tag: 'line', attrs: { x1: P.X(0), y1: P.Y(gy), x2: P.X(ext.w), y2: P.Y(gy), stroke: major ? theme.gridLineStrong : theme.gridLine, 'stroke-width': major ? 1 : 0.6 } });
+        line(Math.abs(gy % 5) < 1e-6, { x1: P.X(0), y1: P.Y(gy), x2: P.X(ext.w), y2: P.Y(gy) });
       }
     }
 

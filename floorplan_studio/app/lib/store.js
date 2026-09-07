@@ -227,6 +227,7 @@ function upgradeDoc(key, doc) {
   if (key === 'library') added.push(...fillTypeGaps(doc, fresh));
   if (key === 'flooring') {
     added.push(...fillFlooringReflectance(doc, fresh));
+    added.push(...migrateStockGroundFinishes(doc, fresh));
     // An existing options table must learn new generators and fields as well
     // as new finishes; otherwise an upgrade can draw them but cannot edit them.
     for (const [generator, specs] of Object.entries(fresh.generatorOptions || {})) {
@@ -279,6 +280,43 @@ function fillFlooringReflectance(doc, fresh) {
     if (!shipped || shipped.reflectance === undefined) continue;
     type.reflectance = shipped.reflectance;
     notes.push(key + '.reflectance');
+  }
+  return notes;
+}
+
+/* Bare soil and cobblestone shipped pointing at the wrong generator: soil was
+ * drawn by `speckle` (a scatter of dots, which on earth colours reads as a
+ * flat panel with the plan grid ruled over it) and cobblestone by an ungraded
+ * `gravel` with no stone size, so its setts came out the size of grit. Both
+ * generators now draw a real surface, but a materialised `flooring.json` keeps
+ * whatever it saved: the merge above only ever ADDS entries, so an install
+ * that has run once would have kept the old drawing forever. That is the same
+ * "declared, documented, read as absent" trap `fillFlooringReflectance` exists
+ * for, one level up — the finish is still there, it is simply drawn by the
+ * generator it was given before a better one existed.
+ *
+ * Grass also needs a material colour: the old outdoor-background token is
+ * nearly white in light themes and navy in dark ones.
+ * Migrate only the old stock generator and options, regardless of JSON key
+ * order. A colour, a density or a
+ * generator the user chose is theirs and is never touched. */
+function migrateStockGroundFinishes(doc, fresh) {
+  const notes = [];
+  if (!doc.types || typeof doc.types !== 'object' || !fresh.types) return notes;
+  const stock = [
+    { key: 'soil', was: { generator: 'speckle', options: { color: '#6b4a35', density: 130 } } },
+    { key: 'cobble', was: { generator: 'gravel', options: { color: '#b9b6ae', density: 300 } } },
+    { key: 'grass', was: { generator: 'grass', options: { color: '@floorOutdoor', density: 110 } } },
+  ];
+  for (const { key, was } of stock) {
+    const type = doc.types[key], shipped = fresh.types[key];
+    if (!type || !shipped || type.generator !== was.generator) continue;
+    const options = type.options || {};
+    if (Object.keys(options).length !== Object.keys(was.options).length
+        || Object.entries(was.options).some(([k, v]) => options[k] !== v)) continue;
+    type.generator = shipped.generator;
+    type.options = JSON.parse(JSON.stringify(shipped.options));
+    notes.push(key + '.generator');
   }
   return notes;
 }

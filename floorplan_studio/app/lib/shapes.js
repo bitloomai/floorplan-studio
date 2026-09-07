@@ -28,7 +28,161 @@
 
   const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 
+  function blossomColour(c) {
+    const value = c.p.flowerColor;
+    const resolved = typeof value === 'string' && value.startsWith('@') ? (c.t || {})[value.slice(1)] : value;
+    return resolved === 'transparent' ? resolved : schemeColour(resolved, '#e88baf');
+  }
+
+  // Separate petals and centres stay legible when a flowering crown is small.
+  function blossom(nodes, x, y, r, fill) {
+    for (let i = 0; i < 5; i++) {
+      const a = (i * 72 - 90) * Math.PI / 180;
+      nodes.push({ tag: 'circle', attrs: { cx: x + Math.cos(a) * r * 0.53, cy: y + Math.sin(a) * r * 0.53, r: r * 0.48, fill } });
+    }
+    nodes.push({ tag: 'circle', attrs: { cx: x, cy: y, r: r * 0.28, fill: fill === 'transparent' ? fill : '#f5cf61' } });
+  }
+
   /* ------------------------------------------------------------- furniture */
+
+  /* Garden looks use crown geometry, not side elevations. Coordinates live in
+   * the footprint so narrow hedges and spreading crowns retain both dimensions.
+   * These are planting symbols, not claims about a species' mature size. */
+  function gardenLook(c, tree) {
+    const v = c.p.variant, n = [];
+    const X = x => c.X + (x + 1) * c.W / 2;
+    const Y = y => c.Y + (y + 1) * c.H / 2;
+    const R = Math.min(c.W, c.H) / 2;
+    const circle = (x, y, r, fill = c.fill, opacity = 1) => n.push({ tag: 'circle', attrs: { cx: X(x), cy: Y(y), r: r * R, fill, stroke: c.line, 'stroke-width': 0.7, opacity } });
+    const path = (d, fill = 'none', opacity = 1, width = 0.8) => n.push({ tag: 'path', attrs: { d, fill, stroke: c.line, 'stroke-width': width, opacity, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } });
+    const leaf = (x, y, a, len, spread, opacity = 0.9) => {
+      const dx = Math.cos(a), dy = Math.sin(a), px = -dy * spread, py = dx * spread;
+      path(`M ${X(x)} ${Y(y)} Q ${X(x + dx * len * 0.4 + px)} ${Y(y + dy * len * 0.4 + py)} ${X(x + dx * len)} ${Y(y + dy * len)} Q ${X(x + dx * len * 0.4 - px)} ${Y(y + dy * len * 0.4 - py)} ${X(x)} ${Y(y)} Z`, c.fill, opacity);
+      path(`M ${X(x)} ${Y(y)} L ${X(x + dx * len * 0.88)} ${Y(y + dy * len * 0.88)}`, 'none', 0.48, 0.5);
+    };
+    const crown = (x, y, rx, ry, phase = 0, fill = c.fill, opacity = 1) => {
+      const pts = Array.from({ length: 16 }, (_, i) => {
+        const a = i * Math.PI / 8, wobble = 0.88 + 0.1 * Math.sin(i * 2.4 + phase);
+        return [X(x + Math.cos(a) * rx * wobble), Y(y + Math.sin(a) * ry * wobble)];
+      });
+      let d = `M ${(pts[15][0] + pts[0][0]) / 2} ${(pts[15][1] + pts[0][1]) / 2}`;
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i], q = pts[(i + 1) % pts.length];
+        d += ` Q ${p[0]} ${p[1]} ${(p[0] + q[0]) / 2} ${(p[1] + q[1]) / 2}`;
+      }
+      path(d + ' Z', fill, opacity);
+    };
+    if (tree && ['broadleaf', 'spreading', 'fruit', 'weeping', 'columnar'].includes(v)) {
+      crown(0, 0, 0.98, 0.98);
+      if (v === 'weeping') {
+        for (let i = 0; i < 24; i++) {
+          const a = i * Math.PI / 12;
+          path(`M ${X(Math.cos(a) * 0.18)} ${Y(Math.sin(a) * 0.18)} Q ${X(Math.cos(a + 0.24) * 0.62)} ${Y(Math.sin(a + 0.24) * 0.62)} ${X(Math.cos(a) * 0.87)} ${Y(Math.sin(a) * 0.87)}`, 'none', 0.65);
+        }
+      } else if (v === 'columnar') {
+        for (let i = 0; i < 5; i++) crown(0, -0.52 + i * 0.26, 0.63, 0.25, i, c.fill, 0.65);
+      } else {
+        const count = v === 'spreading' ? 9 : 5;
+        for (let i = 0; i < count; i++) {
+          const a = i * 2.4, r = v === 'spreading' ? 0.53 : 0.39;
+          crown(Math.cos(a) * r, Math.sin(a) * r, 0.34, 0.31, i, c.fill, 0.7);
+        }
+        if (v === 'fruit') {
+          const value = c.p.fruitColor;
+          const color = schemeColour(typeof value === 'string' && value.startsWith('@') ? (c.t || {})[value.slice(1)] : value, '#e6a33a');
+          for (let i = 0; i < 13; i++) {
+            const a = i * 2.4, rr = 0.27 + i % 3 * 0.2;
+            circle(Math.cos(a) * rr, Math.sin(a) * rr, 0.055, color);
+          }
+        }
+      }
+      circle(0, 0, 0.065, c.line, 0.65);
+      return n;
+    }
+    if (tree && v === 'bare') {
+      for (let i = 0; i < 9; i++) {
+        const a = i * 2 * Math.PI / 9, dx = Math.cos(a), dy = Math.sin(a);
+        path(`M ${X(0)} ${Y(0)} Q ${X(Math.cos(a + 0.2) * 0.45)} ${Y(Math.sin(a + 0.2) * 0.45)} ${X(dx * 0.91)} ${Y(dy * 0.91)}`, 'none', 1, 1.4);
+        for (const sign of [-1, 1]) path(`M ${X(dx * 0.51)} ${Y(dy * 0.51)} L ${X(Math.cos(a + sign * 0.35) * 0.82)} ${Y(Math.sin(a + sign * 0.35) * 0.82)}`, 'none', 0.8);
+      }
+      circle(0, 0, 0.08, c.line);
+      return n;
+    }
+    if (tree && ['coconut', 'fan_palm', 'banana'].includes(v)) {
+      const count = v === 'fan_palm' ? 14 : v === 'banana' ? 7 : 9;
+      for (let i = 0; i < count; i++) {
+        const a = i * 2 * Math.PI / count;
+        if (v === 'fan_palm') {
+          const b = a + 0.35;
+          path(`M ${X(0)} ${Y(0)} L ${X(Math.cos(a) * 0.88)} ${Y(Math.sin(a) * 0.88)} Q ${X(Math.cos((a + b) / 2) * 0.99)} ${Y(Math.sin((a + b) / 2) * 0.99)} ${X(Math.cos(b) * 0.88)} ${Y(Math.sin(b) * 0.88)} Z`, c.fill, i % 2 ? 0.7 : 0.95);
+        } else {
+          leaf(0, 0, a, 0.86 + i % 2 * 0.08, v === 'banana' ? 0.3 : 0.15);
+          for (let k = 2; k < 7; k++) {
+            const r = k * 0.11;
+            const s = (v === 'banana' ? 0.12 : 0.09) * Math.sin(r * Math.PI);
+            path(`M ${X(Math.cos(a) * r - Math.sin(a) * s)} ${Y(Math.sin(a) * r + Math.cos(a) * s)} L ${X(Math.cos(a) * (r + 0.06))} ${Y(Math.sin(a) * (r + 0.06))} L ${X(Math.cos(a) * r + Math.sin(a) * s)} ${Y(Math.sin(a) * r - Math.cos(a) * s)}`, 'none', 0.6, 0.5);
+          }
+        }
+      }
+      if (v === 'coconut') for (let i = 0; i < 3; i++) circle(Math.cos(i * 2.1) * 0.1, Math.sin(i * 2.1) * 0.1, 0.075, '#997347');
+      else circle(0, 0, 0.07, c.line);
+      return n;
+    }
+    if (tree && v === 'bamboo') {
+      for (let j = 0; j < 7; j++) {
+        const a = j * 2.4, x = Math.cos(a) * 0.42, y = Math.sin(a) * 0.42;
+        for (let i = 0; i < 5; i++) leaf(x, y, i * 1.25 + j, 0.36, 0.065, 0.7 + j % 2 * 0.2);
+        circle(x, y, 0.045, '#b3bd70');
+      }
+      return n;
+    }
+    if (!tree && ['aloe', 'snake_plant', 'ornamental_grass'].includes(v)) {
+      const count = v === 'ornamental_grass' ? 28 : v === 'aloe' ? 12 : 7;
+      for (let i = 0; i < count; i++) {
+        const a = i * 2.4, len = 0.5 + i % 4 * 0.14;
+        leaf(0, 0, a, len, v === 'ornamental_grass' ? 0.035 : v === 'aloe' ? 0.12 : 0.075, 0.65 + i % 3 * 0.12);
+      }
+      circle(0, 0, 0.07, c.line);
+      return n;
+    }
+    if (!tree && v === 'cactus') {
+      for (const [x,y,r] of [[-0.35,0.3,0.25],[0.38,0.22,0.23],[0,-0.13,0.56]]) {
+        circle(x,y,r);
+        for (let i = 0; i < 12; i++) {
+          const a = i * Math.PI / 6;
+          path(`M ${X(x + Math.cos(a) * r * 0.2)} ${Y(y + Math.sin(a) * r * 0.2)} L ${X(x + Math.cos(a) * r * 0.84)} ${Y(y + Math.sin(a) * r * 0.84)}`, 'none', 0.7, 0.6);
+        }
+        blossom(n, X(x), Y(y), R * r * 0.19, blossomColour(c));
+      }
+      return n;
+    }
+    if (!tree && ['hedge', 'flower_bed'].includes(v)) {
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 5; i++) {
+        const x = -0.73 + i * 0.36, y = j ? 0.34 : -0.34;
+        crown(x,y,0.24,0.48,i + j);
+        if (v === 'flower_bed') blossom(n,X(x),Y(y),R * 0.16,blossomColour(c));
+        else leaf(x,y,i * 1.8,0.2,0.08,0.5);
+      }
+      return n;
+    }
+    if (!tree && v === 'lotus') {
+      for (let i = 0; i < 5; i++) {
+        const a = i * 1.26;
+        circle(Math.cos(a) * 0.47,Math.sin(a) * 0.47,0.31,c.fill,0.8);
+        path(`M ${X(Math.cos(a) * 0.47)} ${Y(Math.sin(a) * 0.47)} L ${X(Math.cos(a) * 0.72)} ${Y(Math.sin(a) * 0.72)}`, 'none',0.65);
+      }
+      blossom(n,X(0),Y(0),R * 0.37,blossomColour(c));
+      blossom(n,X(0),Y(0),R * 0.22,blossomColour(c));
+      return n;
+    }
+    if (!tree && v === 'bonsai') {
+      n.push({tag:'rect',attrs:{x:X(-0.7),y:Y(-0.5),width:c.W * 0.7,height:c.H * 0.5,rx:R * 0.16,fill:'#a7876a',stroke:c.line,'stroke-width':1}});
+      path(`M ${X(-0.3)} ${Y(0.27)} Q ${X(0.37)} ${Y(0.3)} ${X(0.08)} ${Y(-0.38)}`, 'none',1,3);
+      for (const [x,y,rx,ry] of [[-0.35,0.06,0.38,0.3],[0.36,-0.15,0.4,0.35],[-0.08,-0.46,0.38,0.32]]) crown(x,y,rx,ry);
+      return n;
+    }
+    return null;
+  }
 
   /* ctx = { x, y, w, h, P, t (theme), p (props), fill, line, rot } */
   function frame(c, extra) {
@@ -1128,6 +1282,8 @@
      * radiate from the crown, and a pot (when present) is a rim seen from
      * above. */
     plant(c) {
+      const garden = gardenLook(c, false);
+      if (garden) return garden;
       const cx = c.X + c.W / 2, cy = c.Y + c.H / 2, r = Math.min(c.W, c.H) / 2;
       const variant = c.p.variant || 'potted';
       const n = [];
@@ -1203,7 +1359,7 @@
         for (let i = 0; i < 9; i++) leaf(i * 40, r * (0.62 + (i % 2) * 0.15), r * 0.18, 0, 0.82);
         for (let i = 0; i < 5; i++) {
           const a = (i * 72 - 90) * Math.PI / 180;
-          n.push({ tag: 'circle', attrs: { cx: cx + Math.cos(a) * r * 0.3, cy: cy + Math.sin(a) * r * 0.3, r: r * 0.13, fill: c.fill, stroke: c.line, 'stroke-width': 0.8 } });
+          blossom(n, cx + Math.cos(a) * r * 0.3, cy + Math.sin(a) * r * 0.3, r * 0.15, blossomColour(c));
         }
         n.push({ tag: 'circle', attrs: { cx, cy, r: r * 0.09, fill: c.line, opacity: 0.6 } });
         return n;
@@ -1236,6 +1392,8 @@
      * through the same function would mean every variant fighting the same
      * "clump" shape language instead of looking like what it is. */
     tree(c) {
+      const garden = gardenLook(c, true);
+      if (garden) return garden;
       const cx = c.X + c.W / 2, cy = c.Y + c.H / 2, r = Math.min(c.W, c.H) / 2;
       const variant = c.p.variant || 'deciduous';
       const n = [];
@@ -1301,7 +1459,7 @@
       if (variant === 'flowering') {
         for (let i = 0; i < 7; i++) {
           const a = (i * 137.5) * Math.PI / 180, rr = r * (0.25 + (i % 3) * 0.18);
-          n.push({ tag: 'circle', attrs: { cx: cx + Math.cos(a) * rr, cy: cy + Math.sin(a) * rr, r: r * 0.075, fill: c.fill, stroke: c.line, 'stroke-width': 0.65 } });
+          blossom(n, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, r * 0.1, blossomColour(c));
         }
       }
       n.push({ tag: 'circle', attrs: { cx, cy, r: r * 0.16, fill: c.line, opacity: 0.45 } });
@@ -3610,8 +3768,8 @@
     bike: ['city', 'road', 'cargo'],
     scooter: ['classic', 'maxi', 'vintage'],
     motorcycle: ['standard', 'sport', 'cruiser'],
-    plant: ['potted', 'bush', 'succulent', 'fern', 'flowering', 'monstera'],
-    tree: ['deciduous', 'pine', 'palm', 'flowering'],
+    plant: ['potted', 'bush', 'succulent', 'fern', 'flowering', 'monstera', 'aloe', 'snake_plant', 'ornamental_grass', 'cactus', 'hedge', 'flower_bed', 'lotus', 'bonsai'],
+    tree: ['deciduous', 'pine', 'palm', 'flowering', 'broadleaf', 'spreading', 'weeping', 'columnar', 'fruit', 'coconut', 'fan_palm', 'banana', 'bamboo', 'bare'],
     stairs: ['straight', 'l_shaped', 'u_switchback', 'winder', 'spiral'],
     lift: ['traction', 'vacuum', 'platform', 'dumbwaiter'],
     screen: ['flat', 'curved', 'crt', 'projector'],
@@ -3635,6 +3793,18 @@
    * The editor applies one only when the item is still at its type's default
    * size, so choosing a look never silently undoes a size somebody set. */
   const FURNITURE_VARIANT_SIZES = {
+    plant: {
+      potted: [1.5, 1.5], bush: [3, 3], succulent: [1, 1], fern: [2.5, 2.5],
+      flowering: [2, 2], monstera: [3, 3], aloe: [2, 2], snake_plant: [1.5, 1.5],
+      ornamental_grass: [3, 3], cactus: [2, 2], hedge: [6, 2], flower_bed: [6, 3],
+      lotus: [3, 3], bonsai: [2, 1.5],
+    },
+    tree: {
+      deciduous: [6, 6], pine: [6, 6], palm: [8, 8], flowering: [8, 8],
+      broadleaf: [12, 12], spreading: [18, 14], weeping: [12, 12], columnar: [4, 4],
+      fruit: [8, 8], coconut: [12, 12], fan_palm: [8, 8], banana: [8, 8],
+      bamboo: [6, 6], bare: [10, 10],
+    },
     screen: { flat: [4.5, 0.4], curved: [5, 0.8], crt: [3.2, 2], projector: [8, 0.6] },
     /* Seating, where the look IS the footprint. A three-seat recliner suite is
      * eight feet of wall and a single chair is three and a half; an L-shaped
@@ -3724,6 +3894,10 @@
    * the metals are the tap/handle finishes a bathroom is specified in, and the
    * woods are the ones a carpenter here would name. */
   const SCHEMES = {
+    leaf_green: { label: 'Leaf green', group: 'Garden', fill: '#62964d', line: '#2d5637', glyph: '#426b3b', accent: '#e88baf' },
+    evergreen: { label: 'Evergreen', group: 'Garden', fill: '#356c51', line: '#203f33', glyph: '#77a277', accent: '#f5cf61' },
+    silver_sage: { label: 'Silver sage', group: 'Garden', fill: '#9aaf91', line: '#50684e', glyph: '#748c6c', accent: '#be91ce' },
+    autumn_canopy: { label: 'Autumn canopy', group: 'Garden', fill: '#c49743', line: '#795334', glyph: '#e0b862', accent: '#b7523f' },
     /* Additional material palettes are shared by every fixture and furnishing.
      * They remain independent of shape variants and project-owned colours. */
     satin_brass: { label: 'Satin brass', group: 'Finish', fill: '#c3a46a', line: '#857048', glyph: '#a08657', accent: '#efc782' },

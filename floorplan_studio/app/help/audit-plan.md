@@ -32,6 +32,18 @@ living in it can make. A bed overlapping a rug is furniture on a rug; a bed
 overlapping a wardrobe is a mistake. The audit cannot tell, so it says what it
 sees and stops.
 
+## Turned furniture
+
+An item's position is the top-left corner it had **before** it was turned, so a
+rotated unit stands somewhere its own numbers never mention. The audit turns the
+footprint with it, which is the only way it can see a turned cabinet standing
+half a foot through the wall behind it — plain on the plan, invisible in the
+file.
+
+That is also why it reports furniture that leaves the room it names by more than
+a hand's span, rather than only asking where the item's centre is: a thing whose
+middle is comfortably inside can still have half of itself in the next room.
+
 ## What it is careful about
 
 An audit that cries wolf is worse than none, so several rules exist purely to

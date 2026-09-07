@@ -316,6 +316,27 @@
         "label": "Density",
         "step": 10,
         "min": 0
+      },
+      {
+        "key": "stoneScale",
+        "kind": "number",
+        "label": "Stone size (×)",
+        "step": 0.1,
+        "min": 0.3
+      }
+    ],
+    "soil": [
+      {
+        "key": "color",
+        "kind": "color",
+        "label": "Colour"
+      },
+      {
+        "key": "density",
+        "kind": "number",
+        "label": "Density",
+        "step": 10,
+        "min": 0
       }
     ],
     "grass": [
@@ -589,10 +610,10 @@
     "terracotta": {"label":"Terracotta","group":"India","generator":"tile","reflectance":0.2,"options":{"color":"#b5643c","tileW":1,"tileH":1,"groutPx":1.2}},
     "brick": {"label":"Brick paving","group":"Outdoor","generator":"brick","reflectance":0.2,"options":{"color":"#c98b6b","brickW":0.75,"brickH":0.35}},
     "paver": {"label":"Concrete pavers","group":"Outdoor","generator":"brick","reflectance":0.28,"options":{"color":"#c3c6c2","brickW":1.5,"brickH":0.75}},
-    "cobble": {"label":"Cobblestone","group":"Outdoor","generator":"gravel","reflectance":0.2,"options":{"color":"#b9b6ae","density":300}},
+    "cobble": {"label":"Cobblestone","group":"Outdoor","generator":"gravel","reflectance":0.2,"options":{"color":"#b9b6ae","density":170,"stoneScale":2.4}},
     "gravel": {"label":"Gravel","group":"Outdoor","generator":"gravel","reflectance":0.2,"options":{"color":"#d8d4cb","density":140}},
-    "soil": {"label":"Bare soil","group":"Outdoor","generator":"speckle","reflectance":0.12,"options":{"color":"#6b4a35","density":130}},
-    "grass": {"label":"Grass / lawn","group":"Outdoor","generator":"grass","reflectance":0.08,"options":{"color":"@floorOutdoor","density":110}},
+    "soil": {"label":"Bare soil","group":"Outdoor","generator":"soil","reflectance":0.12,"options":{"color":"#6b4a35","density":130}},
+    "grass": {"label":"Grass / lawn","group":"Outdoor","generator":"grass","reflectance":0.08,"options":{"color":"#56853d","density":110}},
     "water_surface": {"label":"Water","group":"Outdoor","generator":"plain","reflectance":0.06,"options":{"color":"#7fb6d9"}},
     "oak_whitewashed": {"label":"Oak, whitewashed","group":"Wood","generator":"plank","reflectance":0.42,"options":{"color":"#e1d6c1","plankWidth":0.7,"plankLength":6,"variation":0.14,"grain":3,"jointPx":0.55}},
     "oak_smoked": {"label":"Oak, smoked","group":"Wood","generator":"plank","reflectance":0.19,"options":{"color":"#89715a","plankWidth":0.7,"plankLength":6,"variation":0.14,"grain":3,"jointPx":0.55}},

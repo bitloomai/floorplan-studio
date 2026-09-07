@@ -818,12 +818,23 @@ if a spec carries one.
 
 ## Flooring
 
-Select a room → **Flooring**. 68 surfaces grouped Basic / Wood / Stone / India /
-Outdoor / Custom, plus per-room **angle** and **colour** overrides.
+Select a room → **Flooring**. 178 surfaces in 14 groups — Basic, Wood, Stone,
+India, Outdoor, Parquet, tile, marble, terrazzo, cement, fibre and the rest —
+plus per-room **angle** and **colour** overrides.
 
-Marble, terrazzo, gravel and grass are *field* generators: they draw across the
-room and clip to it, so veining runs through a doorway instead of restarting at
-the threshold. Everything else is a tiled pattern, which is cheaper.
+Marble, terrazzo, soil, gravel and grass are *field* generators: they draw
+across the room and clip to it, so veining runs through a doorway instead of
+restarting at the threshold. Everything else is a tiled pattern, which is
+cheaper.
+
+Loose ground — soil, gravel, cobble, turf — and the fine-grained finishes
+(concrete, carpet, linoleum, microcement) are drawn in two halves. The fine
+half goes into one repeated tile, so a 1,400 sq ft yard is as densely grained
+as a doormat and costs the same; the big features — stones, clods, tufts and
+the tonal drift — are drawn across the room itself, so they never repeat.
+**Density** is read as a multiple of what the finish ships with rather than an
+absolute count, and `stoneScale` on a gravel bed is what separates pea shingle
+from cobbles.
 
 A field generator may also bring its own base, which is how a **marble-look
 tile** is drawn: the grid is the tile generator's, the veining is marble's, and

@@ -74,6 +74,9 @@
 node tools/audit-plan.js path/to.project.json</code></pre>
 <h2>It reports and never edits</h2>
 <p>Almost every finding is a judgement call about a real house that only the person living in it can make. A bed overlapping a rug is furniture on a rug; a bed overlapping a wardrobe is a mistake. The audit cannot tell, so it says what it sees and stops.</p>
+<h2>Turned furniture</h2>
+<p>An item's position is the top-left corner it had <strong>before</strong> it was turned, so a rotated unit stands somewhere its own numbers never mention. The audit turns the footprint with it, which is the only way it can see a turned cabinet standing half a foot through the wall behind it — plain on the plan, invisible in the file.</p>
+<p>That is also why it reports furniture that leaves the room it names by more than a hand's span, rather than only asking where the item's centre is: a thing whose middle is comfortably inside can still have half of itself in the next room.</p>
 <h2>What it is careful about</h2>
 <p>An audit that cries wolf is worse than none, so several rules exist purely to keep the noise down:</p>
 <ul><li>Only openings you <strong>walk through</strong> can be blocked — a counter under a kitchen</li></ul>

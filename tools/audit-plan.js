@@ -42,7 +42,16 @@ const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 
 /* A rectangle for anything that has one. Furniture is a real footprint anchored
  * at its top-left; a marker is a point and has no footprint worth intersecting,
- * so it comes back null and is checked differently. */
+ * so it comes back null and is checked differently.
+ *
+ * `props.rot` turns the drawing about the footprint's CENTRE, and the box has
+ * to turn with it: `at` still records the unrotated top-left, so a turned item
+ * occupies ground its own numbers never mention. That is not a corner case —
+ * it is how a turned unit stood eight inches through the wall behind it and a
+ * basin through the side of its alcove, both of them reading as clean here
+ * while the plan drew them crossing a wall. A quarter turn gives the box exactly; any
+ * other angle gives its bounding box, which over-reports a little, and this
+ * tool reports rather than edits. */
 function footprint(item, type) {
   if ((item.kind || (type && type.kind)) !== 'furniture') return null;
   const p = item.props || {};
@@ -51,7 +60,12 @@ function footprint(item, type) {
   const h = num(p.h, num(d.h, 0));
   if (!(w > 0 && h > 0)) return null;
   const [x, y] = item.at || [0, 0];
-  return { x, y, w, h };
+  const rot = ((num(p.rot, num(d.rot, 0)) % 360) + 360) % 360;
+  if (!rot) return { x, y, w, h };
+  const a = rot * Math.PI / 180;
+  const bw = Math.abs(w * Math.cos(a)) + Math.abs(h * Math.sin(a));
+  const bh = Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a));
+  return { x: x + w / 2 - bw / 2, y: y + h / 2 - bh / 2, w: bw, h: bh };
 }
 
 const overlapArea = (a, b) => {
@@ -192,6 +206,40 @@ function auditFloor(floor, out) {
     } else if (!item.room && !rooms.some((r) => scene.pointInRoom(r, cx, cy))) {
       out.push({ level: 'warn', floor: where, kind: 'item in no room at all',
         detail: `${item.id} (${item.kind}.${item.type}) at ${cx.toFixed(1)}, ${cy.toFixed(1)}` });
+    }
+  }
+
+  /* ---- furniture through the wall of its own room ----
+   *
+   * The containment test above asks where an item's CENTRE is, deliberately:
+   * a chair tucked under a table overhangs the room's edge by an inch and
+   * nobody wants to hear about it. But an item whose centre is comfortably
+   * inside can still have half of itself in the next room — a turned unit
+   * especially, because `at` is the corner it had BEFORE it was turned — and
+   * that draws as furniture crossing a wall, which is the sort of thing you
+   * see on the plan and cannot find in the file.
+   *
+   * Measured against the room AND its `part_of` rectangles, since those are
+   * one space written as several; sampled with the renderer's own containment
+   * test, like `sharedArea`, so this cannot disagree with the drawing. */
+  const OUTSIDE_MIN = 0.6;             // sq ft, about a hand's span of overhang
+  for (const { item, box } of boxes) {
+    const named = item.room && rooms.find((r) => r.id === item.room);
+    if (!named || isUnderlay(item)) continue;
+    const head = named.part_of || named.id;
+    const family = rooms.filter((r) => r.id === head || r.part_of === head);
+    let inside = 0, total = 0;
+    for (let x = box.x + SAMPLE_FT / 2; x < box.x + box.w; x += SAMPLE_FT) {
+      for (let y = box.y + SAMPLE_FT / 2; y < box.y + box.h; y += SAMPLE_FT) {
+        total++;
+        if (family.some((r) => scene.pointInRoom(r, x, y))) inside++;
+      }
+    }
+    const outside = total ? ((total - inside) / total) * box.w * box.h : 0;
+    if (outside > OUTSIDE_MIN) {
+      out.push({ level: outside > box.w * box.h * 0.5 ? 'error' : 'warn', floor: where,
+        kind: 'furniture crosses out of its room',
+        detail: `${item.type} (${item.id})${num((item.props || {}).rot, 0) ? ' turned ' + item.props.rot + ' deg' : ''} has ${outside.toFixed(1)} of ${(box.w * box.h).toFixed(1)} sq ft outside ${item.room}` });
     }
   }
 

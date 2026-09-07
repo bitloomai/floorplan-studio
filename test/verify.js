@@ -1177,6 +1177,117 @@ ok('no theme token reaches the SVG unresolved', tokenLeak.length === 0, tokenLea
 const m1 = Fl.build(flooring, 'marble', P, { bounds: { x0: 0, y0: 0, x1: 30, y1: 30 }, theme });
 const m2 = Fl.build(flooring, 'marble', P, { bounds: { x0: 0, y0: 0, x1: 30, y1: 30 }, theme });
 ok('field generators are deterministic', JSON.stringify(m1.nodes) === JSON.stringify(m2.nodes), m1.nodes.length + ' vein paths');
+/* ---- granular surfaces ----
+ *
+ * Loose ground was `density` nodes per 900 SQUARE FEET, so bare soil in a 120
+ * sq ft setback got seventeen specks: a flat brown panel with the plan's
+ * one-foot grid ruled over it, reported — correctly — as looking like brick.
+ * The fine half of the surface now lives in a repeated <pattern> and only the
+ * big features are drawn per room, which is what lets a whole yard be as dense
+ * as a doormat without paying for it node by node. */
+{
+  const gctx = (w, h) => ({ bounds: { x0: 0, y0: 0, x1: w, y1: h }, theme });
+  const tileOf = (r) => (r.defs.find((d) => d.tag === 'pattern') || { children: [] }).children.length;
+  const lawn = Fl.build(flooring, 'grass', P, gctx(12, 8));
+  ok('stock lawn is green with tonal gradients rather than the outdoor theme background',
+    flooring.types.grass.options.color === '#56853d'
+    && lawn.defs.some((n) => n.tag === 'radialGradient')
+    && new Set(lawn.defs.find((n) => n.tag === 'pattern').children.map((n) => n.attrs.stroke).filter(Boolean)).size > 20);
+  for (const key of ['soil', 'gravel', 'cobble', 'grass']) {
+    const original = Fl.build(flooring, key, P, gctx(12, 8));
+    const tinted = Fl.build(flooring, key, P, { ...gctx(12, 8), overrides: { color: '#824b39' } });
+    ok(`${key} accepts a room colour without moving its texture`, original.fill !== tinted.fill
+      && JSON.stringify(original.nodes.map((n) => n.attrs.transform || n.attrs.cx))
+        === JSON.stringify(tinted.nodes.map((n) => n.attrs.transform || n.attrs.cx)));
+  }
+  {
+    const tile = Fl.build(flooring, 'gravel', P, gctx(12, 8)).defs.find((n) => n.tag === 'pattern');
+    const grains = tile.children.filter((n) => n.tag === 'circle');
+    const T = Number(tile.attrs.width);
+    const wrapped = grains.filter((n) => n.attrs.cx < 0 || n.attrs.cy < 0 || n.attrs.cx > T || n.attrs.cy > T);
+    ok('wrapped gravel grains retain the colour of their original', wrapped.length > 0 && wrapped.every((n) => grains.some((m) =>
+      m !== n && m.attrs.fill === n.attrs.fill && m.attrs.r === n.attrs.r
+      && Math.abs((m.attrs.cx - n.attrs.cx) / T - Math.round((m.attrs.cx - n.attrs.cx) / T)) < 0.005
+      && Math.abs((m.attrs.cy - n.attrs.cy) / T - Math.round((m.attrs.cy - n.attrs.cy) / T)) < 0.005)));
+  }
+  for (const key of ['soil', 'gravel', 'cobble', 'grass', 'concrete', 'carpet']) {
+    const small = Fl.build(flooring, key, P, gctx(4, 6));
+    const yard = Fl.build(flooring, key, P, gctx(40, 36));
+    ok(`${key} carries its grain in a tile rather than in the room`,
+      tileOf(small) > 150 && tileOf(small) === tileOf(yard) && /^url\(#/.test(small.fill),
+      `${tileOf(small)} in the tile, ${small.nodes.length} in a 24 sq ft room`);
+    ok(`and a whole yard of ${key} costs about what its area says it should`,
+      yard.nodes.length < 1.6 * 40 * 36,
+      `${yard.nodes.length} nodes over 1,440 sq ft`);
+  }
+  /* The bug that made this urgent is invisible until two rooms share a finish:
+   * a pattern is fetched by id, so the second room was drawn in the first
+   * room's colour, and `room.flooringOptions` exists precisely to give one
+   * setback red earth and the next one grey. */
+  const red = Fl.build(flooring, 'soil', P, Object.assign({ overrides: { color: '#9c4a2c' } }, gctx(12, 8)));
+  const grey = Fl.build(flooring, 'soil', P, Object.assign({ overrides: { color: '#6f6a60' } }, gctx(12, 8)));
+  ok('two rooms of one finish in two colours get a pattern each',
+    red.fill !== grey.fill && red.defs[0].attrs.id !== grey.defs[0].attrs.id);
+  ok('and the same options always land on the same pattern, however spelt', (() => {
+    const a = Fl.build(flooring, 'soil', P, Object.assign({ overrides: { color: '#9c4a2c' } }, gctx(12, 8)));
+    const b = Fl.build(flooring, 'soil', P, Object.assign({ overrides: { density: flooring.types.soil.options.density } }, gctx(12, 8)));
+    const plain = Fl.build(flooring, 'soil', P, gctx(12, 8));
+    return a.fill === red.fill && b.fill === plain.fill;
+  })());
+  ok('density reads as a multiple of what the finish ships with, not a count',
+    tileOf(Fl.build(flooring, 'carpet', P, gctx(12, 8)))
+      > tileOf(Fl.build(flooring, 'concrete_polished', P, gctx(12, 8))),
+    `carpet ${flooring.types.carpet.options.density} vs polished concrete ${flooring.types.concrete_polished.options.density}`);
+  /* The tile has to join ITSELF. Anything drawn within its own radius of an
+   * edge is drawn again on the far side, so the half that overhangs comes back
+   * on the opposite side of the repeat; without it every tile boundary shows
+   * as a line of thinned-out grain — a ruled grid across the floor, which is
+   * the exact complaint this work started from. The copies are visible in the
+   * data as children whose centre lies outside the tile box. */
+  for (const key of ['soil', 'gravel', 'grass', 'speckle_probe']) {
+    const doc = key === 'speckle_probe'
+      ? { types: { speckle_probe: { generator: 'speckle', options: { color: '#c9c3bb', density: 320 } } } }
+      : flooring;
+    const built = Fl.build(doc, key, P, gctx(12, 8));
+    const tile = built.defs.find((d) => d.tag === 'pattern');
+    const T = Number(tile.attrs.width);
+    const centre = (n) => {
+      if (n.attrs.cx !== undefined) return [Number(n.attrs.cx), Number(n.attrs.cy)];
+      const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(n.attrs.transform || '');
+      return m ? [Number(m[1]), Number(m[2])] : null;
+    };
+    const wrapped = tile.children.filter((n) => {
+      const c = centre(n);
+      return c && (c[0] < 0 || c[0] > T || c[1] < 0 || c[1] > T);
+    });
+    ok(`the ${key} grain tile joins itself instead of seaming`, wrapped.length > 0,
+      `${wrapped.length} of ${tile.children.length} straddle the join`);
+  }
+  ok('a bigger stone makes a coarser bed, not a busier one', (() => {
+    const pea = Fl.build(flooring, 'gravel', P, gctx(12, 8));
+    const sett = Fl.build(flooring, 'cobble', P, gctx(12, 8));
+    return flooring.types.cobble.options.stoneScale > 1 && tileOf(sett) < tileOf(pea);
+  })());
+}
+
+/* The other half of why bare soil read as brickwork: the grid is drawn OVER
+ * the flooring in a colour chosen to show on the pale sheet, so on a dark
+ * material it was the strongest thing on the floor — a pale lattice at
+ * one-foot centres. It has to lose to the material it crosses. */
+{
+  const gf = project.floors[0];
+  const ruled = scene.build(project, gf, lib, theme, { boundaries, flooring, states: {}, grid: { show: true, size: 1 } });
+  const lines = ruled.layers.grid;
+  ok('the plan grid is drawn over the flooring, but never at full strength',
+    lines.length > 0 && lines.every((n) => n.attrs.opacity > 0 && n.attrs.opacity < 1),
+    lines.length + ' lines');
+  ok('and the every-five-feet lines carry more of it than the rest', (() => {
+    const weights = new Set(lines.map((n) => n.attrs.opacity));
+    return weights.size === 2 && Math.max(...weights) > Math.min(...weights);
+  })());
+  ok('no grid at all when it is switched off',
+    scene.build(project, gf, lib, theme, { boundaries, flooring, states: {} }).layers.grid.length === 0);
+}
 const scriptExamples = JSON.parse(fs.readFileSync(path.join(ADDON, 'samples', 'flooring-script-examples.json'), 'utf8'));
 const scripted = Object.entries(scriptExamples.types);
 ok('scripted flooring examples run', scripted.length === 2 && scripted.every(([k]) => Fl.build(scriptExamples, k, P, { bounds: { x0: 0, y0: 0, x1: 20, y1: 20 }, theme }).nodes.length > 0), scripted.length + ' script types');
@@ -2156,7 +2267,42 @@ ok('every plant/tree variant draws something, and no two draw the same thing',
 ok('tree no longer just aliases plant',
   JSON.stringify(Shapes.furniture('tree', mkCtx({ w: 3, h: 3, variant: 'deciduous' })))
     !== JSON.stringify(Shapes.furniture('plant', mkCtx({ w: 3, h: 3, variant: 'potted' }))));
+for (const shape of ['plant', 'tree']) {
+  for (const size of [0.5, 2, 12]) {
+    const context = mkCtx({ w: size, h: size, variant: 'flowering', flowerColor: '#b452cf' });
+    const nodes = Shapes.furniture(shape, context);
+    ok(`${shape} has separate petals and foliage at ${size} ft`, nodes.some((n) => n.attrs.fill === '#b452cf')
+      && nodes.some((n) => n.attrs.fill === context.fill)
+      && !/NaN|Infinity/.test(JSON.stringify(nodes)));
+  }
+}
 const plantDefault = (lib.types['furniture.plant'].defaults || {}).variant;
+{
+  const failures = [];
+  for (const shape of ['plant', 'tree']) for (const variant of Shapes.furnitureVariantsOf(shape)) {
+    const size = Shapes.furnitureVariantSize(shape, variant);
+    if (!size || !size.every(v => Number.isFinite(v) && v > 0)) failures.push(`${shape}.${variant}: no size`);
+    for (const [w, h] of [[0.5, 0.5], [6, 2], [18, 14]]) {
+      const c = mkCtx({ w, h, variant, rot: 45 });
+      const first = Shapes.furniture(shape, c);
+      if (/NaN|Infinity|undefined/.test(JSON.stringify(first)) || JSON.stringify(first) !== JSON.stringify(Shapes.furniture(shape, c))) failures.push(`${shape}.${variant}: unstable at ${w}x${h}`);
+      if (first.length > 160) failures.push(`${shape}.${variant}: too many nodes`);
+    }
+  }
+  ok('all 28 vegetation looks have size presets and deterministic bounded drawing costs',
+    Shapes.furnitureVariantsOf('plant').length + Shapes.furnitureVariantsOf('tree').length === 28 && failures.length === 0, failures.join(', '));
+  const fruit = Shapes.furniture('tree', mkCtx({ variant: 'fruit', fruitColor: '#c32744' }));
+  ok('fruit colour changes the crop independently of its canopy', fruit.filter(n => n.attrs.fill === '#c32744').length === 13
+    && fruit.some(n => n.attrs.fill === '#ddd'));
+  for (const variant of ['cactus', 'flower_bed', 'lotus']) {
+    ok(`${variant} consumes the flower colour control`, Shapes.furniture('plant', mkCtx({ variant, flowerColor: '#a348cd' })).some(n => n.attrs.fill === '#a348cd'));
+  }
+  const store = require(path.join(APP, 'lib/store'));
+  const old = { types: { 'furniture.tree': {render: {shape:'tree'}, defaults: {w:7, h:9}, props: [{key:'variant', options:['deciduous','pine','palm','flowering']}] } } };
+  const tree = store.upgradeDoc('library', old).types['furniture.tree'];
+  ok('saved libraries gain all tree looks and fruit controls without resizing defaults', tree.props.find(p => p.key === 'variant').options.length === 14
+    && tree.props.some(p => p.key === 'fruitColor') && tree.defaults.w === 7 && tree.defaults.h === 9);
+}
 const treeDefault = (lib.types['furniture.tree'].defaults || {}).variant;
 ok('plant and tree default variants are real ones',
   Shapes.furnitureVariantsOf('plant').includes(plantDefault) && Shapes.furnitureVariantsOf('tree').includes(treeDefault),
@@ -2581,6 +2727,24 @@ ok('a cut flight says UP or DN and a whole one does not',
 }
 
 /* ------------------------------------------------------ full scene build */
+
+{
+  const store = require(path.join(APP, 'lib/store'));
+  const saved = { types: {
+    soil: { generator: 'speckle', options: { density: 130, color: '#6b4a35' } },
+    grass: { generator: 'grass', options: { density: 110, color: '@floorOutdoor' } },
+    cobble: { generator: 'gravel', options: { density: 300, color: '#123456' } },
+  } };
+  const upgraded = store.upgradeDoc('flooring', saved);
+  ok('stock ground upgrades ignore key order and preserve custom colours',
+    upgraded.types.soil.generator === 'soil' && upgraded.types.grass.options.color === '#56853d'
+    && upgraded.types.cobble.options.color === '#123456' && upgraded.types.cobble.options.density === 300);
+  ok('ground upgrades are idempotent', JSON.stringify(store.upgradeDoc('flooring', JSON.parse(JSON.stringify(upgraded)))) === JSON.stringify(upgraded));
+  const oldLibrary = { types: { 'furniture.plant': { render: { shape: 'plant', fill: '#123456' }, defaults: {}, props: [] } } };
+  const plant = store.upgradeDoc('library', oldLibrary).types['furniture.plant'];
+  ok('saved vegetation learns flower controls while retaining custom foliage',
+    plant.render.fill === '#123456' && plant.props.some((p) => p.key === 'flowerColor') && plant.defaults.flowerColor === '#e88baf');
+}
 
 console.log('\n== full scene, every floor ==');
 let warn = 0, nodes = 0, leaked = 0;

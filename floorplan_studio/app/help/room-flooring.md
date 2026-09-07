@@ -12,9 +12,14 @@ order: 20
 The finish decides two separate things, and the second one is easy to miss.
 
 **How the floor is drawn.** Each finish generates its own surface — grain
-direction for wood, grout lines for tile, a speckle for terrazzo, a scatter for
-gravel. They are generated rather than tiled images, so they scale cleanly at
-any zoom and cost nothing to load.
+direction for wood, grout lines for tile, chips for terrazzo, a packed bed of
+stones for gravel, clods and grit for bare earth. They are generated rather
+than tiled images, so they scale cleanly at any zoom and cost nothing to load.
+
+> **Density**, on the loose materials and the fine-grained ones, is a multiple
+> of what that finish normally is, not a number of specks: 2× the shipped
+> figure is twice as busy. **Stone size** on a gravel bed is the difference
+> between pea shingle and cobbles.
 
 **How much light the floor gives back.** Every finish carries a
 **reflectance** — the fraction of light that bounces off it. Polished marble
@@ -36,6 +41,14 @@ in a great many houses and absent from every stock library.
 
 ## Making your own
 
+Select a room, open **Flooring**, and change **Colour** to tint just that room.
+Soil, gravel, cobblestone, grass and the fine-grained finishes all derive their
+light and dark texture from this colour; it is not fixed. **Reset to the type’s own look**
+returns the room to its material defaults. Edit the flooring registry to change
+a material's defaults for every room that uses it without an override.
+Grass starts with a natural green base and soft tonal variation, independent
+of the theme's outdoor background colour.
+
 Choose the **material and laying pattern** together. Straight planks,
 right-angled herringbone, mitred chevron and basket parquet have different
 joints; rotating one does not turn it into another. Herringbone snaps the
@@ -53,8 +66,8 @@ surface roughness or a manufacturer's finish specification.
 
 You can add a finish: give it a base colour and pick the generator that matches
 its character. The generator shades the base colour to derive its own grain and
-grout, which is why a finish takes a real colour rather than a theme token — a
-generator cannot shade a variable it has never resolved.
+grout. A registry colour may also use an `@themeToken`; the renderer resolves
+the token before deriving the shades.
 
 For a scripted surface, `samples/flooring-script-examples.json` contains worked
 tatami and radial-inlay examples. Copy the chosen entry into your flooring

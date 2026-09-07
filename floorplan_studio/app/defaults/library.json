@@ -9190,12 +9190,15 @@
       "kind": "furniture",
       "group": "Outdoor",
       "render": {
-        "shape": "plant"
+        "shape": "plant",
+        "fill": "#62964d",
+        "line": "#2d5637"
       },
       "defaults": {
         "w": 1.5,
         "h": 1.5,
-        "variant": "potted"
+        "variant": "potted",
+        "flowerColor": "#e88baf"
       },
       "aboveDaylight": false,
       "props": [
@@ -9209,7 +9212,15 @@
             "succulent",
             "fern",
             "flowering",
-            "monstera"
+            "monstera",
+            "aloe",
+            "snake_plant",
+            "ornamental_grass",
+            "cactus",
+            "hedge",
+            "flower_bed",
+            "lotus",
+            "bonsai"
           ]
         },
         {
@@ -9243,6 +9254,12 @@
           "min": 5,
           "max": 16,
           "step": 1
+        },
+        {
+          "key": "flowerColor",
+          "label": "Flower colour",
+          "type": "color",
+          "hint": "Petals on flowering looks, cactus, flower beds and lotus. Foliage uses the item colour scheme; crown width and depth remain editable."
         }
       ]
     },
@@ -9252,12 +9269,16 @@
       "kind": "furniture",
       "group": "Outdoor",
       "render": {
-        "shape": "tree"
+        "shape": "tree",
+        "fill": "#62964d",
+        "line": "#2d5637"
       },
       "defaults": {
         "w": 6,
         "h": 6,
-        "variant": "deciduous"
+        "variant": "deciduous",
+        "flowerColor": "#e88baf",
+        "fruitColor": "#e6a33a"
       },
       "aboveDaylight": false,
       "props": [
@@ -9269,7 +9290,17 @@
             "deciduous",
             "pine",
             "palm",
-            "flowering"
+            "flowering",
+            "broadleaf",
+            "spreading",
+            "weeping",
+            "columnar",
+            "fruit",
+            "coconut",
+            "fan_palm",
+            "banana",
+            "bamboo",
+            "bare"
           ]
         },
         {
@@ -9303,6 +9334,18 @@
           "min": 5,
           "max": 12,
           "step": 1
+        },
+        {
+          "key": "flowerColor",
+          "label": "Flower colour",
+          "type": "color",
+          "hint": "Petals on flowering looks, cactus, flower beds and lotus. Foliage uses the item colour scheme; crown width and depth remain editable."
+        },
+        {
+          "key": "fruitColor",
+          "label": "Fruit colour",
+          "type": "color",
+          "hint": "Fruit on the fruit-tree look. Choose orange, red, yellow or green independently of the foliage."
         }
       ]
     },
@@ -16926,13 +16969,16 @@
       "kind": "furniture",
       "group": "Outdoors",
       "render": {
-        "shape": "plant"
+        "shape": "plant",
+        "fill": "#62964d",
+        "line": "#2d5637"
       },
       "defaults": {
         "w": 2,
         "h": 2,
         "rot": 0,
-        "variant": "potted"
+        "variant": "potted",
+        "flowerColor": "#e88baf"
       },
       "aboveDaylight": false,
       "props": [
@@ -16946,7 +16992,15 @@
             "succulent",
             "fern",
             "flowering",
-            "monstera"
+            "monstera",
+            "aloe",
+            "snake_plant",
+            "ornamental_grass",
+            "cactus",
+            "hedge",
+            "flower_bed",
+            "lotus",
+            "bonsai"
           ]
         },
         {
@@ -16972,6 +17026,12 @@
           "min": 0,
           "max": 359,
           "step": 5
+        },
+        {
+          "key": "flowerColor",
+          "label": "Flower colour",
+          "type": "color",
+          "hint": "Petals on flowering looks, cactus, flower beds and lotus. Foliage uses the item colour scheme; crown width and depth remain editable."
         }
       ]
     },
