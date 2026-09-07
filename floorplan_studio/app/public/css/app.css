@@ -147,7 +147,19 @@ select, input[type=text], input[type=number], input[type=search] {
 
 /* ---------- canvas ---------- */
 
-.canvas-wrap { display: flex; flex-direction: column; min-width: 0; background: var(--appBg); }
+/* `min-height: 0` is what stops the plan from pushing the app off the bottom
+   of the window, and it does NOT duplicate the `overflow: auto` below. That
+   overflow zeroes the SCROLLER's own automatic minimum size, but the
+   scroller's intrinsic height is still its content's — so the grid item
+   wrapping it inherits "as tall as the drawing" as its own minimum, and the
+   workspace row sizes itself to the ZOOMED PLAN instead of to the viewport.
+   All three columns then stretch past the bottom edge, the status bar goes
+   with them, and `overflow: hidden` on `body` means there is no outer scroll
+   to reach any of it: at any zoom above Fit the plan stopped scrolling and
+   started being cut off. Same symptom as the tablet viewport note above,
+   completely different cause — that one is about how tall the viewport is,
+   this one about how tall the app thinks it has to be. */
+.canvas-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--appBg); }
 .canvas-scroll {
   flex: 1; min-height: 0; overflow: auto; position: relative; display: grid; place-items: center;
   padding: 18px; padding-bottom: max(18px, env(safe-area-inset-bottom));

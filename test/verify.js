@@ -1273,11 +1273,15 @@ ok('field generators are deterministic', JSON.stringify(m1.nodes) === JSON.strin
 /* The other half of why bare soil read as brickwork: the grid is drawn OVER
  * the flooring in a colour chosen to show on the pale sheet, so on a dark
  * material it was the strongest thing on the floor — a pale lattice at
- * one-foot centres. It has to lose to the material it crosses. */
+ * one-foot centres. Thinning it was not enough and could not be: a pale line
+ * is further from dark earth than from a near-white sheet at any opacity. So
+ * it is drawn twice — solid under the flooring, where only bare sheet lets it
+ * through, and dashed over it, because a broken line cannot enclose a cell
+ * and it is the CELLS that read as brick. */
 {
   const gf = project.floors[0];
   const ruled = scene.build(project, gf, lib, theme, { boundaries, flooring, states: {}, grid: { show: true, size: 1 } });
-  const lines = ruled.layers.grid;
+  const lines = ruled.layers.grid, under = ruled.layers.gridUnder;
   ok('the plan grid is drawn over the flooring, but never at full strength',
     lines.length > 0 && lines.every((n) => n.attrs.opacity > 0 && n.attrs.opacity < 1),
     lines.length + ' lines');
@@ -1285,8 +1289,52 @@ ok('field generators are deterministic', JSON.stringify(m1.nodes) === JSON.strin
     const weights = new Set(lines.map((n) => n.attrs.opacity));
     return weights.size === 2 && Math.max(...weights) > Math.min(...weights);
   })());
-  ok('no grid at all when it is switched off',
-    scene.build(project, gf, lib, theme, { boundaries, flooring, states: {} }).layers.grid.length === 0);
+  ok('the copy that crosses a material is broken, so it cannot rule it into cells',
+    lines.every((n) => /^[\d.]+ [\d.]+$/.test(n.attrs['stroke-dasharray'] || '')
+      && Number(n.attrs['stroke-dasharray'].split(' ')[0]) < Number(n.attrs['stroke-dasharray'].split(' ')[1])));
+  ok('and the solid one is under the flooring, where only bare sheet shows it',
+    under.length === lines.length
+    && under.every((n) => n.attrs['stroke-dasharray'] === undefined)
+    && ruled.order.indexOf('gridUnder') < ruled.order.indexOf('flooring')
+    && ruled.order.indexOf('grid') > ruled.order.indexOf('flooringField'),
+    ruled.order.slice(0, 5).join(' → '));
+  ok('the two copies rule the same lines in the same place', (() => {
+    const key = (n) => [n.attrs.x1, n.attrs.y1, n.attrs.x2, n.attrs.y2, n.attrs['stroke-width']].join('|');
+    return under.map(key).join(',') === lines.map(key).join(',');
+  })());
+  ok('no grid at all when it is switched off', (() => {
+    const off = scene.build(project, gf, lib, theme, { boundaries, flooring, states: {} });
+    return off.layers.grid.length === 0 && off.layers.gridUnder.length === 0;
+  })());
+}
+
+/* Flooring texture is confined to its room by a GROUP that carries the clip,
+ * not by a clip stamped on each node.
+ *
+ * `clip-path` resolves in the user space the element itself establishes, so a
+ * node with its own `transform` was clipped by a transformed copy of the room
+ * — which is not the room. The tonal wash under soil, gravel and turf turns
+ * every brush with `rotate(...)`, so those brushes painted soft brown blobs on
+ * the bare sheet outside the boundary wall; grass tufts are `translate(...)`d
+ * to where they grow, so each was clipped by a rectangle displaced by its own
+ * coordinates. Reported as soil spilling off the plan, and it was. */
+{
+  const gf = project.floors[0];
+  const built = scene.build(project, gf, lib, theme, { boundaries, flooring, states: {} });
+  const field = built.layers.flooringField;
+  ok('a room\'s floor texture is clipped once, on a group, not node by node',
+    field.length > 0 && field.every((n) => n.tag === 'g' && /^url\(#fpsClip-/.test(n.attrs['clip-path']) && n.children.length),
+    field.length + ' groups, ' + field.reduce((n, g) => n + g.children.length, 0) + ' nodes inside');
+  ok('so no textured node carries a clip of its own to turn or shift',
+    field.every((g) => g.children.every((n) => !(n.attrs || {})['clip-path'])));
+  ok('and the transforms that caused it are still there to be caught', (() => {
+    /* If the generators stop emitting transforms this test stops proving
+     * anything, so it says out loud that they do. Soil's wash rotates its
+     * brushes; grass translates every tuft. */
+    const turned = (key) => Fl.build(flooring, key, P, { bounds: { x0: 0, y0: 0, x1: 12, y1: 8 }, theme })
+      .nodes.filter((n) => n.attrs.transform).length;
+    return turned('soil') > 0 && turned('grass') > 0;
+  })());
 }
 const scriptExamples = JSON.parse(fs.readFileSync(path.join(ADDON, 'samples', 'flooring-script-examples.json'), 'utf8'));
 const scripted = Object.entries(scriptExamples.types);
@@ -5618,6 +5666,24 @@ ok('the plan canvas does not offer its labels up for text selection', (() => {
   const css = fs.readFileSync(path.join(APP, 'public', 'css', 'app.css'), 'utf8');
   const rule = /#canvas\s*\{[^}]*\}/.exec(css);
   return !!rule && /user-select:\s*none/.test(rule[0]);
+})());
+
+ok('a zoomed-in plan scrolls instead of pushing the app off the bottom of the window', (() => {
+  /* `.canvas-wrap` is a grid item, so `min-height: auto` means "at least as
+   * tall as my content" — and its content is a scroller whose intrinsic height
+   * is the whole drawing. `overflow: auto` on the scroller zeroes the
+   * SCROLLER's own automatic minimum, not the wrapper's, so at any zoom above
+   * Fit the workspace row sized itself to the plan: all three columns
+   * stretched below the viewport, the status bar went with them, and
+   * `overflow: hidden` on `body` left no outer scroll to reach any of it.
+   * Reported as "the app is cut off at the bottom", twice. */
+  const css = fs.readFileSync(path.join(APP, 'public', 'css', 'app.css'), 'utf8');
+  const wrap = /\.canvas-wrap\s*\{[^}]*\}/.exec(css);
+  const scroll = /\.canvas-scroll\s*\{[^}]*\}/.exec(css);
+  const body = /\bbody\s*\{[^}]*overflow:\s*hidden[^}]*\}/.test(css);
+  return !!wrap && /min-height:\s*0/.test(wrap[0])
+    && !!scroll && /overflow:\s*auto/.test(scroll[0]) && /min-height:\s*0/.test(scroll[0])
+    && body;
 })());
 
 ok('the editor-only half of the flooring registry never reaches the card', (() => {

@@ -1721,7 +1721,7 @@
     const warnings = [];
 
     const layers = {
-      defs: [], sheet: [], flooring: [], flooringField: [], grid: [],
+      defs: [], sheet: [], gridUnder: [], flooring: [], flooringField: [], grid: [],
       daylight: [], boundaries: [], openings: [], furniture: [], overDaylight: [],
       scrim: [], lampWash: [], glow: [], markers: [], labels: [],
     };
@@ -1730,7 +1730,7 @@
      * the lamp washes and pools above it are what a lit room looks like from
      * the doorway. Putting the scrim under the walls instead would darken the
      * floor while leaving the walls glowing, which reads as fog. */
-    const order = ['sheet', 'flooring', 'flooringField', 'grid', 'daylight', 'boundaries', 'openings', 'furniture', 'overDaylight', 'scrim', 'lampWash', 'glow', 'markers', 'labels'];
+    const order = ['sheet', 'gridUnder', 'flooring', 'flooringField', 'grid', 'daylight', 'boundaries', 'openings', 'furniture', 'overDaylight', 'scrim', 'lampWash', 'glow', 'markers', 'labels'];
 
     layers.defs.push({ tag: 'style', text: MOTION_CSS });
 
@@ -1908,8 +1908,28 @@
         layers.defs.push(def);
       }
       layers.flooring.push({ tag: 'path', roomId: room.id, attrs: { d, fill: fl.fill } });
-      for (const n of fl.nodes || []) {
-        layers.flooringField.push(Object.assign({}, n, { attrs: Object.assign({}, n.attrs, { 'clip-path': `url(#${clipId})` }) }));
+      /* The field goes in a GROUP that carries the clip, not a clip stamped on
+       * every node in it.
+       *
+       * `clip-path` resolves in the user space the element ITSELF establishes,
+       * so a node carrying its own `transform` was clipped by a TRANSFORMED
+       * copy of the room, which is not the room. Generators place their work
+       * with transforms and several do: the tonal wash under soil, gravel and
+       * turf turns each of its brushes with `rotate(...)`, and grass is one
+       * path per tuft `translate(...)`d to where it grows. So the brushes came
+       * out on the bare sheet OUTSIDE the boundary wall as soft brown blobs —
+       * reported, correctly, as soil spilling off the plan — and every tuft
+       * was clipped by a rectangle displaced by its own coordinates, which is
+       * nowhere near the tuft.
+       *
+       * On the group the clip is in the room's own coordinates, and a node's
+       * transform applies inside it where it belongs. It is also cheaper than
+       * what it replaces: one attribute per room instead of one per speck. */
+      if ((fl.nodes || []).length) {
+        layers.flooringField.push({
+          tag: 'g', roomId: room.id,
+          attrs: { 'clip-path': `url(#${clipId})` }, children: fl.nodes,
+        });
       }
     }
 
@@ -2512,19 +2532,47 @@
 
     /* ---- grid, last so it can sit under everything but above the sheet ----
      *
-     * Semi-transparent, because it is drawn OVER the flooring. The grid colour
-     * is picked to read on the pale sheet, and at full strength on a dark
-     * material — bare soil, black granite, a charcoal deck — it stops being a
-     * guide and becomes the strongest thing on that floor: a pale lattice at
-     * one-foot centres, which anyone looking at it reads as brickwork. It has
-     * to lose to the material and still be followable on the sheet, so the
-     * majors keep more of their weight than the minors. */
+     * The grid colour is picked to read on the pale sheet. Drawn at that
+     * colour OVER a dark material — bare soil, black granite, a charcoal deck
+     * — it stops being a guide and becomes the strongest thing on that floor:
+     * a pale continuous lattice at one-foot centres, which is a drawing of
+     * brickwork. Thinning it to 0.35/0.6 was not enough, because the problem
+     * is not how strong the line is, it is that a pale line is a bigger step
+     * away from dark earth than from a near-white sheet however faint you
+     * make it. One opacity cannot serve both grounds.
+     *
+     * So the grid is drawn TWICE, and the layer order does the deciding.
+     *
+     *   gridUnder  under the flooring, at the strength the grid always had.
+     *              An opaque floor hides it completely — measured, not
+     *              assumed: over patterned soil it moves the pixels by zero —
+     *              so what survives is the bare sheet, which is exactly where
+     *              the grid is the only thing there is to measure against.
+     *   grid       over the flooring, DASHED. Brickwork is continuous mortar
+     *              enclosing cells; a broken line encloses nothing, so this
+     *              still says "one foot, and here is square" without ruling
+     *              the floor into courses.
+     *
+     * The dashes are in plan units, so they shrink with the plan: zoomed out
+     * they average into a line about a tenth the weight of the old solid one
+     * and the material wins outright, and zoomed in — which is when you are
+     * actually placing something against them — they resolve into a legible
+     * dotted guide. That is the right way round.
+     *
+     * Costs one extra <line> per grid line, in the editor only: the dashboard
+     * card never asks for a grid. */
     if (opts.grid && opts.grid.show) {
       const step = num(opts.grid.size, 1);
-      const line = (major, attrs) => layers.grid.push({ tag: 'line', attrs: Object.assign({
-        stroke: major ? theme.gridLineStrong : theme.gridLine,
-        'stroke-width': major ? 1 : 0.6, opacity: major ? 0.6 : 0.35,
-      }, attrs) });
+      const line = (major, attrs) => {
+        const stroke = major ? theme.gridLineStrong : theme.gridLine;
+        layers.gridUnder.push({ tag: 'line', attrs: Object.assign({
+          stroke, 'stroke-width': major ? 1 : 0.6, opacity: major ? 0.6 : 0.35,
+        }, attrs) });
+        layers.grid.push({ tag: 'line', attrs: Object.assign({
+          stroke, 'stroke-width': major ? 1 : 0.6, opacity: major ? 0.7 : 0.45,
+          'stroke-dasharray': major ? '2 6' : '1.5 6.5',
+        }, attrs) });
+      };
       for (let gx = 0; gx <= ext.w + 1e-6; gx += step) {
         line(Math.abs(gx % 5) < 1e-6, { x1: P.X(gx), y1: P.Y(0), x2: P.X(gx), y2: P.Y(ext.h) });
       }
