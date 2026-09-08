@@ -6412,14 +6412,24 @@ ok('every room gets a hit shape, and rooms come before markers', (() => {
   const board = { id: 'sign', kind: 'fixture', type: 'signage', at: [15, 15], props: { w: 6, variant: 'board' } };
   const lamp = { id: 'lamp', kind: 'fixture', type: 'spot', at: [15, 15], props: {} };
 
+  /* A signage board carries a second size axis, so its target is a BOX rather
+   * than a circle — a circle round a slim board would hand it a target several
+   * times its own depth, which on a plan is the wall behind it. */
+  const boardBox = (props) => targets([{ ...board, props }])[0];
   ok('a resized marker is grabbable across what it actually draws', (() => {
-    const wide = targets([{ ...board, props: { w: 6, variant: 'board' } }])[0];
-    const narrow = targets([{ ...board, props: { w: 0.8, variant: 'board' } }])[0];
-    /* Six feet at 20 px/ft is a 60 px radius; the old fixed tap was 17. */
-    return wide.attrs.r > narrow.attrs.r && wide.attrs.r > 50;
+    const wide = boardBox({ w: 6, d: 0.3, variant: 'board' });
+    const narrow = boardBox({ w: 0.8, d: 0.3, variant: 'board' });
+    /* Six feet at 20 px/ft is 120 px across; the old fixed tap was a 34px disc. */
+    return wide.tag === 'rect' && wide.attrs.width > narrow.attrs.width && wide.attrs.width > 100;
   })());
   ok('but never smaller than its declared tap radius, so a tiny one stays tappable',
-    targets([{ ...board, props: { w: 0.1, variant: 'board' } }])[0].attrs.r >= 17);
+    boardBox({ w: 0.1, d: 0.1, variant: 'board' }).attrs.width >= 34);
+  ok('and a slim board is not handed a target as deep as it is wide', (() => {
+    const b = boardBox({ w: 6, d: 0.3, variant: 'board' });
+    return b.attrs.height < b.attrs.width / 3;
+  })());
+  ok('a turned board is hit where it is drawn',
+    /rotate\(90 /.test(boardBox({ w: 6, d: 0.3, rot: 90, variant: 'board' }).attrs.transform || ''));
 
   /* The reported case: a small entrance light standing on a big signage board.
    * Whichever order they are declared in, the light is reached first and the
@@ -6559,6 +6569,54 @@ ok('every room gets a hit shape, and rooms come before markers', (() => {
     return bad.length === 0 || bad.slice(0, 3).join(', ');
   })());
 
+  /* ---- two size axes ----
+   *
+   * `render.resize` is one property and one number, so every drawer derived its
+   * geometry from `c.R` and a signage board could only grow proportionally —
+   * "make it narrower" was not expressible. `resize2` names the second axis.
+   */
+  const Pm = scene.makeProjector({ ppf: 20, origin: [0, 0] });
+  const extentOf = (type, props) => scene.markerExtent({ at: [0, 0], props }, lib.types[type], Pm);
+  ok('a type with one size axis is unchanged — both halves are the old radius', (() => {
+    const t = lib.types['fixture.bollard'];
+    const e = scene.markerExtent({ at: [0, 0], props: { size: 12 } }, t, Pm);
+    return e.rx === e.ry && e.rx === scene.markerRadius({ at: [0, 0], props: { size: 12 } }, t, Pm);
+  })());
+  ok('a signage board sizes its width and its depth independently', (() => {
+    const wide = extentOf('fixture.signage', { w: 6, d: 0.3 });
+    const deep = extentOf('fixture.signage', { w: 6, d: 2 });
+    return wide.rx === deep.rx && deep.ry > wide.ry * 4;
+  })());
+  ok('and a slim board really is drawn slim', (() => {
+    const e = extentOf('fixture.signage', { w: 6, d: 0.3 });
+    return e.rx / e.ry > 15;
+  })(), JSON.stringify(extentOf('fixture.signage', { w: 6, d: 0.3 })));
+  ok('an item that never set the second axis takes the type default', (() => {
+    const e = extentOf('fixture.signage', { w: 6 });
+    return e.ry < e.rx && Math.abs(e.ry - Pm.S(lib.types['fixture.signage'].defaults.d) / 2) < 0.01;
+  })());
+  /* The `aspect` fallback is for a type that has GAINED a second axis and has
+   * no default for it yet — without it such a marker collapses to a square the
+   * first time it is drawn. */
+  ok('and a type with a second axis but no default for it falls back to the declared aspect', (() => {
+    const t = {
+      kind: 'fixture',
+      render: { size: 8.5, resize: { prop: 'w', unit: 'ft' }, resize2: { prop: 'd', unit: 'ft', aspect: 0.4 } },
+      defaults: {},
+    };
+    const e = scene.markerExtent({ at: [0, 0], props: { w: 6 } }, t, Pm);
+    return Math.abs(e.ry - e.rx * 0.4) < 0.01;
+  })());
+  /* The drawer has to READ the second axis or the property is decoration. */
+  ok('the signage drawer draws the depth it is given', (() => {
+    const draw = (RY) => JSON.stringify(Shapes.marker('signage', 'board', Object.assign(faceCtx(0), { R: 60, RY })));
+    return draw(6) !== draw(30);
+  })());
+  ok('and a drawer that never opted in ignores it entirely', (() => {
+    const draw = (RY) => JSON.stringify(Shapes.marker('bollard', 'cylinder', Object.assign(faceCtx(0), { R: 20, RY })));
+    return draw(4) === draw(40);
+  })());
+
   /* ---- smart plug bodies ---- */
   {
     const plugLooks = Shapes.variantsOf('plug');
@@ -6588,6 +6646,49 @@ ok('every room gets a hit shape, and rooms come before markers', (() => {
     return n.length === 1 && n[0].tag === 'circle';
   })());
 }
+
+/* ---- the drag axis lock ----
+ *
+ * Extending a room upward means dragging a corner straight up, and no hand does
+ * that: the sideways slip lands as a real change to the other dimension. The
+ * lock latches on its own, because the device that needs it most has no
+ * modifier key to hold.
+ *
+ * The logic lives in `canvas.js`, which is a browser IIFE and cannot be
+ * required here — the real check is a pointer drag in a browser. These pin the
+ * wiring instead: that every drag that can be locked calls the ONE helper, that
+ * the escape hatch exists, and that it cannot survive the drag.
+ */
+{
+  const src = fs.readFileSync(path.join(APP, 'public', 'js', 'canvas.js'), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok('there is one axis-lock helper, not one per drag mode',
+    (code.match(/function applyLock\(/g) || []).length === 1);
+  /* Every mode that moves something in two dimensions has to go through it, or
+   * the lock is a feature of whichever drag somebody remembered. */
+  for (const [mode, marker] of [['item', 'const lk = applyLock('], ['room', 'const lkR = applyLock('],
+    ['group', 'const lkG = applyLock('], ['vertex', 'const locked = applyLock(']]) {
+    ok(`the ${mode} drag asks the axis lock`, code.includes(marker));
+  }
+  ok('Alt turns it off, the same thing Alt already means on a drag',
+    /if \(ev && ev\.altKey\) \{ d\.lock = null;/.test(code));
+  ok('and the latch cannot outlive the drag that set it',
+    /drag = null;[\s\S]{0,120}lockGuide = null;/.test(code));
+  /* A locked vertex pins the HANDLE, not the delta — a rect re-derives itself
+   * from the dragged corner and its opposite, so those are different things. */
+  ok('a locked vertex drag pins the corner rather than the delta',
+    /const locked = applyLock\(drag, ft\.x - start\[0\], ft\.y - start\[1\], ev, start\);/.test(code));
+  ok('the resize-box drag is deliberately left alone', !/resizedBox\([^)]*applyLock/.test(code));
+}
+
+/* The catalogue is the source for every surface that describes a gesture, so a
+ * gesture that exists and is undocumented is the same bug as one documented and
+ * unimplemented — which is what this catalogue was created to stop. */
+ok('the axis lock is in the input catalogue, for all three devices', (() => {
+  const g = (require(path.join(APP, 'lib', 'input-actions')).GESTURES || []).find((x) => x.id === 'straight');
+  return !!g && !!g.mouse && !!g.trackpad && !!g.touch
+    && /lock/i.test(g.touch) && /Alt/.test(g.mouse);
+})());
 
 ok('no layer still claims a room hit shape it never built', (() => {
   /* The dead branch is gone rather than left as a second, wrong idea of where

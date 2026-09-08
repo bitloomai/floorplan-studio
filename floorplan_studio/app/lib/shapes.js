@@ -3006,6 +3006,19 @@
       ln(c, c.cx + c.R * 0.24, c.cy + c.R * 0.08, c.cx + c.R * 0.24, c.cy + c.R * 0.32, 1.3),
       dot(c, c.cx + c.R * 0.6, c.cy - c.R * 0.6, c.R * 0.13, c.on ? c.accent : c.glyph),
     ]),
+    /* The heavy-duty 15/20 A plug: a rounded rectangle on its long axis, so it
+     * takes a SECOND size (`resize2`) and reads as the slab it is rather than
+     * as a square. `RY` is the depth; the other looks ignore it. */
+    slab: (c) => {
+      const w = c.R * 2, h = (c.RY === undefined ? c.R : c.RY) * 2;
+      const t = Math.min(w, h);
+      return face(c, [
+        boxBody(c, w, h, t * 0.24),
+        mk('circle', { cx: c.cx - w * 0.2, cy: c.cy, r: t * 0.24, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }),
+        rect(c, c.cx + w * 0.06, c.cy - t * 0.16, w * 0.2, t * 0.32, { rx: t * 0.08 }),
+        dot(c, c.cx + w * 0.38, c.cy, t * 0.13, c.on ? c.accent : c.glyph),
+      ]);
+    },
     usb: (c) => face(c, [
       boxBody(c, c.R * 1.72, c.R * 1.72, c.R * 0.22),
       rect(c, c.cx - c.R * 0.44, c.cy - c.R * 0.54, c.R * 0.88, c.R * 0.6, { rx: c.R * 0.08 }),
@@ -3678,12 +3691,13 @@
    * "Label on the plan" name instead of a glyph nobody could read at scale. */
   MARKERS.signage = {
     plate: (c) => {
-      const u = c.R / 10;
+      const w = c.R * 2, h = (c.RY === undefined ? c.R * 0.45 : c.RY) * 2;
+      const t = Math.min(w, h);
       return face(c, [
-        ...(c.on ? [mk('rect', { x: c.cx - u * 13, y: c.cy - u * 7.5, width: u * 26, height: u * 15, rx: u * 2, fill: c.accent, opacity: 0.12 + 0.2 * num(c.bright, 1) })] : []),
-        boxBody(c, u * 20, u * 9, u * 1.6),
-        ln(c, c.cx - u * 5.5, c.cy, c.cx - u * 1.2, c.cy, 1.6),
-        ln(c, c.cx + u * 1.2, c.cy, c.cx + u * 5.5, c.cy, 1.6),
+        ...(c.on ? [mk('rect', { x: c.cx - w * 0.65, y: c.cy - h * 0.85, width: w * 1.3, height: h * 1.7, rx: t * 0.25, fill: c.accent, opacity: 0.12 + 0.2 * num(c.bright, 1) })] : []),
+        boxBody(c, w, h, t * 0.18),
+        ln(c, c.cx - w * 0.28, c.cy, c.cx - w * 0.06, c.cy, 1.6),
+        ln(c, c.cx + w * 0.06, c.cy, c.cx + w * 0.28, c.cy, 1.6),
       ]);
     },
     /* Wider and flatter than a plate, with a second text line — the wash of
@@ -3691,12 +3705,13 @@
      * discrete spotlights that actually throw it, the same simplification
      * `glow` already makes for every other lit fixture on the plan. */
     board: (c) => {
-      const u = c.R / 10;
+      const w = c.R * 2, h = (c.RY === undefined ? c.R * 0.35 : c.RY) * 2;
+      const t = Math.min(w, h);
       return face(c, [
-        ...(c.on ? [mk('rect', { x: c.cx - u * 11.5, y: c.cy - u * 6, width: u * 23, height: u * 12, rx: u * 1.2, fill: c.accent, opacity: 0.1 + 0.2 * num(c.bright, 1) })] : []),
-        boxBody(c, u * 20, u * 7, u * 0.8),
-        ln(c, c.cx - u * 7, c.cy - u * 1.6, c.cx + u * 7, c.cy - u * 1.6, 1.3),
-        ln(c, c.cx - u * 4.5, c.cy + u * 2, c.cx + u * 4.5, c.cy + u * 2, 1),
+        ...(c.on ? [mk('rect', { x: c.cx - w * 0.58, y: c.cy - h * 0.85, width: w * 1.16, height: h * 1.7, rx: t * 0.2, fill: c.accent, opacity: 0.1 + 0.2 * num(c.bright, 1) })] : []),
+        boxBody(c, w, h, t * 0.12),
+        ln(c, c.cx - w * 0.35, c.cy - h * 0.22, c.cx + w * 0.35, c.cy - h * 0.22, 1.3),
+        ln(c, c.cx - w * 0.22, c.cy + h * 0.28, c.cx + w * 0.22, c.cy + h * 0.28, 1),
       ]);
     },
   };

@@ -1392,6 +1392,36 @@
     return num(r.size, 8.5);
   }
 
+  /* How big it is drawn on BOTH axes.
+   *
+   * `render.resize` is one property and one number, so every family drawer
+   * derived its whole geometry from `c.R` and a shape could only ever grow
+   * proportionally. That is correct for a fan's sweep or a smoke detector's
+   * disc, and wrong for anything with a real footprint that is not square: a
+   * signage board is long and slim, and "make it narrower" was not expressible.
+   *
+   * `render.resize2` names the second property. A type that declares none gets
+   * `{ rx, ry }` both equal to `markerRadius()`, so every existing marker is
+   * byte-identical and `markerRadius` keeps its signature for the four callers
+   * that only ever want one number.
+   *
+   * `aspect` is what the second axis is worth BEFORE anybody sets it, as a
+   * fraction of the first — so a type that gains a second axis draws sensibly
+   * on plans that predate it instead of collapsing to a square.
+   */
+  function markerExtent(item, type, P) {
+    const rx = markerRadius(item, type, P);
+    const rz2 = ((type && type.render) || {}).resize2;
+    if (!rz2 || !rz2.prop) return { rx, ry: rx };
+    const p = (item && item.props) || {};
+    const d = (type && type.defaults) || {};
+    const v = num(p[rz2.prop], num(d[rz2.prop], null));
+    if (v !== null && v > 0) {
+      return { rx, ry: rz2.unit === 'ft' ? Math.max(2, P.S(v) / 2) : Math.max(2, v) };
+    }
+    return { rx, ry: Math.max(2, rx * num(rz2.aspect, 1)) };
+  }
+
   function markerNodes(item, type, theme, P, states, ctx) {
     const r = type.render || {};
     const [fx, fy] = item.at || [0, 0];
@@ -1499,8 +1529,12 @@
        * it something different and none of them is worth a branch inside a
        * drawing function. */
       const pct = num(a2.percentage, num(a2.current_position, num(a2.battery_level, num(parseFloat(st && st.state), 60))));
+      /* `RY` is the second half of the footprint. Every family drawer that has
+       * not opted in reads `c.R` alone and is unaffected — `RY` equals `R`
+       * unless the type declares a `resize2`. */
+      const ext2 = markerExtent(item, type, P);
       const nodes2 = Shapes().marker(family, variantOf(item, type), {
-        cx, cy, R: markerRadius(item, type, P),
+        cx, cy, R: ext2.rx, RY: ext2.ry,
         fill, line: stroke, glyph: glyphC,
         accent: litColour || (sch ? sch.accent : colour('@fanRim', theme, '#2fb5a4')),
         facing, on: sk.on, pct,
@@ -2766,6 +2800,21 @@
           const r = num(t.render && t.render.tap, 17);
           items.push({ target: 'item', id: item.id, tag: 'circle', area: Math.PI * r * r, attrs: { cx: P.X(item.at[0]), cy: P.Y(item.at[1]), r } });
         }
+      } else if ((t.render || {}).resize2) {
+        /* Two axes means the footprint is a BOX, and a circle round it would
+         * hand a slim board a target several times its own depth — which on a
+         * plan is the wall behind it and whatever else is standing there. It
+         * turns with the marker, so a board on a side wall is hit where it is
+         * drawn. */
+        const e = markerExtent(item, t, P);
+        const tapR = num(t.render && t.render.tap, 17);
+        const hw = Math.max(tapR, e.rx), hh = Math.max(tapR / 2, e.ry);
+        const mx = P.X(item.at[0]), my = P.Y(item.at[1]);
+        const mrot = num(p.rot, num(d.rot, 0));
+        items.push({ target: 'item', id: item.id, tag: 'rect', area: hw * hh * 4, attrs: {
+          x: mx - hw, y: my - hh, width: hw * 2, height: hh * 2,
+          transform: mrot ? `rotate(${mrot} ${mx} ${my})` : null,
+        } });
       } else {
         /* `markerRadius` is how big the thing is DRAWN — a resized signage
          * board is feet wide, and a fixed 17px circle at its centre made most
@@ -2805,7 +2854,7 @@
     build, toSvg, nodeToSvg, resolveType, specLine, hitTargets,
     makeProjector, roomPoints, roomBBox, roomCentroid, pointInRoom, roomAt, roomEdges,
     primaryRoom, colour, stateOf, lampColour, openingIsOpen, openingState, openingTransmission, coneNodes, MOTION_CSS,
-    variantOf, schemeOf, markerRadius, labelText, thresholdColour, labelMetrics,
+    variantOf, schemeOf, markerRadius, markerExtent, labelText, thresholdColour, labelMetrics,
     coveringOpenness, coveringTransmission, insetPolygon, polygonArea,
     WALL_NORMAL,
   };

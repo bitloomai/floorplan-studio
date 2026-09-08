@@ -356,6 +356,7 @@ window.Canvas = (function () {
     if (S.multi.length > 1) {
       drawMultiOutline(ov, P);
       drawAlignGuides(ov, P);
+      drawLockGuide(ov, P);
       return;
     }
 
@@ -418,6 +419,7 @@ window.Canvas = (function () {
       drawResizeHandles(ov, sel, t, P);
     }
     drawAlignGuides(ov, P);
+    drawLockGuide(ov, P);
     drawDimLabel(ov);
   }
 
@@ -437,8 +439,14 @@ window.Canvas = (function () {
    * than the edge it drags is worse than no handle at all. */
   function resizeSpec(type) {
     if (type?.kind === 'furniture') return { box: true };
-    const rz = type && type.render && type.render.resize;
-    return rz && rz.prop ? rz : null;
+    const r = (type && type.render) || {};
+    const rz = r.resize;
+    if (!rz || !rz.prop) return null;
+    /* A type may declare a SECOND axis. Carried alongside rather than replacing
+     * the first, so everything that only ever wanted one number still reads
+     * `rz.prop` and behaves exactly as it did. */
+    const rz2 = r.resize2;
+    return rz2 && rz2.prop ? Object.assign({}, rz, { prop2: rz2.prop, spec2: rz2 }) : rz;
   }
 
   function furnitureBox(item, type) {
@@ -495,19 +503,43 @@ window.Canvas = (function () {
     const R = PlanScene.markerRadius(item, type, P);
     const cx = P.X(item.at[0]), cy = P.Y(item.at[1]);
     const g = el('g', { 'pointer-events': 'all', class: 'size-handle' });
-    g.appendChild(el('circle', { cx, cy, r: R, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1, opacity: 0.5, 'pointer-events': 'none' }));
+    const rot = item.props?.rot ?? type.defaults?.rot ?? 0;
+    /* A marker with TWO axes has a footprint, not a radius, so the outline that
+     * shows what you are about to drag has to be the box — a circle round a
+     * slim signage board says its depth is its width, which is the whole thing
+     * being fixed here. */
+    if (rz.prop2) {
+      const e = PlanScene.markerExtent(item, type, P);
+      g.appendChild(el('rect', {
+        x: cx - e.rx, y: cy - e.ry, width: e.rx * 2, height: e.ry * 2,
+        transform: rot ? `rotate(${rot} ${cx} ${cy})` : null,
+        fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1, opacity: 0.5, 'pointer-events': 'none',
+      }));
+    } else {
+      g.appendChild(el('circle', { cx, cy, r: R, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1, opacity: 0.5, 'pointer-events': 'none' }));
+    }
     /* Four, not one: whichever edge is nearest your finger is the one you
-     * grab, and on a phone that matters more than it looks. */
+     * grab, and on a phone that matters more than it looks.
+     *
+     * With two axes each PAIR drives its own property, and the handles sit on
+     * the object's own axes rather than the screen's — otherwise a board turned
+     * ninety degrees would have its width dragged by the handle that visibly
+     * moves its depth. */
     const line = type.render?.shape === 'line';
     const directions = line ? [[-1, 0], [1, 0]] : [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    const ext = rz.prop2 ? PlanScene.markerExtent(item, type, P) : null;
     for (const [dx, dy] of directions) {
-      const [ox, oy] = turned(dx * R, dy * R, line ? (item.props?.rot ?? type.defaults?.rot ?? 0) : 0);
+      const rx = ext ? ext.rx : R, ry = ext ? ext.ry : R;
+      const [ox, oy] = turned(dx * rx, dy * ry, (line || ext) ? rot : 0);
       const size = HANDLE_PX() / (S.view.zoom || 1);
       const h = el('rect', {
         x: cx + ox - size / 2, y: cy + oy - size / 2, width: size, height: size, rx: 1.5,
         class: 'handle', style: `cursor:${dx ? 'ew-resize' : 'ns-resize'}`,
       });
       h.dataset.resize = item.id;
+      /* Which of the two properties this handle drags. Read back on pointerdown
+       * so the drag never has to guess from the direction it ended up moving. */
+      if (ext) h.dataset.axis = dx ? 'x' : 'y';
       g.appendChild(h);
     }
     ov.appendChild(g);
@@ -520,9 +552,26 @@ window.Canvas = (function () {
     // A ft-resized marker is drawn at HALF its footprint (a radius), so the
     // round trip back to the property has to double it again.
     const raw = rz.unit === 'ft' ? (R * 2) / (P.ppf || 22) : R;
-    const lo = typeof rz.min === 'number' ? rz.min : 0.5;
-    const hi = typeof rz.max === 'number' ? rz.max : 200;
-    return Math.max(lo, Math.min(hi, Math.round(raw * 4) / 4));
+    return clampProp(raw, rz);
+  }
+
+  /* The clamping half of `radiusToProp`, on its own — for a value already in
+   * the property's own units, which is what scaling one axis by the other's
+   * ratio produces. */
+  function clampProp(v, spec) {
+    const lo = typeof spec.min === 'number' ? spec.min : 0.5;
+    const hi = typeof spec.max === 'number' ? spec.max : 200;
+    return Math.max(lo, Math.min(hi, Math.round(v * 4) / 4));
+  }
+
+  /* A keyboard resize scales the WHOLE footprint. Growing only the first axis
+   * would quietly change a slim board's proportions every time somebody pressed
+   * the bigger button, which is the opposite of what that button promises. */
+  function scaleSecondAxis(item, type, rz, mul, P) {
+    if (!rz || !rz.prop2) return;
+    const e = PlanScene.markerExtent(item, type, P);
+    const now = rz.spec2.unit === 'ft' ? (e.ry * 2) / (P.ppf || 22) : e.ry;
+    item.props[rz.prop2] = clampProp(now * mul, rz.spec2);
   }
 
   /* Keyboard resize, for the same reason rotation has one: a 7px square is not
@@ -553,6 +602,7 @@ window.Canvas = (function () {
           }
           const now = radiusToProp(PlanScene.markerRadius(item, PlanScene.resolveType(S.library, item) || {}, P), rz, P);
           item.props = item.props || {};
+          scaleSecondAxis(item, type, rz, mul, P);
           item.props[rz.prop] = radiusToProp(rz.unit === 'ft' ? (now * mul * (P.ppf || 22)) / 2 : now * mul, rz, P);
         }
       }, 'resize selection');
@@ -575,6 +625,9 @@ window.Canvas = (function () {
     const now = radiusToProp(PlanScene.markerRadius(item, type, P), rz, P);
     Store.mutate(() => {
       item.props = item.props || {};
+      /* Second axis first: it reads the CURRENT extent, so scaling it after the
+       * first axis had already moved would compound the two. */
+      scaleSecondAxis(item, type, rz, mul, P);
       item.props[rz.prop] = radiusToProp(
         rz.unit === 'ft' ? (now * mul * (P.ppf || 22)) / 2 : now * mul, rz, P,
       );
@@ -821,6 +874,92 @@ window.Canvas = (function () {
    * zoom. */
   let dimLabel = null;
 
+  /* ---------- the axis lock ----------
+   *
+   * Extending a room upward means dragging a corner straight up, and neither a
+   * mouse nor a finger goes straight: the sideways slip lands as a real change
+   * to the other dimension, silently, because your hand is on top of the
+   * evidence. Every drawing tool answers this with a modifier, and a modifier
+   * is exactly what a tablet does not have.
+   *
+   * So the lock LATCHES on its own. Once a drag has travelled far enough to
+   * have a direction, whichever axis dominates wins and the other is pinned —
+   * until you deliberately move off it by the same distance again, which
+   * releases it. A 45-degree drag latches to the diagonal instead, so
+   * "bigger, keeping the shape" is a gesture rather than a held key.
+   *
+   * Shift forces the latch immediately, for a mouse that already knows. Alt
+   * suppresses it entirely, which is what Alt already means here — "ignore the
+   * help".
+   *
+   * The hysteresis is what makes it usable rather than infuriating: latching on
+   * the first pixel of travel would fight anyone genuinely dragging diagonally,
+   * and never latching is the bug being fixed. */
+  const LOCK_PX = () => (touching() ? 30 : 22);
+
+  /* Where to draw the "you are locked to this line" guide, in FEET, set by
+   * `applyLock` and read by `drawSelection()` — the same arrangement
+   * `alignGuides` uses, and for the same reason: paint() rebuilds the overlay
+   * every call, so a mid-drag hint has nowhere else to live. */
+  let lockGuide = null;
+
+  function applyLock(d, dx, dy, ev, anchor) {
+    if (ev && ev.altKey) { d.lock = null; lockGuide = null; return { dx, dy, axis: null }; }
+    /* `dx`/`dy` arrive in FEET — every drag in this file works in plan
+     * coordinates — while the threshold is a distance on SCREEN, because what
+     * counts as "a deliberate sideways move" is a property of the hand, not of
+     * the house. Screen pixels per foot is `ppf * zoom`, so the gate converts
+     * once here and the rest of the function stays in feet. */
+    const perFt = ((scene && scene.projector && scene.projector.ppf) || 22) * (S.view.zoom || 1);
+    const gate = LOCK_PX() / (perFt || 22);
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    const far = Math.max(ax, ay) >= gate;
+    if (far || (ev && ev.shiftKey)) {
+      const diagonal = Math.min(ax, ay) > 0 && Math.abs(ax - ay) <= Math.max(ax, ay) * 0.2;
+      const wants = diagonal ? 'd' : ax > ay * 2.5 ? 'x' : ay > ax * 2.5 ? 'y' : null;
+      /* Latch onto a clear direction, and let go only for a deliberate move off
+       * it — twice the threshold on the pinned axis.
+       *
+       * Measured against the THRESHOLD, not against how far the drag has
+       * travelled along the axis it is locked to. Comparing the two makes the
+       * lock stickier the longer you drag: stretch a room a hundred pixels
+       * upward and you would need a hundred pixels sideways to get out of it,
+       * which reads as the editor having jammed. */
+      const release = gate * 2;
+      if (!d.lock && wants) d.lock = wants;
+      else if (d.lock === 'x' && ay >= release) d.lock = ay > ax * 2.5 ? 'y' : null;
+      else if (d.lock === 'y' && ax >= release) d.lock = ax > ay * 2.5 ? 'x' : null;
+    }
+    lockGuide = d.lock && anchor ? { axis: d.lock, at: anchor, dx, dy } : null;
+    if (d.lock === 'x') return { dx, dy: 0, axis: 'x' };
+    if (d.lock === 'y') return { dx: 0, dy, axis: 'y' };
+    if (d.lock === 'd') {
+      /* Equal travel on both axes, signs kept — the diagonal you are actually
+       * on, not always the down-right one. */
+      const m = (ax + ay) / 2;
+      return { dx: Math.sign(dx) * m, dy: Math.sign(dy) * m, axis: 'd' };
+    }
+    return { dx, dy, axis: null };
+  }
+
+  /* A hairline through where the drag started, along the axis it is pinned to.
+   * Drawn in the accent colour and dashed so it reads as guidance rather than
+   * as something on the plan. */
+  function drawLockGuide(ov, P) {
+    if (!lockGuide) return;
+    const x = P.X(lockGuide.at[0]), y = P.Y(lockGuide.at[1]);
+    const far = 4000;
+    const seg = lockGuide.axis === 'x' ? [x - far, y, x + far, y]
+      : lockGuide.axis === 'y' ? [x, y - far, x, y + far]
+        : [x - far * Math.sign(lockGuide.dx || 1), y - far * Math.sign(lockGuide.dy || 1),
+          x + far * Math.sign(lockGuide.dx || 1), y + far * Math.sign(lockGuide.dy || 1)];
+    ov.appendChild(el('line', {
+      x1: seg[0], y1: seg[1], x2: seg[2], y2: seg[3],
+      stroke: 'var(--accent)', 'stroke-width': 1, 'stroke-dasharray': '6 5',
+      opacity: 0.55, 'pointer-events': 'none',
+    }));
+  }
+
   /* Distance/dimension guides are a saved, project-level preference (the
    * user's "dashboard-level" setting) rather than session state like
    * `S.view.showGrid` — they should look the same to everyone who opens this
@@ -987,7 +1126,20 @@ window.Canvas = (function () {
   }
 
   function beginInner(ev) {
-    if (ev.button === 1 || S.tool === 'pan' || spaceHeld || (ev.button === 0 && ev.altKey)) {
+    /* Alt-drag pans from BARE FLOOR only.
+     *
+     * It used to pan from anywhere, which quietly made Alt unreachable by every
+     * drag in this file: the guard ran before the target was looked at, so an
+     * Alt-press on a marker, a room or a handle became a pan. That is why "hold
+     * Alt to ignore the alignment guides" — promised in the gesture catalogue,
+     * and implemented right there in the item drag — had never once happened.
+     * The same trap was about to swallow the axis lock's escape hatch.
+     *
+     * Panning loses nothing: the middle button, the space bar and the H tool
+     * all still pan from anywhere over anything, and Alt still does on empty
+     * floor, which is where you reach for it. */
+    const altPan = ev.button === 0 && ev.altKey && isBareFloor(ev.target);
+    if (ev.button === 1 || S.tool === 'pan' || spaceHeld || altPan) {
       startPan(ev);
       return;
     }
@@ -1081,7 +1233,11 @@ window.Canvas = (function () {
         item.props = item.props || {};
         drag = rz.box
           ? { mode: 'resize-box', id: item.id, before: Store.clone(item), box: furnitureBox(item, type), dx: Number(target.dataset.dx), dy: Number(target.dataset.dy) }
-          : { mode: 'resize', id: item.id, prop: rz.prop, before: item.props[rz.prop] };
+          : { mode: 'resize', id: item.id, prop: rz.prop, before: item.props[rz.prop],
+            /* Which axis this handle drags, read off the handle rather than
+             * inferred from the direction the pointer ends up going. */
+            axis: target.dataset.axis || null,
+            before2: rz.prop2 ? item.props[rz.prop2] : undefined };
         svg.setPointerCapture(ev.pointerId);
       }
       return;
@@ -1230,7 +1386,9 @@ window.Canvas = (function () {
     }
 
     if (drag.mode === 'item') {
-      const dx = ft.x - Store.snap(drag.grabFt.x), dy = ft.y - Store.snap(drag.grabFt.y);
+      const raw0 = { dx: ft.x - Store.snap(drag.grabFt.x), dy: ft.y - Store.snap(drag.grabFt.y) };
+      const lk = applyLock(drag, raw0.dx, raw0.dy, ev, drag.origin);
+      const dx = lk.dx, dy = lk.dy;
       const item = (Store.floor().items || []).find((i) => i.id === drag.id);
       let nx = drag.origin[0] + dx, ny = drag.origin[1] + dy;
       /* Alt suppresses it for the one time you genuinely want "not quite
@@ -1266,11 +1424,43 @@ window.Canvas = (function () {
       if (!item || !rz) return;
       const P = scene.projector;
       const pt = toScene(ev);
+      const mcx = P.X(item.at[0]), mcy = P.Y(item.at[1]);
+      item.props = item.props || {};
+      const fmtOne = (v, spec) => (spec.unit === 'ft' ? fmtDist(v, guidesCfg().units) : `${v} px`);
+      if (drag.axis && rz.prop2) {
+        /* Two axes: the handle you grabbed decides WHICH one moves, and the
+         * pointer is measured in the object's own frame — otherwise a board
+         * turned ninety degrees would have its width dragged by the handle that
+         * visibly moves its depth. */
+        const rot = item.props.rot ?? type.defaults?.rot ?? 0;
+        const [lx, ly] = turned(pt.x - mcx, pt.y - mcy, -rot);
+        const onX = drag.axis === 'x';
+        const spec = onX ? rz : rz.spec2;
+        const prop = onX ? rz.prop : rz.prop2;
+        const other = onX ? rz.prop2 : rz.prop;
+        const otherSpec = onX ? rz.spec2 : rz;
+        const wasThis = Number(onX ? drag.before : drag.before2);
+        const wasOther = Number(onX ? drag.before2 : drag.before);
+        item.props[prop] = radiusToProp(Math.abs(onX ? lx : ly), spec, P);
+        /* Shift keeps the proportions, the same meaning it already has on a
+         * furniture box drag. The ratio is taken in the properties' OWN units,
+         * so the two axes stay in step whether they are feet or pixels and
+         * whichever handle was grabbed. */
+        if (ev.shiftKey && wasThis > 0 && wasOther > 0) {
+          item.props[other] = clampProp((wasOther * item.props[prop]) / wasThis, otherSpec);
+        }
+        drag.moved = true;
+        const guides = guidesCfg();
+        const text = `${fmtOne(item.props[rz.prop], rz)} × ${fmtOne(item.props[rz.prop2], rz.spec2)}`;
+        dimLabel = guides.enabled ? { x: pt.x + 14, y: pt.y - 14, text } : null;
+        paint();
+        onStatus({ x: raw.x, y: raw.y, room: text });
+        return;
+      }
       /* Distance from the centre to the pointer IS the new radius — whichever
        * of the four handles was grabbed, so the marker follows the finger
        * rather than the handle's own axis. */
-      const R = Math.hypot(pt.x - P.X(item.at[0]), pt.y - P.Y(item.at[1]));
-      item.props = item.props || {};
+      const R = Math.hypot(pt.x - mcx, pt.y - mcy);
       item.props[rz.prop] = radiusToProp(R, rz, P);
       drag.moved = true;
       const guides = guidesCfg();
@@ -1300,7 +1490,8 @@ window.Canvas = (function () {
     }
 
     if (drag.mode === 'room') {
-      const dx = ft.x - Store.snap(drag.grabFt.x), dy = ft.y - Store.snap(drag.grabFt.y);
+      const lkR = applyLock(drag, ft.x - Store.snap(drag.grabFt.x), ft.y - Store.snap(drag.grabFt.y), ev, [drag.grabFt.x, drag.grabFt.y]);
+      const dx = lkR.dx, dy = lkR.dy;
       const room = (Store.floor().rooms || []).find((r) => r.id === drag.id);
       const b = drag.before;
       if (b.shape === 'poly' && b.points) room.points = b.points.map((p) => [round4(p[0] + dx), round4(p[1] + dy)]);
@@ -1313,7 +1504,14 @@ window.Canvas = (function () {
     if (drag.mode === 'vertex') {
       const room = (Store.floor().rooms || []).find((r) => r.id === drag.room);
       const pts = PlanScene.roomPoints(drag.before).map((p) => p.slice());
-      pts[drag.index] = [ft.x, ft.y];
+      /* Locked on the HANDLE, not on the delta. A rect vertex drag re-derives
+       * the whole rectangle from this corner and its opposite, so pinning the
+       * corner's x is what "change the height only" actually means here —
+       * pinning the delta's x would be a different and wrong thing. */
+      const start = PlanScene.roomPoints(drag.before)[drag.index];
+      const locked = applyLock(drag, ft.x - start[0], ft.y - start[1], ev, start);
+      pts[drag.index] = [start[0] + locked.dx, start[1] + locked.dy];
+      const ftx = pts[drag.index][0], fty = pts[drag.index][1];
       if (room.shape === 'poly') {
         room.points = pts;
       } else {
@@ -1322,8 +1520,8 @@ window.Canvas = (function () {
          * nasty surprise — a rect room is what the legacy exporter can carry
          * losslessly, so it stays one unless you explicitly convert it. */
         const opp = pts[(drag.index + 2) % 4];
-        const x = Math.min(ft.x, opp[0]), y = Math.min(ft.y, opp[1]);
-        room.rect = [round4(x), round4(y), round4(Math.abs(ft.x - opp[0])), round4(Math.abs(ft.y - opp[1]))];
+        const x = Math.min(ftx, opp[0]), y = Math.min(fty, opp[1]);
+        room.rect = [round4(x), round4(y), round4(Math.abs(ftx - opp[0])), round4(Math.abs(fty - opp[1]))];
       }
       drag.moved = true;
       const guides = guidesCfg();
@@ -1337,7 +1535,8 @@ window.Canvas = (function () {
     }
 
     if (drag.mode === 'group') {
-      const dx = ft.x - Store.snap(drag.grabFt.x), dy = ft.y - Store.snap(drag.grabFt.y);
+      const lkG = applyLock(drag, ft.x - Store.snap(drag.grabFt.x), ft.y - Store.snap(drag.grabFt.y), ev, [drag.grabFt.x, drag.grabFt.y]);
+      const dx = lkG.dx, dy = lkG.dy;
       const floor = Store.floor();
       /* Alignment for a group snaps the GROUP's own bounding-box centre, not
        * any one member's — dragging five things and having the group jump
@@ -1411,6 +1610,7 @@ window.Canvas = (function () {
     if (!drag) return;
     const d = drag; drag = null;
     alignGuides = null;
+    lockGuide = null;
     dimLabel = null;
     try { svg.releasePointerCapture(ev.pointerId); } catch {}
 

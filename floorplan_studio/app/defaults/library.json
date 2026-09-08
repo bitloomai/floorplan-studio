@@ -4337,6 +4337,13 @@
           "unit": "px",
           "min": 5,
           "max": 26
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 3,
+          "max": 26,
+          "aspect": 0.55
         }
       },
       "states": {
@@ -4370,7 +4377,8 @@
             "ev",
             "puck",
             "square",
-            "usb"
+            "usb",
+            "slab"
           ],
           "variantFamily": "plug",
           "hint": "A round puck, a rounded square, or a square with USB ports — the shapes smart plugs are actually sold in. The socket and 3-pin looks are the generic wall outlet."
@@ -4398,13 +4406,24 @@
           "max": 26,
           "step": 0.5,
           "advanced": true
+        },
+        {
+          "key": "d",
+          "label": "Marker depth (px)",
+          "type": "number",
+          "min": 3,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "Only the slab look is drawn to a second size; the round and square bodies stay square."
         }
       ],
       "defaults": {
         "rot": 0,
         "watt": 2300,
         "size": 8.5,
-        "variant": "socket"
+        "variant": "socket",
+        "d": 4.7
       }
     },
     "device.switch_module": {
@@ -5115,7 +5134,8 @@
             "ev",
             "puck",
             "square",
-            "usb"
+            "usb",
+            "slab"
           ],
           "variantFamily": "plug"
         },
@@ -15676,6 +15696,13 @@
           "unit": "ft",
           "min": 0.3,
           "max": 15
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "ft",
+          "min": 0.1,
+          "max": 6,
+          "aspect": 0.4
         }
       },
       "states": {
@@ -15717,6 +15744,15 @@
           "min": 0.3,
           "max": 15,
           "step": 0.1
+        },
+        {
+          "key": "d",
+          "label": "Depth on the wall (ft)",
+          "type": "number",
+          "min": 0.1,
+          "max": 6,
+          "step": 0.05,
+          "hint": "How far the board stands out from the wall. Independent of Width, so a name board can be long and slim — drag either pair of handles on the plan."
         },
         {
           "key": "rot",
@@ -15772,7 +15808,8 @@
         "spread": 3,
         "variant": "plate",
         "w": 0.8,
-        "rot": 0
+        "rot": 0,
+        "d": 0.34
       }
     },
     "fixture.wall_washer": {
