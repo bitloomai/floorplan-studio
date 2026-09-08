@@ -2918,6 +2918,39 @@ ok('a cut flight says UP or DN and a whole one does not',
     (facingUp.props || []).map((p) => p.key).join(','));
   ok('and the look list catches up with the variants drawn alongside it',
     (facingUp.props.find((p) => p.key === 'variant').options || []).includes('dome_top'));
+
+  /* A saved library predating the skylight's cuts and the plug's bodies has to
+   * gain both, or the looks exist only for a fresh install. The glazing case
+   * also has to pick up its `render.fill`/`render.line` — without those the
+   * panel keeps painting from the theme token and colour schemes stay dead on
+   * it, which was the whole reported fault. */
+  const preLooks = {
+    schemaVersion: lib.schemaVersion,
+    types: {
+      'furniture.glazing': {
+        label: 'Glazing / skylight', kind: 'furniture', category: 'furniture',
+        render: { shape: 'glazing' },
+        props: [{ key: 'w', label: 'Width (ft)', type: 'number' }, { key: 'transmission', label: 'Light transmission', type: 'number' }],
+        defaults: { w: 4, h: 4, transmission: 0.8 },
+      },
+      'device.plug': {
+        label: 'Smart plug / relay', kind: 'device', category: 'power',
+        render: { shape: 'disc', family: 'plug', variant: 'socket' },
+        props: [{ key: 'variant', label: 'Look', type: 'select', options: ['socket', 'pins3'] }],
+        defaults: { variant: 'socket' },
+      },
+    },
+  };
+  const looksUp = store.upgradeDoc('library', preLooks).types;
+  ok('an upgrade gives an older skylight its cuts and its own colours', (() => {
+    const g = looksUp['furniture.glazing'];
+    const cut = (g.props || []).find((p) => p.key === 'variant');
+    return !!cut && (cut.options || []).includes('arabesque')
+      && g.render.fill === '@apertureGlass' && g.render.line === '@apertureGlass'
+      && (g.props || []).some((p) => p.key === 'pitch');
+  })());
+  ok('and an older smart plug the bodies it is actually sold in',
+    ['puck', 'square', 'usb'].every((v) => (looksUp['device.plug'].props.find((p) => p.key === 'variant').options || []).includes(v)));
 }
 
 /* ------------------------------------------------------ full scene build */
@@ -6449,6 +6482,102 @@ ok('every room gets a hit shape, and rooms come before markers', (() => {
    * lights lit the room and drew nothing at all. */
   ok('a cove marker outside its own room still draws that room’s run',
     coveDraw({ inset: 1 }, 'r').some((n) => n.tag === 'path'));
+
+  /* ---- the skylight ----
+   *
+   * Three faults in four lines. It painted from the THEME token
+   * `apertureGlass` and ignored `c.fill`/`c.line`, so every colour scheme drew
+   * an identical picture — the reported symptom. It drew an unconditional
+   * corner-to-corner diagonal, which on a long panel reads as a light fitting
+   * rather than as a hole in the roof. And it had no `variant`, so there was
+   * nothing to cut it with.
+   */
+  const glazeItem = (props, extra) => Object.assign({ id: 'g', kind: 'furniture', type: 'glazing', at: [4, 4], entity: null, props }, extra || {});
+  const glazeDraw = (props, extra) => {
+    const fl = hitFloor([glazeItem(props, extra)]);
+    return scene.build({ name: 'c', ppf: 20, origin: [0, 0], floors: [fl] }, fl, lib,
+      themes.themes.frosted.plan, { boundaries, flooring, states: {} }).layers.furniture.filter((n) => n.itemId === 'g');
+  };
+  /* THE reported regression: two panels differing only by scheme must differ. */
+  ok('two skylights with different colour schemes draw differently', (() => {
+    const a = JSON.stringify(glazeDraw({ w: 6, h: 6 }, { scheme: 'slate' }));
+    const b = JSON.stringify(glazeDraw({ w: 6, h: 6 }, { scheme: 'calacatta' }));
+    return a !== b;
+  })());
+  ok('and one with no scheme still draws in the glazing token it always did',
+    glazeDraw({ w: 6, h: 6 })[0].attrs.fill === themes.themes.frosted.plan.apertureGlass,
+    glazeDraw({ w: 6, h: 6 })[0].attrs.fill);
+  ok('a plain skylight is one whole aperture with no fitting drawn across it',
+    glazeDraw({ w: 6, h: 6, variant: 'plain' }).length === 1);
+
+  const cuts = Shapes.furnitureVariantsOf('glazing');
+  ok('the skylight offers a plain pane and seven cuts', cuts.length === 8 && cuts[0] === 'plain', cuts.join(','));
+  {
+    const seen = new Map();
+    const same = [];
+    for (const v of cuts) {
+      const key = JSON.stringify(glazeDraw({ w: 8, h: 8, variant: v, pitch: 1 }));
+      if (seen.has(key)) same.push(`${v} == ${seen.get(key)}`);
+      seen.set(key, v);
+    }
+    ok('and no two cuts draw the same panel', same.length === 0, same.join(', '));
+  }
+  ok('every cut draws something inside a plain pane', cuts.every((v) => glazeDraw({ w: 8, h: 8, variant: v, pitch: 1 }).length >= (v === 'plain' ? 1 : 2)));
+
+  /* The pattern is a real size, so a bigger panel gets MORE of it rather than
+   * a magnified copy — a pattern that scales with its panel is a picture of a
+   * pattern. */
+  ok('a cut repeats at a physical size rather than scaling with the panel', (() => {
+    const small = glazeDraw({ w: 4, h: 4, variant: 'grid', pitch: 1 }).length;
+    const big = glazeDraw({ w: 16, h: 16, variant: 'grid', pitch: 1 }).length;
+    return big > small * 2;
+  })());
+  ok('and a finer pitch cuts more of it',
+    glazeDraw({ w: 8, h: 8, variant: 'hexagon', pitch: 0.5 }).length > glazeDraw({ w: 8, h: 8, variant: 'hexagon', pitch: 2 }).length);
+
+  /* A 40ft atrium roof at a fine pitch must not emit ten thousand nodes, and
+   * nothing may escape the panel it is cut into — there is no clip path to
+   * lean on in a furniture drawer. */
+  ok('a huge panel at a fine pitch stays within a node budget',
+    glazeDraw({ w: 40, h: 40, variant: 'arabesque', pitch: 0.2 }).length <= 401,
+    String(glazeDraw({ w: 40, h: 40, variant: 'arabesque', pitch: 0.2 }).length));
+  ok('and no cut escapes the panel it is cut into', (() => {
+    const bad = [];
+    for (const v of cuts) {
+      for (const [w, h] of [[6, 6], [24, 5], [5, 24]]) {
+        const x1 = 20 * 4, y1 = 20 * 4;            // the item sits at [4,4] ft
+        for (const n of glazeDraw({ w, h, variant: v, pitch: 0.8 })) {
+          const a = n.attrs;
+          const r = Math.abs(Number(a.r || a.rx || 0)) || 0;
+          const xs = [a.x1, a.x2, a.cx].filter((q) => typeof q === 'number').map((q) => [q - r, q + r]).flat();
+          const ys = [a.y1, a.y2, a.cy].filter((q) => typeof q === 'number').map((q) => [q - r, q + r]).flat();
+          if (xs.some((q) => q < x1 - 0.5 || q > x1 + 20 * w + 0.5)) bad.push(`${v} ${w}x${h} x`);
+          if (ys.some((q) => q < y1 - 0.5 || q > y1 + 20 * h + 0.5)) bad.push(`${v} ${w}x${h} y`);
+        }
+      }
+    }
+    return bad.length === 0 || bad.slice(0, 3).join(', ');
+  })());
+
+  /* ---- smart plug bodies ---- */
+  {
+    const plugLooks = Shapes.variantsOf('plug');
+    ok('the plug family offers the shapes smart plugs are actually sold in',
+      ['puck', 'square', 'usb'].every((v) => plugLooks.includes(v)), plugLooks.join(','));
+    /* Every type SHARING a family has to offer every look, or a look the
+     * renderer can draw is unreachable from the picker. */
+    for (const key of ['device.plug', 'device.ev_charger']) {
+      const opts = (lib.types[key].props.find((p) => p.key === 'variant') || {}).options || [];
+      ok(`${key} offers every look its family draws`,
+        plugLooks.every((v) => opts.includes(v)), opts.join(','));
+    }
+    const plugCtx = (v, on) => Shapes.marker('plug', v, Object.assign(faceCtx(0), { on: !!on, accent: '#e0a' }));
+    ok('a switched plug is told apart from an unswitched one without recolouring the body',
+      ['puck', 'square', 'usb'].every((v) => JSON.stringify(plugCtx(v, true)) !== JSON.stringify(plugCtx(v, false))));
+    ok('and every plug body is drawn aimed, which is what makes its facing mean something',
+      ['puck', 'square', 'usb', 'pins3', 'ev'].every((v) => JSON.stringify(Shapes.marker('plug', v, faceCtx(0)))
+        !== JSON.stringify(Shapes.marker('plug', v, faceCtx(90)))));
+  }
   ok('and one belonging to no room draws only its marker dot', (() => {
     const fl = {
       id: 'f', name: 'F', extent: { w: 30, h: 30 }, rooms: [], openings: [], boundaries: [],

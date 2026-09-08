@@ -4367,9 +4367,13 @@
           "options": [
             "socket",
             "pins3",
-            "ev"
+            "ev",
+            "puck",
+            "square",
+            "usb"
           ],
-          "variantFamily": "plug"
+          "variantFamily": "plug",
+          "hint": "A round puck, a rounded square, or a square with USB ports — the shapes smart plugs are actually sold in. The socket and 3-pin looks are the generic wall outlet."
         },
         {
           "key": "rot",
@@ -5108,7 +5112,10 @@
           "options": [
             "socket",
             "pins3",
-            "ev"
+            "ev",
+            "puck",
+            "square",
+            "usb"
           ],
           "variantFamily": "plug"
         },
@@ -8700,15 +8707,46 @@
       "kind": "furniture",
       "group": "Structure",
       "render": {
-        "shape": "glazing"
+        "shape": "glazing",
+        "fill": "@apertureGlass",
+        "line": "@apertureGlass",
+        "variant": "plain"
       },
       "defaults": {
         "w": 4,
         "h": 4,
-        "transmission": 0.8
+        "transmission": 0.8,
+        "variant": "plain",
+        "pitch": 1
       },
       "aboveDaylight": false,
       "props": [
+        {
+          "key": "variant",
+          "label": "Cut",
+          "type": "select",
+          "options": [
+            "plain",
+            "grid",
+            "diagonal",
+            "chevron",
+            "hexagon",
+            "arabesque",
+            "floral",
+            "starburst"
+          ],
+          "variantFamily": "glazing",
+          "hint": "Plain glass, or one of the CNC-cut patterns a roof light is usually specified with. The cut is drawn, not modelled — set Light transmission separately to say how much light it actually blocks."
+        },
+        {
+          "key": "pitch",
+          "label": "Pattern size (ft)",
+          "type": "number",
+          "min": 0.2,
+          "max": 6,
+          "step": 0.1,
+          "hint": "How big one repeat of the cut is, in real feet — so a bigger panel gets more of the pattern rather than a magnified copy of it."
+        },
         {
           "key": "w",
           "label": "Width (ft)",

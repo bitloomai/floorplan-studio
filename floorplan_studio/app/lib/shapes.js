@@ -1566,11 +1566,127 @@
       ];
     },
 
+    /* ---- glazing / skylight ----
+     *
+     * One aperture, not a fitting. Three things were wrong with the four lines
+     * this replaces.
+     *
+     * It painted from `c.t.apertureGlass` — a THEME token — and ignored `c.fill`
+     * and `c.line`, which is what a colour scheme resolves into. So every
+     * scheme produced an identical picture and the whole feature was dead here.
+     * The default is restored through the type's own `render.fill`/`render.line`
+     * (both `@apertureGlass` in the library), which is where a default belongs:
+     * with no scheme it draws exactly as it always did, and with one it takes
+     * the scheme's colours like every other piece of furniture.
+     *
+     * It also drew an unconditional corner-to-corner diagonal, which on a long
+     * thin panel reads as a light fitting rather than as a hole in the roof.
+     * A skylight is one whole light; the diagonal is gone.
+     *
+     * `variant` is what a panel is CUT like — the CNC-cut jaali patterns that
+     * are the usual reason a roof light is not plain glass. Every motif is drawn
+     * at a PHYSICAL `pitch` in feet rather than as a fraction of the panel, so
+     * enlarging the panel adds more of the pattern instead of magnifying it; a
+     * pattern that scales with its panel is a picture of a pattern.
+     *
+     * Nothing here clips. `Shapes.furniture` returns a flat node list with no
+     * defs channel, so a `clipPath` is not available and adding one would change
+     * the signature every furniture drawer shares. Instead the motif is laid
+     * inside a small margin and only whole cells are emitted, which is also what
+     * a real cut panel looks like — a pattern inside a frame. */
     glazing(c) {
-      return [
-        { tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: c.H, fill: c.t.apertureGlass, opacity: 0.2, stroke: c.t.apertureGlass, 'stroke-width': 1.4 } },
-        { tag: 'line', attrs: { x1: c.X, y1: c.Y, x2: c.X + c.W, y2: c.Y + c.H, stroke: c.t.apertureGlass, 'stroke-width': 0.8, opacity: 0.6 } },
-      ];
+      const look = c.p.variant || 'plain';
+      const ink = { fill: 'none', stroke: c.line, 'stroke-width': 1, opacity: 0.55 };
+      const nodes = [{ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: c.H, fill: c.fill, opacity: 0.22, stroke: c.line, 'stroke-width': 1.4 } }];
+      if (look === 'plain') return nodes;
+
+      /* A motif smaller than a few pixels is grey mush at plan scale, and a
+       * huge panel at a fine pitch is thousands of nodes nobody can see. Both
+       * ends are clamped rather than trusted. */
+      const pitch = Math.max(5, c.P.S(num(c.p.pitch, 1)));
+      const pad = Math.min(c.W, c.H) * 0.07;
+      const x0 = c.X + pad, y0 = c.Y + pad;
+      const x1 = c.X + c.W - pad, y1 = c.Y + c.H - pad;
+      const iw = x1 - x0, ih = y1 - y0;
+      if (iw < 4 || ih < 4) return nodes;
+      const MAX = 400;
+      const line = (a, b, d, e) => nodes.push({ tag: 'line', attrs: Object.assign({ x1: a, y1: b, x2: d, y2: e }, ink) });
+      const path = (d) => nodes.push({ tag: 'path', attrs: Object.assign({ d }, ink) });
+
+      if (look === 'grid') {
+        for (let x = x0 + pitch; x < x1 - 0.5 && nodes.length < MAX; x += pitch) line(x, y0, x, y1);
+        for (let y = y0 + pitch; y < y1 - 0.5 && nodes.length < MAX; y += pitch) line(x0, y, x1, y);
+      } else if (look === 'diagonal') {
+        /* A diamond lattice: 45 degrees both ways. Each line is clipped to the
+         * panel arithmetically — there is no clip path to lean on. */
+        const step = pitch * Math.SQRT2;
+        const down = (k) => {
+          const ax = Math.max(x0, x0 + k), bx = Math.min(x1, x0 + k + ih);
+          if (bx - ax < 1) return;
+          line(ax, y0 + (ax - x0 - k), bx, y0 + (bx - x0 - k));
+        };
+        const up = (k) => {
+          const ax = Math.max(x0, x0 + k), bx = Math.min(x1, x0 + k + ih);
+          if (bx - ax < 1) return;
+          line(ax, y1 - (ax - x0 - k), bx, y1 - (bx - x0 - k));
+        };
+        for (let k = -ih; k < iw && nodes.length < MAX; k += step) { down(k); up(k); }
+      } else if (look === 'chevron') {
+        const amp = Math.min(pitch, ih / 3);
+        const mid = (x0 + x1) / 2;
+        for (let y = y0; y < y1 - amp && nodes.length < MAX; y += pitch) {
+          path(`M ${x0} ${y} L ${mid} ${y + amp} L ${x1} ${y}`);
+        }
+      } else if (look === 'starburst') {
+        /* One centred motif rather than a tiling — a rose window reads as a
+         * single figure, and repeating it would make it something else. */
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        const rad = Math.min(iw, ih) / 2;
+        const spokes = Math.max(8, Math.min(24, Math.round((2 * Math.PI * rad) / pitch)));
+        for (let i = 0; i < spokes; i++) {
+          const a = (i * 2 * Math.PI) / spokes;
+          line(cx, cy, cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+        }
+        for (const f of [0.4, 0.72]) nodes.push({ tag: 'ellipse', attrs: Object.assign({ cx, cy, rx: rad * f, ry: rad * f }, ink) });
+      } else {
+        /* The tiled motifs share one cell walk, so a hexagon and a quatrefoil
+         * are the same loop with a different stamp. Only whole cells are laid. */
+        const hex = look === 'hexagon';
+        const cw = hex ? pitch * 1.5 : pitch;
+        const ch = hex ? pitch * Math.sqrt(3) : pitch;
+        const cols = Math.floor(iw / cw), rows = Math.floor(ih / ch);
+        if (cols < 1 || rows < 1) return nodes;
+        const ox = x0 + (iw - cols * cw) / 2, oy = y0 + (ih - rows * ch) / 2;
+        for (let j = 0; j < rows && nodes.length < MAX; j++) {
+          for (let i = 0; i < cols && nodes.length < MAX; i++) {
+            const cx = ox + cw * (i + 0.5) + (hex && j % 2 ? cw / 2 : 0);
+            const cy = oy + ch * (j + 0.5);
+            if (hex && cx + pitch / 2 > x1) continue;
+            const r = pitch * 0.5;
+            if (hex) {
+              const pts = [];
+              for (let k = 0; k < 6; k++) {
+                const a = (k * Math.PI) / 3;
+                pts.push(`${(cx + Math.cos(a) * r).toFixed(2)} ${(cy + Math.sin(a) * r).toFixed(2)}`);
+              }
+              path(`M ${pts.join(' L ')} Z`);
+            } else if (look === 'arabesque') {
+              /* Interlocking circles on a square grid — the commonest jaali
+               * lattice, and the overlap is what makes it read as woven
+               * rather than as a row of rings. */
+              nodes.push({ tag: 'circle', attrs: Object.assign({ cx, cy, r: r * 1.18 }, ink) });
+            } else {
+              /* floral — a four-petal quatrefoil. */
+              const q = r * 0.62;
+              path(`M ${cx} ${cy - r} Q ${cx + q} ${cy - q} ${cx + r} ${cy}`
+                + ` Q ${cx + q} ${cy + q} ${cx} ${cy + r}`
+                + ` Q ${cx - q} ${cy + q} ${cx - r} ${cy}`
+                + ` Q ${cx - q} ${cy - q} ${cx} ${cy - r} Z`);
+            }
+          }
+        }
+      }
+      return nodes;
     },
 
     /* Beams one way, joists the other. */
@@ -2857,12 +2973,48 @@
     },
     pins3: (c) => {
       const u = c.R / 10;
-      return [body(c), rect(c, c.cx - 3.6 * u, c.cy - 3.4 * u, 7.2 * u, 6.8 * u, { rx: 1.2 * u }), ln(c, c.cx, c.cy - 2.2 * u, c.cx, c.cy - 0.4 * u, 1.4), ln(c, c.cx - 1.9 * u, c.cy + 0.6 * u, c.cx - 1.9 * u, c.cy + 2.2 * u, 1.4), ln(c, c.cx + 1.9 * u, c.cy + 0.6 * u, c.cx + 1.9 * u, c.cy + 2.2 * u, 1.4)];
+      return face(c, [body(c), rect(c, c.cx - 3.6 * u, c.cy - 3.4 * u, 7.2 * u, 6.8 * u, { rx: 1.2 * u }), ln(c, c.cx, c.cy - 2.2 * u, c.cx, c.cy - 0.4 * u, 1.4), ln(c, c.cx - 1.9 * u, c.cy + 0.6 * u, c.cx - 1.9 * u, c.cy + 2.2 * u, 1.4), ln(c, c.cx + 1.9 * u, c.cy + 0.6 * u, c.cx + 1.9 * u, c.cy + 2.2 * u, 1.4)]);
     },
     ev: (c) => {
       const u = c.R / 10;
-      return [boxBody(c, c.R * 1.3, c.R * 1.9, 1.4 * u), mk('circle', { cx: c.cx, cy: c.cy - 2 * u, r: 2 * u, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }), d(c, `M ${c.cx - 2.6 * u} ${c.cy + 2 * u} q ${2.6 * u} ${3.4 * u} ${5.2 * u} 0`, 1.2)];
+      return face(c, [boxBody(c, c.R * 1.3, c.R * 1.9, 1.4 * u), mk('circle', { cx: c.cx, cy: c.cy - 2 * u, r: 2 * u, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }), d(c, `M ${c.cx - 2.6 * u} ${c.cy + 2 * u} q ${2.6 * u} ${3.4 * u} ${5.2 * u} 0`, 1.2)]);
     },
+
+    /* A smart plug is a compact BODY on the wall, and the three shapes actually
+     * sold are a round puck, a rounded square and a rounded slab. The generic
+     * disc above said none of that, so a plan full of them read as a plan full
+     * of identical dots.
+     *
+     * The status light is drawn as a rim or a corner pip rather than by
+     * recolouring the whole body: these are the one device class you routinely
+     * place several of in a row, and a row of solid blobs cannot say which one
+     * is switched. Every variant turns with `facing`, which is what finally
+     * makes `device.plug`'s long-declared `rot` mean something.
+     *
+     * Corner radius is ~0.22R throughout — enough to read as "rounded edges" at
+     * plan scale without collapsing into a circle. */
+    puck: (c) => face(c, [
+      mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.94, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
+      mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.64, fill: 'none', stroke: c.on ? c.accent : c.glyph, 'stroke-width': 1.5, opacity: c.on ? 0.95 : 0.45 }),
+      dot(c, c.cx, c.cy + c.R * 0.4, c.R * 0.13),
+    ]),
+    square: (c) => face(c, [
+      boxBody(c, c.R * 1.72, c.R * 1.72, c.R * 0.22),
+      rect(c, c.cx - c.R * 0.46, c.cy - c.R * 0.44, c.R * 0.92, c.R * 0.88, { rx: c.R * 0.1 }),
+      ln(c, c.cx, c.cy - c.R * 0.3, c.cx, c.cy - c.R * 0.06, 1.3),
+      ln(c, c.cx - c.R * 0.24, c.cy + c.R * 0.08, c.cx - c.R * 0.24, c.cy + c.R * 0.32, 1.3),
+      ln(c, c.cx + c.R * 0.24, c.cy + c.R * 0.08, c.cx + c.R * 0.24, c.cy + c.R * 0.32, 1.3),
+      dot(c, c.cx + c.R * 0.6, c.cy - c.R * 0.6, c.R * 0.13, c.on ? c.accent : c.glyph),
+    ]),
+    usb: (c) => face(c, [
+      boxBody(c, c.R * 1.72, c.R * 1.72, c.R * 0.22),
+      rect(c, c.cx - c.R * 0.44, c.cy - c.R * 0.54, c.R * 0.88, c.R * 0.6, { rx: c.R * 0.08 }),
+      /* Two ports along the near edge — the half of one of these you actually
+       * reach for, and what separates it from a plain square at a glance. */
+      rect(c, c.cx - c.R * 0.48, c.cy + c.R * 0.26, c.R * 0.38, c.R * 0.17, { rx: c.R * 0.05 }),
+      rect(c, c.cx + c.R * 0.1, c.cy + c.R * 0.26, c.R * 0.38, c.R * 0.17, { rx: c.R * 0.05 }),
+      dot(c, c.cx + c.R * 0.6, c.cy - c.R * 0.6, c.R * 0.13, c.on ? c.accent : c.glyph),
+    ]),
   };
 
   /* ---- power ---- */
@@ -3791,6 +3943,9 @@
     wc: ['close_coupled', 'wall_hung', 'back_to_wall', 'squat'],
     basin: ['counter_top', 'under_counter', 'pedestal', 'wall_hung'],
     shower: ['square', 'quadrant', 'walk_in', 'wet_room'],
+    /* How the panel is CUT. `plain` is glass; the rest are the CNC-cut jaali
+     * patterns a roof light is usually specified with here. */
+    glazing: ['plain', 'grid', 'diagonal', 'chevron', 'hexagon', 'arabesque', 'floral', 'starburst'],
   };
   function furnitureVariantsOf(shape) {
     return FURNITURE_VARIANTS[shape] || [];
