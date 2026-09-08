@@ -563,6 +563,26 @@ window.PanelsDashboard = (function () {
     ...[['moreInfo', 'Opens its Home Assistant dialog'], ['controls', 'Opens its room’s popup'], ['none', 'Does nothing']]
       .map(([v, l]) => h('option', { value: v, selected: (openOn.markerHold || defOpen.markerHold || 'moreInfo') === v }, l))),
     'On a wall tablet, “does nothing” stops a resting hand opening dialogs.'));
+    /* The other half of the same question, and the reason it exists: with
+     * holding set to “does nothing”, a tap that only ever toggled left no way
+     * to open an entity at all.
+     *
+     * The first option's wording states the RULE rather than the answer for
+     * whichever hold setting happens to be chosen right now. `setGroup` writes
+     * and nothing rebuilds this dialog, so a label computed from the picker
+     * above it would still read "holding does nothing" after somebody had
+     * changed holding back — a stale label being worse than a general one. */
+    body.appendChild(field('Tapping a marker', h('select', {
+      onchange: (e) => setGroup('openOn', 'markerTap', e.target.value),
+    },
+    ...[['auto', 'Switches it on or off — or opens it, if holding does nothing'],
+      ['action', 'Always switches it on or off'],
+      ['moreInfo', 'Opens its Home Assistant dialog'],
+      ['controls', 'Opens its room’s popup'],
+      ['none', 'Does nothing']]
+      .map(([v, l]) => h('option', { value: v, selected: (openOn.markerTap || defOpen.markerTap || 'auto') === v }, l))),
+    'The first option follows the hold setting above. It matters on a wall tablet: '
+    + 'with holding set to do nothing, a tap that only switched would leave no way to open an entity at all.'));
 
     body.appendChild(h('div', { class: 'subhead' }, 'Closing it again'));
     flag('dismiss', dismiss, defDismiss, 'retap', 'Tapping the same room again closes it');

@@ -7,11 +7,75 @@
   const $ = (id) => document.getElementById(id);
   let saveTimer = null;
 
-  function markSaved(saved) {
-    S.dirty = !saved;
+  /* ---------- saving, and saying so ----------
+   *
+   * Autosave and a dirty flag both existed; what did not was any answer to
+   * "do I have to press this?". The state lived in a 12px grey span at the far
+   * left of the top bar — several controls away from the button it describes,
+   * and inside the group that collapses into the ⋯ drawer on a tablet — while
+   * the button itself looked identical from load to unload.
+   *
+   * So the state goes ON the button, which is where the question is asked, and
+   * `disabled` carries the answer: a Save you cannot press is a Save you do not
+   * need to press. The span keeps the one thing a button cannot say — WHEN it
+   * last saved.
+   *
+   * Four states, and `error` is the one that matters most: an autosave that
+   * failed silently is worse than no autosave, because the dirty flag is the
+   * only thing standing between you and a closed tab. */
+  const SAVE_UI = {
+    clean: { label: 'Saved', disabled: true, cls: '' },
+    dirty: { label: 'Save', disabled: false, cls: 'primary' },
+    saving: { label: 'Saving…', disabled: true, cls: 'primary saving' },
+    error: { label: 'Retry save', disabled: false, cls: 'danger' },
+  };
+  let saveState = 'clean';
+  let savedAt = null;
+
+  function setSaveState(next) {
+    saveState = next;
+    S.dirty = next === 'dirty' || next === 'error';
+    const btn = $('btnSave');
+    const ui = SAVE_UI[next];
+    btn.textContent = ui.label;
+    btn.disabled = ui.disabled;
+    btn.className = 'btn ' + ui.cls;
+    btn.title = next === 'dirty'
+      ? (autosaveOn() ? 'Unsaved changes — saving automatically in a moment  (Ctrl/Cmd+S saves now)' : 'Unsaved changes  (Ctrl/Cmd+S)')
+      : next === 'error' ? 'The last save failed. Press to try again.'
+        : next === 'saving' ? 'Saving…' : 'Everything is saved';
+    /* The timestamp, not the state: two people reading "saved" cannot tell a
+     * save from a minute ago from one from an hour ago, and that is exactly
+     * the doubt this whole change exists to remove. */
     const el = $('saveState');
-    el.textContent = saved ? 'saved' : 'unsaved changes';
-    el.classList.toggle('dirty', !saved);
+    el.textContent = next === 'error' ? 'save failed'
+      : next === 'saving' ? 'saving…'
+        : savedAt ? 'saved ' + savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : next === 'dirty' ? 'unsaved changes' : 'saved';
+    el.classList.toggle('dirty', next === 'dirty' || next === 'error');
+  }
+
+  /* Edits are counted so a save can tell whether it wrote the CURRENT document.
+   * Marking the project clean after an await was always slightly wrong — an
+   * edit made while the request was in flight is not in what the server just
+   * stored — but it was invisible while the button never changed. Disabling
+   * Save on the strength of it would turn that into "I typed something and the
+   * editor says there is nothing to save", so the count is checked. */
+  let editSeq = 0;
+
+  /* Kept as the old name so every existing caller reads the same. */
+  function markSaved(saved) {
+    if (saved) savedAt = new Date();
+    else editSeq++;
+    setSaveState(saved ? 'clean' : 'dirty');
+  }
+
+  /* Whether the editor saves on its own. A house belongs to whoever is editing
+   * it, not to one browser: two people on one plan should not disagree about
+   * whether their edits are being written, so this lives on the PROJECT rather
+   * than in localStorage the way `advanced` deliberately does. */
+  function autosaveOn() {
+    return ((S.project || {}).dashboard || {}).autosave !== false;
   }
 
   /* Autosave, debounced. The explicit Save button exists anyway: an autosave
@@ -19,15 +83,29 @@
    * made it, which is exactly the anxiety this tool is supposed to remove. */
   function scheduleSave() {
     clearTimeout(saveTimer);
+    if (!autosaveOn()) return;
     saveTimer = setTimeout(save, 1500);
   }
 
   async function save() {
     clearTimeout(saveTimer);
+    /* A save already in flight must not be joined by a second one: the two
+     * would race to write the same document and the loser's toast would fire
+     * over a state that had already moved on. */
+    if (saveState === 'saving') return;
+    const sentAt = editSeq;
+    setSaveState('saving');
     try {
       await API.saveProject(S.project);
-      markSaved(true);
+      /* Only clean if nothing changed while the write was in flight. If
+       * something did, the newer edit is still unsaved and says so. */
+      if (editSeq === sentAt) markSaved(true);
+      else { savedAt = new Date(); setSaveState('dirty'); scheduleSave(); }
     } catch (e) {
+      /* The button carries the failure now, so the toast is the detail rather
+       * than the only notice — and `S.dirty` stays true, which is what keeps
+       * `beforeunload` guarding the tab. */
+      setSaveState('error');
       Panels.toast('Could not save: ' + e.message, true);
     }
   }
@@ -268,6 +346,20 @@
      * thing you click. */
     $('advancedMode').checked = S.advanced;
     $('advancedMode').addEventListener('change', (e) => Store.setAdvanced(e.target.checked));
+
+    $('autosaveToggle').checked = autosaveOn();
+    $('autosaveToggle').addEventListener('change', (e) => {
+      Store.mutate(() => {
+        S.project.dashboard = S.project.dashboard || {};
+        /* Absent means on, so the default costs no bytes in the document and
+         * an older project keeps behaving as it always has. */
+        if (e.target.checked) delete S.project.dashboard.autosave;
+        else S.project.dashboard.autosave = false;
+      }, 'autosave');
+      /* Turning it ON should write the change it just made rather than waiting
+       * for the next edit; turning it OFF should cancel the pending write. */
+      if (e.target.checked) scheduleSave(); else clearTimeout(saveTimer);
+    });
 
     $('snapToggle').addEventListener('change', (e) => { S.view.snap = e.target.checked; });
     $('gridToggle').addEventListener('change', (e) => { S.view.showGrid = e.target.checked; Canvas.paint(); });

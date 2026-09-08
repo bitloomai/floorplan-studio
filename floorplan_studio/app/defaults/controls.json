@@ -173,7 +173,8 @@
   "default": {
     "enabled": true,
     "design": "sheet",
-    "openOn": { "chipTap": true, "floorTap": true, "chipHold": "allOn", "markerHold": "moreInfo" },
+    "_openOn_comment": "What a tap and a hold DO. `markerHold` has always been settable (moreInfo | controls | none); `markerTap` is its other half and used to be hard-coded to the domain action. That left one plan unreachable: with markerHold \"none\" — a wall tablet, where a resting hand must not open dialogs — nothing could open an entity's own dialog at all. `markerTap` values: `auto` (the default: run the domain action, but open more-info when markerHold is \"none\", because with no hold there is nothing else that can), `action` (always the domain action, which is what this did before markerTap existed), `moreInfo`, `controls`, `none`. A type's own render.tapAction \"moreInfo\" still beats all of these, so a label bound to a light can never toggle it.",
+    "openOn": { "chipTap": true, "floorTap": true, "chipHold": "allOn", "markerHold": "moreInfo", "markerTap": "auto" },
     "dismiss": { "close": true, "backdrop": true, "escape": true, "grabBar": true, "retap": true },
     "header": {
       "show": true,

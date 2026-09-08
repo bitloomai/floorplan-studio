@@ -44,3 +44,20 @@ here changes a project file, not your house.
 **The editor and this app's MCP server share one project.** If an assistant is
 editing alongside you, its changes appear on your canvas as they happen. There
 is no separate draft.
+
+## Do you have to press Save?
+
+Normally no. The editor writes your changes a moment after you stop making them,
+and the Save button says which of four things is true: **Save** means there are
+changes not yet written, **Saving…** means it is writing, **Saved** is greyed out
+because there is nothing to do, and **Retry save** means the last write failed
+and your changes are still only in this tab. Beside it, the time of the last
+successful save.
+
+So a greyed-out button is the answer to "do I need to save?" — no. Ctrl/Cmd+S
+still writes immediately whenever you want it to.
+
+Turn **Autosave** off in the top bar and the button becomes the only way to
+write. That setting belongs to the house rather than to your browser, so
+everyone editing the same plan agrees about whether it is on. Either way, closing
+the tab with unsaved changes still warns you first.

@@ -741,12 +741,30 @@ class FpsFloorplanCard extends HTMLElement {
     }
     const type = PlanScene.resolveType(FPS_DATA.library, it) || {};
     if ((type.render || {}).tapAction === 'moreInfo') return this.moreInfo(it.entity);
+
+    /* What a TAP does, which is a per-house choice for the same reason a hold
+     * is. It used to be hard-coded to the domain action, and that left one
+     * configuration with no way in at all: a plan with `markerHold: "none"` —
+     * a wall tablet, where a resting hand must not open dialogs — could toggle
+     * a light but could never open it.
+     *
+     * `auto` is the default and the fix: run the action, unless holding does
+     * nothing, in which case a tap is the only gesture left and opening is
+     * more useful than toggling. Everything else is named outright. */
+    const tapRoom = this.roomOf(it);
+    const tapCfg = tapRoom ? Controls.resolve(FPS_DATA.controls, FPS_DATA.project, this._floor, tapRoom) : {};
+    const openOn = tapCfg.openOn || {};
+    const tapMode = openOn.markerTap || 'auto';
+    if (tapMode === 'none') return undefined;
+    if (tapMode === 'moreInfo') return this.moreInfoForItem(id);
+    if (tapMode === 'controls') return this.toggleControls(this.roomIdOf(it), false, 'floor');
+    if (tapMode === 'auto' && (openOn.markerHold || 'moreInfo') === 'none') return this.moreInfoForItem(id);
     /* In a GANGED room the lamps share one physical switch, so tapping either
      * marker has to act on all of them — drawing two independently tappable
      * markers and then switching one would be a lie about the wiring. The
      * room's master group is used when it has one, since that is what the
      * house's own automations act on. */
-    const room = this.roomOf(it);
+    const room = tapRoom;
     if (room && room.ganged && (it.kind || 'fixture') === 'fixture') {
       const ids = this.roomTarget(room);
       /* Read "is the room lit" from the markers, not from the call list: the

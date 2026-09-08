@@ -350,7 +350,8 @@
         "beam": 2.4,
         "kelvin": 3000,
         "variant": "recessed",
-        "size": 7
+        "size": 7,
+        "rot": 0
       },
       "props": [
         {
@@ -403,6 +404,15 @@
             "cob"
           ],
           "variantFamily": "spot"
+        },
+        {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5,
+          "hint": "Only the adjustable look is drawn aimed — a recessed, surface or COB trim ring is round from below and looks the same at any angle."
         },
         {
           "key": "size",
@@ -652,7 +662,8 @@
         "beam": 2.8,
         "kelvin": 2700,
         "variant": "torchiere",
-        "size": 8.5
+        "size": 8.5,
+        "rot": 0
       },
       "props": [
         {
@@ -664,6 +675,14 @@
             "arc"
           ],
           "variantFamily": "floor_lamp"
+        },
+        {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5
         },
         {
           "key": "watt",
@@ -15398,6 +15417,15 @@
           "variantFamily": "garden_spike"
         },
         {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5,
+          "hint": "Only the spiked look is drawn aimed; a flush well light is round from above."
+        },
+        {
           "key": "watt",
           "label": "Watts each",
           "type": "number",
@@ -15451,7 +15479,8 @@
         "kelvin": 2700,
         "spread": 5,
         "variant": "spot",
-        "size": 8.5
+        "size": 8.5,
+        "rot": 0
       }
     },
     "fixture.bollard": {
@@ -15501,6 +15530,14 @@
             "dome_top"
           ],
           "variantFamily": "bollard"
+        },
+        {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5
         },
         {
           "key": "watt",
@@ -15556,7 +15593,8 @@
         "kelvin": 3000,
         "spread": 7,
         "variant": "cylinder",
-        "size": 8.5
+        "size": 8.5,
+        "rot": 0
       }
     },
     "fixture.signage": {
@@ -15825,6 +15863,14 @@
           "variantFamily": "chandelier"
         },
         {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5
+        },
+        {
           "key": "watt",
           "label": "Watts each",
           "type": "number",
@@ -15878,7 +15924,8 @@
         "kelvin": 2700,
         "spread": 12,
         "variant": "classic",
-        "size": 8.5
+        "size": 8.5,
+        "rot": 0
       }
     },
     "fixture.pendant": {
@@ -15930,6 +15977,14 @@
             "cluster"
           ],
           "variantFamily": "pendant"
+        },
+        {
+          "key": "rot",
+          "label": "Facing (deg)",
+          "type": "number",
+          "min": 0,
+          "max": 359,
+          "step": 5
         },
         {
           "key": "watt",
@@ -15985,7 +16040,8 @@
         "kelvin": 2700,
         "spread": 6,
         "variant": "dome",
-        "size": 8.5
+        "size": 8.5,
+        "rot": 0
       }
     },
     "fixture.mirror_light": {

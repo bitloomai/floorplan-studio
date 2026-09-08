@@ -1661,9 +1661,89 @@ window.PanelsExtra = (function () {
       'Includes the opening position and any covering.',
       'Affects both daylight coming in and lamplight spilling out.'));
 
-    /* --- door behaviour --- */
+    /* --- state on the plan ---
+     *
+     * `openingState()` has always read `op.position` for an opening with no
+     * sensor and no motor, and what it returns is what the canvas, the exported
+     * plate and the deployed card all draw. But the control was labelled
+     * "Preview opening (%)", which reads as an editor aid rather than as the
+     * plan's own stored state, and it sat at the BOTTOM of the mechanism block
+     * — so it only existed for opening types that happened to match the
+     * mechanism style test, and you had to scroll past six other fields to find
+     * it. The setting was fine; nothing about it said what it was.
+     *
+     * Shut and open are the two answers anybody actually wants, so they are one
+     * click each rather than two ends of a slider nobody can land on exactly.
+     * Part open is the third and reveals the slider it needs. Blank clears the
+     * field back to the type's own default, the same way the swing arc and a
+     * boundary's range already spell inheritance.
+     *
+     * Whether the setting DOES anything is two questions, not one, and the old
+     * style test only asked the first: a swing door draws a moving leaf, and a
+     * type declaring `openTransmission` changes how much daylight comes through
+     * as it travels (`openingTransmission` reads the position only then). Eight
+     * of the twenty-seven shipped types do neither — a fixed window, a cased
+     * opening, an arch — and offering them an open/shut control would be a
+     * control that does nothing. */
+    const MOVES = /swing|slide|pocket|fold|telescopic|scissor|roll|sectional|tilt/;
     const style = (def.render && def.render.style) || '';
-    if (/swing|slide|pocket|fold|telescopic|scissor|roll|sectional|tilt/.test(style)) {
+    const drawsTravel = MOVES.test(style);
+    const lightsTravel = def.openTransmission !== undefined;
+    const boundTo = op.sensor || op.cover;
+
+    box.appendChild(h('div', { class: 'subhead' }, 'State on the plan'));
+    if (!drawsTravel && !lightsTravel) {
+      box.appendChild(h('p', { class: 'hint' },
+        `A ${(def.label || op.type).toLowerCase()} draws no moving leaf and lets the same light through either way, `
+        + 'so it has no open or shut state to set.'));
+    } else if (boundTo) {
+      const status = PlanScene.openingState(op, def, S.states || {});
+      box.appendChild(h('p', { class: 'hint' }, status.known
+        ? `Currently ${status.state} · ${Math.round(status.position * 100)}% open.`
+        : 'No reliable reading — the drawing falls back to the type default and the status pip is hollow.'));
+      box.appendChild(h('p', { class: 'hint' },
+        `The plan follows ${boundTo}, so there is nothing to set here. Clear the sensor and motor below to draw it by hand.`));
+    } else {
+      const pos = op.position !== undefined ? Number(op.position)
+        : op.open !== undefined ? (op.open ? 100 : 0)
+          : null;
+      const mode = pos === null ? '' : pos <= 0 ? 'shut' : pos >= 100 ? 'open' : 'part';
+      box.appendChild(field('Drawn as', h('select', {
+        onchange: (e) => Store.mutate(() => {
+          const v = e.target.value;
+          /* `open` is the older boolean spelling of the same fact. Whichever
+           * one this opening arrived with, it leaves with `position`, so two
+           * fields can never disagree about one leaf. */
+          delete op.open;
+          if (v === '') delete op.position;
+          else if (v === 'shut') op.position = 0;
+          else if (v === 'open') op.position = 100;
+          else op.position = pos !== null && pos > 0 && pos < 100 ? pos : 50;
+        }, 'opening state'),
+      },
+      h('option', { value: '', selected: mode === '' }, `Follow the type (${def.defaultOpen !== false ? 'open' : 'shut'})`),
+      h('option', { value: 'shut', selected: mode === 'shut' }, 'Shut'),
+      h('option', { value: 'part', selected: mode === 'part' }, 'Part open'),
+      h('option', { value: 'open', selected: mode === 'open' }, 'Open'))));
+      if (mode === 'part') {
+        box.appendChild(field(`How far open — ${Math.round(pos)}%`, h('input', {
+          type: 'range', min: 5, max: 95, step: 5, value: pos,
+          onchange: (e) => Store.mutate(() => { op.position = Number(e.target.value); }, 'opening state'),
+        })));
+      }
+      box.appendChild(settingHelp(
+        drawsTravel && lightsTravel
+          ? 'Saved with the plan: it is what the exported drawing and the dashboard card show, and it feeds the daylight model.'
+          : drawsTravel
+            ? 'Saved with the plan: it is what the exported drawing and the dashboard card show.'
+            : 'Saved with the plan. This type draws no moving leaf, so it changes the daylight through the opening rather than the drawing.',
+        'This is the plan’s state, not a preview',
+        'It is stored on the opening, travels in the export, and is baked into the generated card.',
+        'A contact sensor or motor entity overrides it — a live reading always wins.'));
+    }
+
+    /* --- door behaviour --- */
+    if (drawsTravel) {
       box.appendChild(P().locationTitle('section:opening.mechanism'));
       if (/swing|fold/.test(style)) {
         box.appendChild(h('div', { class: 'field row' },
@@ -1719,14 +1799,10 @@ window.PanelsExtra = (function () {
         'Contact sensor: off means closed; on means open.',
         'Without a contact sensor, the motor reports its opening percentage.',
         'Unknown or unavailable readings use the type default and a hollow status pip. They do not confirm closure.'));
-      if (!op.sensor && !op.cover) {
-        box.appendChild(field('Preview opening (%)', h('input', {type:'range',min:0,max:100,step:5,
-          value:op.position ?? ((op.open ?? def.defaultOpen ?? true) ? 100 : 0),
-          onchange:(e)=>Store.mutate(()=>{op.position=Number(e.target.value);},'opening preview')})));
-      } else {
-        const status = PlanScene.openingState(op, def, S.states || {});
-        box.appendChild(h('p', {class:'hint'}, status.known ? 'Currently ' + status.state + ' · ' + Math.round(status.position * 100) + '% open' : 'No reliable reading — preview uses the type default.'));
-      }
+      /* What this opening is DRAWN as, bound or not, is settled once in "State
+       * on the plan" above. It used to be repeated here as a "Preview" slider
+       * and a status line, which is how one fact ended up with two controls
+       * that could be read as disagreeing. */
     }
 
     /* A bay projects out of the wall it sits in, and how far was a number the

@@ -251,6 +251,27 @@ input[type=checkbox], input[type=radio] {
 :is(.inspector, #modalBody) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select) { min-height: 32px; }
 :is(input, select, textarea, button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn:disabled { opacity: .45; cursor: default; }
+
+/* The Save button carries its own state, so "nothing to do" has to LOOK like
+ * nothing to do rather than like a button waiting to be pressed. A disabled
+ * button that still lights up under the cursor says the opposite. */
+.btn:disabled:hover { border-color: var(--panelBorder); }
+
+/* Saving: a hairline that travels, drawn in CSS rather than as a spinner
+ * glyph — ⏳ and friends are tofu boxes on Windows and Android, which is why
+ * nothing in this editor draws a Unicode symbol it can draw instead. */
+.btn.saving { position: relative; overflow: hidden; }
+.btn.saving::after {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 2px; width: 40%;
+  background: var(--accentInk); opacity: .85; animation: fps-saving 1.1s ease-in-out infinite;
+}
+@keyframes fps-saving {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.saving::after { animation: none; width: 100%; opacity: .5; }
+}
 .inspector .hint, #modalBody .hint { line-height: 1.55; margin: 6px 0 12px; }
 .setting-help { margin: 6px 0 14px; padding: 9px 11px; border-left: 2px solid var(--panelBorder); font-size: 12px; color: var(--inkSoft); }
 .setting-help > p { margin: 0; line-height: 1.5; }

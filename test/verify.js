@@ -653,6 +653,67 @@ for (const fam of Shapes.names.families) {
   }
 }
 ok('no two variants of a family draw the same thing', sameDrawing.length === 0, sameDrawing.join(', '));
+
+/* ---- facing ----
+ *
+ * A bollard lines a path and a floor lamp's arc reaches to one side, but
+ * neither could be turned: the drawers ignored `facing` and the library types
+ * declared no `rot`, so the canvas never drew a rotate handle and the keyboard
+ * answered "has no facing to set".
+ *
+ * The two halves fail independently and each looks like the other's fault — a
+ * prop with no drawer reading it is a control that does nothing, and a drawer
+ * reading a prop nothing declares is a drawing nobody can reach. So the
+ * invariant is asserted rather than the six types: ANY family that draws
+ * differently at 90 degrees must have `rot` on every library type naming it.
+ * That is what stops this returning the next time a family is added.
+ */
+const faceCtx = (facing) => ({
+  cx: 0, cy: 0, R: 10, fill: 'none', line: '#000', glyph: '#000', accent: '#111',
+  facing, on: false, pct: 50, gangs: null, bright: 1, p: {},
+});
+const familyTurns = {};
+for (const fam of Shapes.names.families) {
+  familyTurns[fam] = Shapes.variantsOf(fam).some((v) => JSON.stringify(Shapes.marker(fam, v, faceCtx(0)))
+    !== JSON.stringify(Shapes.marker(fam, v, faceCtx(90))));
+}
+{
+  const missing = [];
+  for (const [k, t] of Object.entries(lib.types)) {
+    const fam = t.render && t.render.family;
+    if (!fam || !Shapes.MARKERS[fam]) continue;
+    if (familyTurns[fam] && !(t.props || []).some((p) => p && p.key === 'rot')) missing.push(`${k} (${fam})`);
+  }
+  ok('every type whose marker family can be turned offers a facing',
+    missing.length === 0, missing.join(', ') || `${Object.values(familyTurns).filter(Boolean).length} directional families`);
+}
+
+/* The six that could not be turned before. Named individually as well as
+ * covered by the invariant above, because the invariant would also pass if
+ * somebody made these families stop responding to facing. */
+for (const key of ['fixture.bollard', 'fixture.garden_spike', 'fixture.floor_lamp',
+  'fixture.chandelier', 'fixture.pendant', 'fixture.spot']) {
+  const t = lib.types[key];
+  ok(`${key} has a facing to set`,
+    !!t && (t.props || []).some((p) => p && p.key === 'rot') && (t.defaults || {}).rot === 0);
+}
+
+/* Turning one has to move the drawing, and move it about the marker's own
+ * centre — a rotate about the wrong origin is still "different bytes" and
+ * still wrong, which is why the transform is read rather than just compared. */
+for (const fam of ['bollard', 'floor_lamp', 'pendant', 'chandelier']) {
+  for (const v of Shapes.variantsOf(fam)) {
+    const flat = JSON.stringify(Shapes.marker(fam, v, faceCtx(0)));
+    const turned = JSON.stringify(Shapes.marker(fam, v, faceCtx(90)));
+    ok(`${fam}.${v} is drawn aimed`, flat !== turned);
+    /* chandelier.classic bakes facing into each arm's own angle rather than
+     * wrapping the group, which is deliberate — a presentation transform would
+     * lose to the spin on families that animate. Both are "aimed"; only the
+     * wrapped ones carry the attribute. */
+    if (fam === 'chandelier' && v === 'classic') continue;
+    ok(`${fam}.${v} turns about its own centre`, /rotate\(90 0 0\)/.test(turned), turned.slice(0, 90));
+  }
+}
 /* ---- colour schemes ----
  *
  * A scheme paints an object without touching the theme. The three things worth
@@ -1768,6 +1829,69 @@ ok('gate transmission follows physical position through a compound wall', (() =>
   const trans=p=>scene.openingTransmission(op,boundaries,'compound_wall',{'cover.gate':{state:p?'open':'closed',attributes:{current_position:p}}});
   return trans(0)===0 && trans(50)===.5 && trans(100)===1;
 })());
+/* ---- a static opening's drawn state ----
+ *
+ * `op.position` on an opening with no sensor and no motor is the plan's own
+ * stored answer to "is this door drawn open or shut". It always worked; the
+ * inspector called it a "Preview" and hid it inside the mechanism block, so
+ * nobody found it. These pin the two facts the relabelled control now claims:
+ * that the setting reaches the drawing, and that a live reading still beats it.
+ */
+ok('a door with no sensor is drawn from its own stored state', (() => {
+  const shut = JSON.stringify(gateDrawing('door', { position: 0 }));
+  const open = JSON.stringify(gateDrawing('door', { position: 100 }));
+  const part = JSON.stringify(gateDrawing('door', { position: 50 }));
+  return shut !== open && part !== open && part !== shut;
+})());
+ok('the older open:true spelling still draws the same as position:100',
+  JSON.stringify(gateDrawing('door', { open: true })) === JSON.stringify(gateDrawing('door', { position: 100 })));
+ok('and a bound sensor overrides the stored state rather than blending with it', (() => {
+  const type = boundaries.openingTypes.door;
+  const s = scene.openingState({ sensor: 'binary_sensor.d', position: 100 }, type, { 'binary_sensor.d': { state: 'off' } });
+  return s.known && s.position === 0;
+})());
+
+/* The inspector offers an open/shut control only where one of these is true,
+ * so the classification is pinned here rather than in the panel: a type that
+ * gains `openTransmission` should start offering the control, and one that
+ * draws no leaf and passes the same light either way should never offer it.
+ * Getting this wrong in either direction is a control that lies. */
+ok('every opening type either travels, changes the light, or has no state to set', (() => {
+  const MOVES = /swing|slide|pocket|fold|telescopic|scissor|roll|sectional|tilt/;
+  const inert = [];
+  for (const [k, t] of Object.entries(boundaries.openingTypes || {})) {
+    const moves = MOVES.test((t.render && t.render.style) || '');
+    if (!moves && t.openTransmission === undefined) inert.push(k);
+  }
+  /* A fixed pane, a cased opening and an arch genuinely have no open state.
+   * The list is asserted whole so adding a type makes somebody decide which
+   * side of the line it sits on. */
+  return inert.join(',') === 'window,window_fixed,window_bay,clerestory,skylight,opening,arch,grill_vent';
+})(), 'the eight types with nothing to open');
+
+/* The setting is only "the plan's state" if it reaches what the plan becomes.
+ * The dashboard card bakes the project document, so a part-open door drawn in
+ * the editor is a part-open door on the wall tablet.
+ *
+ * The LEGACY spec exporter is a separate question and deliberately not asserted
+ * here: `openingOut` writes a fixed key list that carries `open` but has never
+ * carried `position`, so a part-open door degrades there. Extending an external
+ * format is a decision, not a bug fix — see the plan's findings. */
+ok('a stored opening state reaches the generated card', (() => {
+  const p = JSON.parse(JSON.stringify(project));
+  const floor = p.floors[0];
+  floor.openings = floor.openings || [];
+  const op = floor.openings.find((o) => /^door/.test(o.type || ''));
+  if (!op) return 'no door in the reference project';
+  op.position = 45;
+  delete op.sensor; delete op.cover;
+  /* Required locally: the file-level `cardBuild` is declared far below this
+   * point, and a const is not hoisted into use. */
+  const cb = require(path.join(APP, 'lib', 'card-build'));
+  const out = cb.build({ project: p, library: lib, themes, boundaries, flooring, controls: controlsDoc }, { version: 'test' });
+  return out.content.includes('"position":45');
+})());
+
 ok('opening help follows custom boundary labels and defaults', (() => {
   const help=require(path.join(APP,'lib','help'));
   const custom=JSON.parse(JSON.stringify(boundaries));custom.openingTypes.gate_swing.label='Test renamed gate';custom.openingTypes.gate_swing.props.w=17;
@@ -2772,6 +2896,28 @@ ok('a cut flight says UP or DN and a whole one does not',
   ok('and never overwrites what somebody set themselves',
     mine.find((p) => p.key === 'variant').label === 'My own label'
     && mine.find((p) => p.key === 'litres').spec === 'litres');
+
+  /* A facing added to the shipped library reaches an install that predates it,
+   * or the six lamps stay unturnable for everyone who already had the app —
+   * which is most of the point of fixing them. Both halves matter: the prop is
+   * what draws the handle, the default is what the renderer reads. */
+  const preFacing = {
+    schemaVersion: lib.schemaVersion,
+    types: {
+      'fixture.bollard': {
+        label: 'Bollard light', kind: 'fixture', category: 'lighting',
+        render: { family: 'bollard', variant: 'cylinder', size: 8.5, tap: 17 },
+        props: [{ key: 'variant', label: 'Look', type: 'select', options: ['cylinder'] }],
+        defaults: { variant: 'cylinder' },
+      },
+    },
+  };
+  const facingUp = store.upgradeDoc('library', preFacing).types['fixture.bollard'];
+  ok('an upgrade gives an older install the facing its lamps gained',
+    (facingUp.props || []).some((p) => p && p.key === 'rot') && facingUp.defaults.rot === 0,
+    (facingUp.props || []).map((p) => p.key).join(','));
+  ok('and the look list catches up with the variants drawn alongside it',
+    (facingUp.props.find((p) => p.key === 'variant').options || []).includes('dome_top'));
 }
 
 /* ------------------------------------------------------ full scene build */
@@ -3698,6 +3844,43 @@ ok('a tap circle is bigger than the disc it covers', (() => {
     heldMarker({}) === 'moreInfo:i'
       && heldMarker({ controls: { openOn: { markerHold: 'controls' } } }) === 'controls:r'
       && heldMarker({ controls: { openOn: { markerHold: 'none' } } }) === 'nothing');
+
+  /* markerTap: the other half, and the configuration that had no way in.
+   *
+   * With `markerHold: "none"` — a wall tablet, where a resting hand must not
+   * open dialogs — a tap that only ever ran the domain action meant NOTHING
+   * could open an entity's own dialog. `auto` reads the hold setting and fills
+   * that gap; every other value says outright what a tap is for. */
+  const tappedMarker = (roomCfg, type = 'bulb') => {
+    const card = makeCard(roomCfg);
+    card._floor.items = [{ id: 'i', kind: 'fixture', type, entity: 'light.x', at: [5, 5] }];
+    const seen = [];
+    card.moreInfoForItem = (id) => { seen.push('moreInfo:' + id); };
+    card.moreInfo = (e) => { seen.push('moreInfo:' + e); };
+    card.toggleControls = (id) => { seen.push('controls:' + id); };
+    card.call = (d, s) => { seen.push('call:' + d + '.' + s); };
+    card.isOn = () => false;
+    card.primaryForItem('i');
+    return seen.join('') || 'nothing';
+  };
+  ok('tapping a marker runs its domain action by default',
+    tappedMarker({}) === 'call:light.toggle', tappedMarker({}));
+  ok('and opens the entity instead when holding is set to do nothing',
+    tappedMarker({ controls: { openOn: { markerHold: 'none' } } }) === 'moreInfo:i',
+    tappedMarker({ controls: { openOn: { markerHold: 'none' } } }));
+  ok('“always switch” keeps the old behaviour even with holding off',
+    tappedMarker({ controls: { openOn: { markerHold: 'none', markerTap: 'action' } } }) === 'call:light.toggle');
+  ok('and a tap can be told to open, to open the room, or to do nothing',
+    tappedMarker({ controls: { openOn: { markerTap: 'moreInfo' } } }) === 'moreInfo:i'
+      && tappedMarker({ controls: { openOn: { markerTap: 'controls' } } }) === 'controls:r'
+      && tappedMarker({ controls: { openOn: { markerTap: 'none' } } }) === 'nothing');
+  /* The precedence that must not move: a label bound to a light opens it and
+   * never switches it, whatever a room says a tap is for. */
+  ok('a type that declares tapAction moreInfo still beats every tap setting',
+    tappedMarker({ controls: { openOn: { markerTap: 'action' } } }, 'label') === 'moreInfo:light.x',
+    tappedMarker({ controls: { openOn: { markerTap: 'action' } } }, 'label'));
+  ok('the shipped default names a tap setting, so the picker has something to show',
+    (((controlsDoc.default || {}).openOn || {}).markerTap) === 'auto');
 
   /* A design's own words for how tight it sits and how it arrives. Both were
    * declared by all seven designs and read by nothing, so every surface came

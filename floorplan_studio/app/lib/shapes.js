@@ -3361,29 +3361,34 @@
         const x = c.cx - w / 2 + 0.14 * w + t * 0.72 * w;
         nodes.push(bulbDot(c, x, c.cy + h / 2 - c.R * 0.08, c.R * 0.09));
       }
-      return nodes;
+      return face(c, nodes);
     },
   };
 
   /* ---- pendant ---- a light hung from a cord, the cord itself part of what
-   * says "hanging fixture" rather than "ceiling fixture" at a glance. */
+   * says "hanging fixture" rather than "ceiling fixture" at a glance.
+   *
+   * Every variant turns with `facing`. The cord enters from one side and the
+   * lamp sits off that axis, so a pendant over a run of worktop reads wrong
+   * unless it can be turned to follow it — and `cluster` is a LINE of fittings,
+   * where which way the line runs is most of the information. */
   MARKERS.pendant = {
-    dome: (c) => [
+    dome: (c) => face(c, [
       ln(c, c.cx, c.cy - c.R, c.cx, c.cy - c.R * 0.42, 1.2),
       mk('path', { d: `M ${c.cx - c.R * 0.78} ${c.cy - c.R * 0.1} A ${c.R * 0.78} ${c.R * 0.55} 0 0 1 ${c.cx + c.R * 0.78} ${c.cy - c.R * 0.1}`, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
       ln(c, c.cx - c.R * 0.78, c.cy - c.R * 0.1, c.cx + c.R * 0.78, c.cy - c.R * 0.1, 1.3),
       bulbDot(c, c.cx, c.cy + c.R * 0.14, c.R * 0.15),
-    ],
-    drum: (c) => [
+    ]),
+    drum: (c) => face(c, [
       ln(c, c.cx, c.cy - c.R, c.cx, c.cy - c.R * 0.5, 1.2),
       boxBody(c, c.R * 1.05, c.R * 0.85, c.R * 0.1),
       bulbDot(c, c.cx, c.cy + c.R * 0.42, c.R * 0.14),
-    ],
-    globe: (c) => [
+    ]),
+    globe: (c) => face(c, [
       ln(c, c.cx, c.cy - c.R, c.cx, c.cy - c.R * 0.6, 1.2),
       mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.6, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
       bulbDot(c, c.cx, c.cy, c.R * 0.24),
-    ],
+    ]),
     /* Several small pendants at staggered heights on one line — the kitchen-
      * island look, and `count` earns its keep again: this is one item on the
      * plan drawing several fittings, which is exactly what the lighting
@@ -3400,29 +3405,32 @@
         nodes.push(mk('circle', { cx: x, cy: c.cy + dy, r: c.R * 0.24, fill: c.fill, stroke: c.line, 'stroke-width': 1.2 }));
         nodes.push(bulbDot(c, x, c.cy + dy, c.R * 0.09));
       }
-      return nodes;
+      return face(c, nodes);
     },
   };
 
   /* ---- floor_lamp ---- a pole from the floor to a shade, drawn tall rather
-   * than round: at a glance this is the one fixture that isn't overhead. */
+   * than round: at a glance this is the one fixture that isn't overhead.
+   *
+   * Both variants turn with `facing`; `arc` reaches to ONE side, so which side
+   * is the whole reason you would put one behind a particular chair. */
   MARKERS.floor_lamp = {
-    torchiere: (c) => [
+    torchiere: (c) => face(c, [
       ln(c, c.cx, c.cy + c.R * 0.92, c.cx, c.cy - c.R * 0.35, 1.4),
       mk('ellipse', { cx: c.cx, cy: c.cy + c.R * 0.92, rx: c.R * 0.42, ry: c.R * 0.12, fill: 'none', stroke: c.line, 'stroke-width': 1.2 }),
       mk('path', { d: `M ${c.cx - c.R * 0.5} ${c.cy - c.R * 0.35} L ${c.cx - c.R * 0.28} ${c.cy - c.R * 0.88} L ${c.cx + c.R * 0.28} ${c.cy - c.R * 0.88} L ${c.cx + c.R * 0.5} ${c.cy - c.R * 0.35} Z`, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
       bulbDot(c, c.cx, c.cy - c.R * 0.6, c.R * 0.13),
-    ],
+    ]),
     /* A curved arm reaching up and over — the swept overhead shade is the
      * whole visual difference from a torchiere's straight pole. */
     arc: (c) => {
       const headX = c.cx + c.R * 0.55, headY = c.cy - c.R * 0.85;
-      return [
+      return face(c, [
         mk('ellipse', { cx: c.cx - c.R * 0.35, cy: c.cy + c.R * 0.92, rx: c.R * 0.4, ry: c.R * 0.11, fill: 'none', stroke: c.line, 'stroke-width': 1.2 }),
         mk('path', { d: `M ${c.cx - c.R * 0.35} ${c.cy + c.R * 0.9} Q ${c.cx - c.R * 0.35} ${c.cy - c.R * 0.7} ${headX} ${headY}`, fill: 'none', stroke: c.line, 'stroke-width': 1.4 }),
         mk('circle', { cx: headX, cy: headY, r: c.R * 0.24, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
         bulbDot(c, headX, headY, c.R * 0.1),
-      ];
+      ]);
     },
   };
 
@@ -3470,18 +3478,22 @@
   };
 
   /* ---- bollard ---- a short outdoor post light, drawn squat and grounded
-   * rather than round-and-floating like every ceiling fixture above. */
+   * rather than round-and-floating like every ceiling fixture above.
+   *
+   * Both variants turn with `facing`. A bollard lines a path, and a row of them
+   * along a curving drive that all point the same way is drawn wrong — the
+   * lit aperture and the post silhouette both have an axis. */
   MARKERS.bollard = {
-    cylinder: (c) => [
+    cylinder: (c) => face(c, [
       boxBody(c, c.R * 0.7, c.R * 1.75, c.R * 0.14),
       mk('rect', { x: c.cx - c.R * 0.32, y: c.cy - c.R * 0.08, width: c.R * 0.64, height: c.R * 0.4, rx: c.R * 0.06, fill: c.on ? c.accent : c.glyph, opacity: c.on ? 0.4 + 0.45 * num(c.bright, 1) : 0.4 }),
-    ],
+    ]),
     /* A domed cap head on a slim post — the mini street-lamp silhouette. */
-    dome_top: (c) => [
+    dome_top: (c) => face(c, [
       mk('line', { x1: c.cx, y1: c.cy + c.R * 0.85, x2: c.cx, y2: c.cy - c.R * 0.15, stroke: c.line, 'stroke-width': c.R * 0.22 }),
       mk('path', { d: `M ${c.cx - c.R * 0.4} ${c.cy - c.R * 0.15} A ${c.R * 0.4} ${c.R * 0.32} 0 0 1 ${c.cx + c.R * 0.4} ${c.cy - c.R * 0.15} Z`, fill: c.fill, stroke: c.line, 'stroke-width': c.on ? 1.6 : 1.2 }),
       bulbDot(c, c.cx, c.cy - c.R * 0.28, c.R * 0.13),
-    ],
+    ]),
   };
 
   /* ---- garden_spike ---- ground-mounted, so the spike itself is the detail

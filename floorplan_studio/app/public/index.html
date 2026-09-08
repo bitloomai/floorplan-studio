@@ -30,7 +30,10 @@
   </nav>
 
   <div class="topbar-actions">
-    <span id="saveState" class="save-state" role="status">saved</span>
+    <!-- The button beside this carries the STATE (and disables itself when
+         there is nothing to save); this carries the one thing a button cannot,
+         which is when the last save actually happened. -->
+    <span id="saveState" class="save-state" role="status" aria-live="polite">saved</span>
     <!-- Everything from here to the end of this div is `display: contents` on a
          wide screen — one flat row, exactly as it always was — and a dropdown
          under the ⋯ button when the bar would otherwise wrap into three rows on
@@ -43,6 +46,10 @@
            overrides — is here rather than gone, because a panel of forty fields
            teaches people to stop reading it. -->
       <label class="inline" title="Show every setting, including the ones most plans never touch"><input type="checkbox" id="advancedMode"> Advanced</label>
+      <!-- A property of the HOUSE, not of this browser: two people editing one
+           plan should not disagree about whether their edits are being written.
+           `advancedMode` above is the opposite case and is deliberately local. -->
+      <label class="inline" title="Write changes a moment after you stop editing. Turn it off and the Save button is the only way."><input type="checkbox" id="autosaveToggle" checked> Autosave</label>
       <select id="themePick" aria-label="Editor theme" title="Editor theme"></select>
       <button id="btnSun" class="btn" title="House location and daylight">☀ Sun</button>
       <button id="btnLighting" class="btn" title="How lamps light the plan">◐ Light</button>

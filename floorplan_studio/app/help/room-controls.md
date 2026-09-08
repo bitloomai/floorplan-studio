@@ -43,6 +43,23 @@ guess: a light toggles, a cover opens, a sensor opens more-info. The whole table
 is at the foot of this page, and in the editor under **Room controls → edit the
 house defaults…**.
 
+## Tapping and holding a marker
+
+Both are settable, and they are two halves of one question. **Holding a marker**
+opens the entity's Home Assistant dialog, opens its room's popup, or does
+nothing — that last one is for a wall tablet, where a resting hand should not
+open dialogs.
+
+**Tapping a marker** defaults to *switches it on or off*, and follows the hold
+setting: if holding is set to do nothing, a tap opens the dialog instead,
+because otherwise nothing on the plan could open one. Choose *Always switches
+it on or off* to keep switching even with holding off, or name a tap outright
+as opening the dialog, opening the room, or doing nothing.
+
+A library type that declares `tapAction: "moreInfo"` beats both settings. That
+is what stops a text label bound to a light switching the light when you only
+wanted to read it.
+
 ## Editing the defaults
 
 The house-wide starting point every room inherits — the header, which sections

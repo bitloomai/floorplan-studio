@@ -64,10 +64,22 @@ is supplied. Opening and closing states remain visible in the dashboard tooltip.
 Enable **Live states** in the editor's top bar to preview those readings on the
 canvas. The dashboard follows Home Assistant live automatically.
 
-Without either binding, Preview opening (%) sets the drawing. A missing,
-unknown or unavailable bound entity uses the type's default drawing with a
-hollow status pip and an unknown tooltip; it does not confirm that a gate is
-closed. A solid pip indicates a known reading. Tapping a bound opening opens
+Without either binding, **State on the plan** sets the drawing: Shut, Part open,
+Open, or Follow the type. This is stored on the opening, not a preview — it is
+what the exported plate and the generated dashboard card both draw, so a front
+door you want shown closed stays closed everywhere. Part open reveals a slider
+for how far. Binding a sensor or a motor replaces the setting with the live
+reading rather than blending with it.
+
+An opening only offers the setting when it has a state to be in. A type has one
+if it draws a moving leaf, or if it declares `openTransmission` and so lets
+different amounts of light through as it travels. A fixed pane, a cased opening
+and an arch do neither, and say so instead of offering a control that would
+change nothing.
+
+A missing, unknown or unavailable bound entity uses the type's default drawing
+with a hollow status pip and an unknown tooltip; it does not confirm that a gate
+is closed. A solid pip indicates a known reading. Tapping a bound opening opens
 Home Assistant's more-info dialog; tapping the plan does not operate the motor.
 
 ## Garage doors in plan view
