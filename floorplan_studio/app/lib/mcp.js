@@ -494,24 +494,29 @@ function editFloors(project, library, a) {
 }
 
 function editRooms(project, library, floor, a) {
+  const identity = require('./room-identity');
   floor.rooms = floor.rooms || [];
   if (a.op === 'add') {
     const v = a.value || {};
-    const id = a.id || uniqueSlug(v.name || `Room ${floor.rooms.length + 1}`, new Set(floor.rooms.map((r) => r.id)));
+    const id = a.id || v.id || identity.uniqueId(v.name || `Room ${floor.rooms.length + 1}`, new Set(floor.rooms.map((r) => r.id)));
     if (floor.rooms.some((r) => r.id === id)) throw new ToolError(`room "${id}" already exists on floor "${floor.id}"`);
     const room = Object.assign({
       id, name: v.name || id, shape: v.shape || 'rect', rect: v.shape === 'poly' ? null : (v.rect || null),
       points: v.shape === 'poly' ? (v.points || null) : null,
       floor: 'default', outdoor: false, noLabel: false, chip_at: null, chip_rotate: 0, part_of: null,
-    }, v, { id });
+    }, v, { id, _autoId: !a.id && !v.id });
     floor.rooms.push(room);
     return withSave(project, library, { added: id, room });
   }
   const room = floor.rooms.find((r) => r.id === a.id);
   if (!room) throw new ToolError(`no room "${a.id}" on floor "${floor.id}"`);
   if (a.op === 'update') {
-    Object.assign(room, a.value || {}, { id: room.id });
-    return withSave(project, library, { updated: room.id, room });
+    const { id, name, _autoId, ...rest } = a.value || {};
+    const renamed = name !== undefined || id !== undefined
+      ? identity.rename(project, floor, room, name === undefined ? room.name : name, id === undefined ? {} : { id })
+      : { oldId: room.id, id: room.id, changed: false };
+    Object.assign(room, rest);
+    return withSave(project, library, { updated: room.id, room, ...(renamed.changed ? { renamed } : {}) });
   }
   /* Mirrors canvas.js's deleteSelected: openings and boundary overrides on the
    * room go with it; items keep their (now stale) room label rather than
@@ -781,8 +786,11 @@ tool({
       const before = await haWrite.readConfig(session, urlPath);
       haWrite.assertOwnedConfig(urlPath, before, { allowMissing: dash.action === 'created' });
       if (before) await store.backupDashboard(urlPath, before);
+      const installedAt = new Date().toISOString();
+      project.dashboard = { ...project.dashboard, installedAt };
       config[haWrite.STAMP_KEY] = haWrite.stamp(project, { version: store.VERSION, urlPath, embedProject: a.embedProject !== false });
       const resource = await haWrite.installResource(session, card.content, urlPath);
+      await store.markProjectDeployed(project, installedAt);
       await haWrite.saveConfig(session, urlPath, config, urlPath, { previous: before, allowMissing: dash.action === 'created' });
       return { ok: true, urlPath, title: config.title, views: config.views.length, resource: resource.action, dashboard: dash.action, backedUp: !!before };
     } finally {

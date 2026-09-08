@@ -50,6 +50,15 @@ const FILES = {
  * them the shipped default and losing their configuration. */
 const LEGACY_RENAMES = { controls: 'popup.json' };
 
+async function readDeploymentHistory() {
+  try { return JSON.parse(await fsp.readFile(path.join(DATA_DIR, 'project-deployments.json'), 'utf8')); }
+  catch (e) { if (e.code === 'ENOENT') return {}; throw e; }
+}
+async function deploymentTime(id) {
+  const history = await readDeploymentHistory();
+  return Object.prototype.hasOwnProperty.call(history, id) ? history[id] : null;
+}
+
 function emptyProject() {
   return {
     schemaVersion: 1,
@@ -585,7 +594,22 @@ module.exports = {
   emptyProject,
   backupDashboard,
 
-  readProject: () => readDoc('project'),
+  async readProject() {
+    const project = await readDoc('project');
+    const installedAt = await deploymentTime(project.id);
+    if (installedAt) project.dashboard = { ...project.dashboard, installedAt };
+    return project;
+  },
+  async markProjectDeployed(project, installedAt) {
+    const file = path.join(DATA_DIR, 'project-deployments.json');
+    await enqueue(file, async () => {
+      const history = await readDeploymentHistory();
+      if (!Object.prototype.hasOwnProperty.call(history, project.id)) {
+        Object.defineProperty(history, project.id, { value: installedAt, enumerable: true });
+      }
+      await rawWriteAtomic(file, history);
+    });
+  },
   /* `opts.origin` identifies the writer for the live-view listeners above.
    * Optional on purpose: a caller that does not care (MCP) passes nothing and
    * is reported to everyone, which is the correct answer for it. */
@@ -600,6 +624,8 @@ module.exports = {
      * queueing again from inside it would wait on ourselves. */
     const saved = await enqueue(file, async () => {
       await snapshotProject();
+      const installedAt = await deploymentTime(project.id);
+      if (installedAt) project.dashboard = { ...project.dashboard, installedAt };
       project.savedAt = new Date().toISOString();
       project.schemaVersion = project.schemaVersion || 1;
       return rawWriteAtomic(file, project);

@@ -535,6 +535,7 @@ async function handleApi(req, res, pathname, query) {
     try {
       session = await haWrite.connect();
       const project = await haWrite.loadProject(session, urlPath);
+      await store.markProjectDeployed(project, project.dashboard.installedAt);
       return sendJson(res, 200, { project });
     } catch (e) {
       return sendJson(res, 400, { error: e.message });
@@ -617,12 +618,17 @@ async function handleApi(req, res, pathname, query) {
       haWrite.assertOwnedConfig(urlPath, before, { allowMissing: dash.action === 'created' });
       if (before) await store.backupDashboard(urlPath, before);
 
+      const installedAt = new Date().toISOString();
+      docs.project.dashboard = { ...docs.project.dashboard, installedAt };
       config[haWrite.STAMP_KEY] = haWrite.stamp(docs.project, {
         version: store.VERSION,
         urlPath,
         embedProject: body.embedProject !== false,
       });
       const resource = await haWrite.installResource(session, card.content, urlPath);
+      // Pin identity before the external write: a lost response must never
+      // make an already published room look safe to rename automatically.
+      await store.markProjectDeployed(docs.project, installedAt);
       await haWrite.saveConfig(session, urlPath, config, urlPath, {
         previous: before,
         allowMissing: dash.action === 'created',
@@ -724,7 +730,7 @@ const server = http.createServer(async (req, res) => {
     /* The scene builder is shared with the server, so the browser is served the
      * very same file rather than a copy under public/. One implementation, no
      * chance of the editor and the exporter drifting apart. */
-    const SHARED = ['ui-navigation.js', 'input-actions.js', 'plan-scene.js', 'flooring.js', 'shapes.js', 'sun.js', 'controls.js', 'lighting.js'];
+    const SHARED = ['room-identity.js', 'ui-navigation.js', 'input-actions.js', 'plan-scene.js', 'flooring.js', 'shapes.js', 'sun.js', 'controls.js', 'lighting.js'];
     const sharedName = pathname.startsWith('/js/') ? pathname.slice(4) : null;
     if (sharedName && SHARED.includes(sharedName)) {
       return fs.createReadStream(path.join(__dirname, 'lib', sharedName))

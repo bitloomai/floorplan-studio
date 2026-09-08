@@ -50,6 +50,13 @@ window.Store = (function () {
   };
 
   const MAX_UNDO = 60;
+  const deployed = new Map();
+  function preserveDeployment() {
+    const p = S.project;
+    if (!p) return;
+    if (p.dashboard?.installedAt) deployed.set(p.id, p.dashboard.installedAt);
+    if (deployed.has(p.id)) p.dashboard = { ...p.dashboard, installedAt: deployed.get(p.id) };
+  }
 
   const ADV_KEY = 'fps.advanced';
   /* Storage can throw outright, not merely come back empty: an add-on page is
@@ -92,10 +99,12 @@ window.Store = (function () {
   /* The one write path. `label` shows up nowhere yet but makes the stack
    * readable in the console while debugging, which is worth the byte. */
   function mutate(fn, label) {
+    preserveDeployment();
     S.undoStack.push({ label, snapshot: clone(S.project) });
     if (S.undoStack.length > MAX_UNDO) S.undoStack.shift();
     S.redoStack.length = 0;
     const result = fn(S.project);
+    preserveDeployment();
     S.dirty = true;
     emit('project');
     return result;
@@ -111,17 +120,21 @@ window.Store = (function () {
    * at all; it skips the replacement outright while there are unsaved local
    * edits, so a human mid-edit is never overwritten out from under them. */
   function replaceProject(project) {
+    preserveDeployment();
     S.project = project;
+    preserveDeployment();
     if (!floor()) S.activeFloorId = (S.project.floors[0] || {}).id || null;
     S.selection = null;
     emit('remote');
   }
 
   function undo() {
+    preserveDeployment();
     const entry = S.undoStack.pop();
     if (!entry) return false;
     S.redoStack.push({ label: entry.label, snapshot: clone(S.project) });
     S.project = entry.snapshot;
+    preserveDeployment();
     if (!floor()) S.activeFloorId = (S.project.floors[0] || {}).id || null;
     S.selection = null;
     S.dirty = true;
@@ -130,10 +143,12 @@ window.Store = (function () {
   }
 
   function redo() {
+    preserveDeployment();
     const entry = S.redoStack.pop();
     if (!entry) return false;
     S.undoStack.push({ label: entry.label, snapshot: clone(S.project) });
     S.project = entry.snapshot;
+    preserveDeployment();
     S.selection = null;
     S.dirty = true;
     emit('project');
@@ -167,6 +182,16 @@ window.Store = (function () {
     let n = 1;
     while (taken.has(`${kind[0]}${n}`)) n++;
     return `${kind[0]}${n}`;
+  }
+
+  function renameRoom(room, name, options) {
+    return mutate(() => {
+      const result = RoomIdentity.rename(S.project, floor(), room, name, options);
+      for (const selected of [S.selection, ...S.multi]) {
+        if (selected?.kind === 'room' && selected.id === result.oldId) selected.id = result.id;
+      }
+      return result;
+    }, 'rename room');
   }
 
   /* ---------- selection ---------- */
@@ -247,7 +272,7 @@ window.Store = (function () {
     S, on, emit, clone, sunConfig,
     floor, theme, uiTheme, setAdvanced, setMultiSelect,
     mutate, undo, redo, replaceProject,
-    uniqueId, newRoomId, newItemId,
+    uniqueId, newRoomId, newItemId, renameRoom,
     select, selected, toggleMulti, setMulti, isMulti, setTool, arm, snap,
     canUndo: () => S.undoStack.length > 0,
     canRedo: () => S.redoStack.length > 0,

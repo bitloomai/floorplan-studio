@@ -664,9 +664,15 @@ window.Panels = (function () {
     box.appendChild(panelTitle('Room', 'panel:room'));
     box.appendChild(field('Name', h('input', {
       type: 'text', value: room.name,
-      onchange: (e) => Store.mutate(() => { room.name = e.target.value; }, 'rename room'),
+      onchange: (e) => Store.renameRoom(room, e.target.value),
     })));
-    box.appendChild(field('id', h('input', { type: 'text', value: room.id, disabled: true })));
+    box.appendChild(field('id', h('input', { type: 'text', value: room.id,
+      onchange: (e) => Store.renameRoom(room, room.name, { id: e.target.value }),
+    })));
+    box.appendChild(h('button', { class: 'btn', onclick: () => Store.renameRoom(room, room.name, { matchName: true }) }, 'Match the name'));
+    box.appendChild(h('p', { class: 'hint' }, RoomIdentity.canAutoRename(S.project, room)
+      ? 'The id follows the name until deployment or a manual id edit. Collisions receive a numeric suffix.'
+      : 'Changing the id updates items, openings, walls and merged rooms on this floor. Existing dashboard links and entity ids are not changed.'));
     layerOrderField(box, floor.rooms, room, 'room order');
     roomTypeField(box, room);
 

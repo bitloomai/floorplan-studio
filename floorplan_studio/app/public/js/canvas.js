@@ -784,6 +784,7 @@ window.Canvas = (function () {
             if (!room) continue;
             const copy = Store.clone(room);
             copy.id = Store.newRoomId((room.name || 'Room') + ' copy');
+            copy._autoId = true;
             if (copy.shape === 'poly' && copy.points) copy.points = copy.points.map((p) => [round4(p[0] + OFFSET), round4(p[1] + OFFSET)]);
             else if (copy.rect) copy.rect = [round4(copy.rect[0] + OFFSET), round4(copy.rect[1] + OFFSET), copy.rect[2], copy.rect[3]];
             floor.rooms.push(copy);
@@ -809,6 +810,7 @@ window.Canvas = (function () {
       if (!room) return;
       const copy = Store.clone(room);
       copy.id = Store.newRoomId((room.name || 'Room') + ' copy');
+      copy._autoId = true;
       if (copy.shape === 'poly' && copy.points) copy.points = copy.points.map((p) => [round4(p[0] + OFFSET), round4(p[1] + OFFSET)]);
       else if (copy.rect) copy.rect = [round4(copy.rect[0] + OFFSET), round4(copy.rect[1] + OFFSET), copy.rect[2], copy.rect[3]];
       Store.mutate(() => { floor.rooms.push(copy); }, 'duplicate');
@@ -1641,7 +1643,7 @@ window.Canvas = (function () {
       const id = Store.newRoomId(name);
       Store.mutate((p) => {
         Store.floor().rooms.push({
-          id, name, shape: 'rect',
+          id, name, _autoId: true, shape: 'rect',
           rect: [round4(x), round4(y), round4(w), round4(h)],
           points: null, floor: 'default', outdoor: false, noLabel: false,
           chip_at: null, chip_rotate: 0, part_of: null,
@@ -1768,7 +1770,7 @@ window.Canvas = (function () {
     ghost(null);
     Store.mutate(() => {
       Store.floor().rooms.push({
-        id, name, shape: 'poly', rect: null, points: pts,
+        id, name, _autoId: true, shape: 'poly', rect: null, points: pts,
         floor: 'default', outdoor: false, noLabel: false,
         chip_at: null, chip_rotate: 0, part_of: null,
       });

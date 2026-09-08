@@ -24,6 +24,16 @@ cannot invent a third shape.
 
 ## Name and label
 
+New rooms derive their id from the name until the project is deployed or the id
+is edited manually. Existing rooms keep their ids. Unicode names retain their
+script, and a collision gets `_2`, `_3`, and so on.
+
+Edit **id** or choose **Match the name** to change it explicitly. Items, openings,
+wall overrides and merged-room references on this floor update in one undo step.
+Other floors, Home Assistant entity ids and existing dashboard links stay as they
+are; regenerate the dashboard after an explicit id change. Deployment history
+survives undo, so undoing dashboard settings cannot enable automatic id changes.
+
 The name is what the dashboard shows. **Hiding the label** is worth doing for
 small service rooms — a 3 ft cupboard with its name across it reads as clutter,
 not information.

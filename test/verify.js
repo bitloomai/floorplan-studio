@@ -4792,7 +4792,7 @@ await okAsync('a stamp without the design is listed but not openable', async () 
   s.close();
   return found.dashboards[0].editable === false && /nothing to edit/.test(msg);
 });
-await okAsync('the design comes back out byte for byte in another session', async () => {
+await okAsync('the design comes back with deployment identity protection in another session', async () => {
   const store = { dashboards: [], resources: [], configs: {} };
   const s = await haWrite.connect({ url: 'http://ha.test', token: 'good', WebSocket: FakeHA({ store }) });
   await haWrite.ensureDashboard(s, { urlPath: 'rt', title: 'RT' });
@@ -4803,7 +4803,7 @@ await okAsync('the design comes back out byte for byte in another session', asyn
   const s2 = await haWrite.connect({ url: 'http://ha.test', token: 'good', WebSocket: FakeHA({ store }) });
   const back = await haWrite.loadProject(s2, 'rt');
   s.close(); s2.close();
-  return JSON.stringify(back) === JSON.stringify(demoProject);
+  return JSON.stringify(back) === JSON.stringify({ ...demoProject, dashboard: { ...demoProject.dashboard, installedAt: cfg[haWrite.STAMP_KEY].saved_at } });
 });
 await okAsync('a regenerate updates its resource instead of stacking copies', async () => {
   const store = { dashboards: [], resources: [], configs: {} };
@@ -4867,7 +4867,7 @@ await okAsync('the app session discovers and reopens its own deployment', async 
   const back = await haWrite.loadProject(s, 'reopen-me');
   s.close();
   return found.dashboards.length === 1 && found.dashboards[0].urlPath === 'reopen-me'
-    && found.dashboards[0].editable && JSON.stringify(back) === JSON.stringify(demoProject);
+    && found.dashboards[0].editable && JSON.stringify(back) === JSON.stringify({ ...demoProject, dashboard: { ...demoProject.dashboard, installedAt: cfg[haWrite.STAMP_KEY].saved_at } });
 });
 await okAsync('reopen refuses a dashboard this app never stamped', async () => {
   const store = { dashboards: [{ id: 'x', url_path: 'someone-elses', title: 'Theirs' }], resources: [], configs: { 'someone-elses': { views: [] } } };
@@ -4987,6 +4987,12 @@ const dispatchScenario = [
   '  const goneBnd = toolJson(await call("tools/call", { name: "get_project", arguments: { floorId: "upper_floor" } }, 66));',
   '  t("and removed", (goneBnd.floor.boundaries || []).length === 0);',
   '',
+  '  const renamed = toolJson(await call("tools/call", { name: "edit_collection", arguments: { collection: "rooms", op: "update", floorId: "upper_floor", id: "study", value: { name: "客厅" } } }, 65));',
+  '  t("MCP reports a Unicode room identity rewrite", renamed.renamed.oldId === "study" && renamed.updated === "客厅");',
+  '  const renamedProject = await store.readProject();',
+  '  const renamedFloor = renamedProject.floors.find(f => f.id === "upper_floor");',
+  '  t("MCP room rename rewrites openings and boundaries", renamedFloor.openings.every(o => o.room === "客厅") && renamedFloor.boundaries.every(b => b.room === "客厅"));',
+  '  await call("tools/call", { name: "edit_collection", arguments: { collection: "rooms", op: "update", floorId: "upper_floor", id: "客厅", value: { id: "study", name: "Study" } } }, 66);',
   '  const badRoom = await call("tools/call", { name: "edit_collection", arguments: { collection: "rooms", op: "add", floorId: "upper_floor", value: { name: "Bad", shape: "rect", rect: [1, 2, 3] } } }, 7);',
   '  t("a malformed room is refused by the validator before it is saved", badRoom.result.isError === true && /rect must be/.test(toolText(badRoom)));',
   '  const afterBadRoom = toolJson(await call("tools/call", { name: "get_project", arguments: { floorId: "upper_floor" } }, 8));',
@@ -7473,6 +7479,7 @@ if (!myHouseFile) {
 }
 
 require('./coverings')(ok);
+require('./room-identity')(ok);
 console.log(`\n${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);
 })();

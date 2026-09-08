@@ -70,6 +70,7 @@ function trimProject(project) {
       if (item.name === null) delete item.name;
     }
     for (const room of floor.rooms || []) {
+      delete room._autoId;
       for (const k of DROP_FLOOR_KEYS) delete room[k];
       for (const k of ['chip_at', 'chip_rotate', 'part_of', 'master', 'dnd', 'keys']) {
         if (room[k] === null || room[k] === 0) delete room[k];

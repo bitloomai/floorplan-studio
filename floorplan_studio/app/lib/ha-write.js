@@ -299,7 +299,9 @@ async function loadProject(session, urlPath) {
     throw new Error(`"${urlPath}" was deployed without its design attached, so there is nothing to edit. `
       + 'Re-deploy with "keep the design in Home Assistant" turned on to be able to open it again later.');
   }
-  return ownership.project;
+  const project = ownership.project;
+  project.dashboard = { ...project.dashboard, installedAt: project.dashboard?.installedAt || ownership.saved_at || new Date().toISOString() };
+  return project;
 }
 
 module.exports = {
