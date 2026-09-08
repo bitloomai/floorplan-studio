@@ -7472,6 +7472,7 @@ if (!myHouseFile) {
   }
 }
 
+require('./coverings')(ok);
 console.log(`\n${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);
 })();

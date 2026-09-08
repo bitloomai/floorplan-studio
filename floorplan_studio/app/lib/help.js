@@ -419,9 +419,9 @@ function boundaryReference(boundaries) {
 }
 
 function coveringReference(boundaries) {
-  const out = ['| Covering | Key | Closed | Open |', '| --- | --- | --- | --- |'];
+  const out = ['| Covering | Key | Closed | Open | Plan look |', '| --- | --- | --- | --- | --- |'];
   for (const [key, c] of Object.entries(boundaries.coverings || {})) {
-    out.push(`| ${c.label || key} | \`${key}\` | ${pct(c.closed)} | ${pct(c.open)} |`);
+    out.push(`| ${c.label || key} | \`${key}\` | ${pct(c.closed)} | ${pct(c.open)} | ${c.render || 'none'} |`);
   }
   out.push('', 'The two columns are why a covering is worth naming: a blackout blind and a sheer'
     + ' curtain are the same object on a plan and nothing like each other at either end of the day.');

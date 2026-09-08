@@ -23,6 +23,20 @@ With no entity bound, the plan uses the fixed factor you set — which is the ri
 answer for a curtain nobody automates, and better than pretending the window is
 bare.
 
+## How coverings look from above
+
+Coverings draw a narrow footprint beside the opening, on the room side of the
+wall. Curtains gather at the jambs when open and meet in the middle when shut.
+Mesh stays fixed. Slat ticks turn with the position. A roller keeps its thin
+footprint and darkens as it closes: its vertical drop is not floor area.
+Film and frosted glazing affect transmission without adding a separate outline.
+
+An awning alone projects outside, shown as its canopy footprint. The canvas
+reserves its full travel so live movement cannot resize the plan. The covering
+registry can set `projectFt` (default 2 feet); an opening's covering can override
+it. Bound entities and the manual position slider drive the same drawing in the
+editor, exported SVG and dashboard.
+
 ## Choosing a factor by eye
 
 Think about what the room looks like at midday with the covering shut. A sheer

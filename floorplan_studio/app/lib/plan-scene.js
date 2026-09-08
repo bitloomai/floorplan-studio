@@ -922,6 +922,61 @@
         break;   // the reveal above is the whole drawing
     }
 
+    // Coverings are thin plan footprints, never front elevations. Only an
+    // awning projects away from the wall; vertical travel changes ink density.
+    const covering = op.covering;
+    const coveringSpec = (bDoc.coverings || {})[covering?.type];
+    if (coveringSpec) {
+      const t = coveringOpenness(op, states);
+      const ink = { stroke: glass, opacity: 0.65 };
+      const tick = (a, b, c, d, width = 1, extra = {}) => segment(a, b, c, d, width, { ...ink, ...extra });
+      const drawers = {
+        none() {},
+        mesh() {
+          tick(0, 4, len, 4, 4, { opacity: 0.15 });
+          const n = Math.max(1, Math.min(120, Math.ceil(len / 5))), step = len / n;
+          for (let i = 0; i < n; i++) {
+            tick(i * step, 2, (i + 1) * step, 6, 0.7, { opacity: 0.35 });
+            tick(i * step, 6, (i + 1) * step, 2, 0.7, { opacity: 0.35 });
+          }
+        },
+        drape() {
+          const span = Math.min(len / 2, Math.max(Math.min(4, len / 8), (1 - t) * len / 2));
+          for (const side of [0, 1]) {
+            const start = side ? len - span : 0;
+            for (let i = 0; i < 6; i++) {
+              tick(start + span * i / 6, i % 2 ? 6 : 3,
+                start + span * (i + 1) / 6, i % 2 ? 3 : 6, 1.5);
+            }
+          }
+        },
+        roller() {
+          tick(0, 3, len, 3, 1); // head cassette, fixed in plan
+          tick(0, 5, len, 5, 2, { opacity: 0.12 + (1 - t) * 0.65 });
+        },
+        slats() {
+          const n = Math.max(1, Math.min(120, Math.ceil(len / 6))), step = len / n;
+          for (let i = 0; i < n; i++) {
+            const u = (i + 0.5) * step, half = Math.min(step / 2, 3);
+            const angle = t * Math.PI / 2;
+            tick(u - half * Math.cos(angle), 4 - 2 * Math.sin(angle),
+              u + half * Math.cos(angle), 4 + 2 * Math.sin(angle));
+          }
+        },
+        awning() {
+          const depth = (1 - t) * clamp(num(covering.projectFt, num(coveringSpec.projectFt, 2)), 0, 20) * P.ppf;
+          tick(0, -2, len, -2, 1.5);
+          if (!depth) return;
+          const corners = [pt(0, -2), pt(len, -2), pt(len, -2 - depth), pt(0, -2 - depth)];
+          nodes.push({ tag: 'polygon', attrs: { points: corners.map(p => p.join(',')).join(' '), fill: glass, opacity: 0.15 } });
+          // Explicit endpoints also let the envelope pass reserve all travel.
+          tick(0, -2, 0, -2 - depth); tick(len, -2, len, -2 - depth);
+          tick(0, -2 - depth, len, -2 - depth, 1.5);
+        },
+      };
+      (drawers[coveringSpec.render] || drawers.none)();
+    }
+
     // A sensored opening gets a small state pip, so you can see at a glance
     // which doors are actually being tracked.
     if (op.sensor || op.cover) {
@@ -1778,9 +1833,11 @@
     for (const op of floor.openings || []) {
       const type = (bDoc.openingTypes || {})[op.type];
       const room = (floor.rooms || []).find(r => r.id === op.room);
-      if (!type?.group || !room) continue;
+      const awning = (bDoc.coverings || {})[op.covering?.type]?.render === 'awning';
+      if ((!type?.group && !awning) || !room) continue;
       for (const position of [0, 100]) {
-        const preview = {...op, sensor:undefined, cover:undefined, position};
+        const preview = {...op, sensor:undefined, cover:undefined, position,
+          ...(op.covering ? { covering: { ...op.covering, entity: undefined, position } } : {})};
         for (const node of openingNodes(preview, room, floor, bDoc, theme, P, {}, false)) {
           const a = node.attrs || {}, radius = num(a.r, 0) + num(a['stroke-width'], 0) / 2 + 4;
           // Swing arcs stay inside the bounds of the closed/open leaf endpoints.
