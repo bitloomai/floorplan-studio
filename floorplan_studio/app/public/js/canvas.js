@@ -161,38 +161,30 @@ window.Canvas = (function () {
       hits.appendChild(e);
     }
 
-    for (const item of floor.items || []) {
-      const t = PlanScene.resolveType(S.library, item) || {};
-      const P = scene.projector;
-      if ((t.render || {}).shape === 'label') {
-        const text = PlanScene.labelText((item.props && item.props.template) || (t.defaults && t.defaults.template), S.states[item.entity], item);
-        const m = PlanScene.labelMetrics(item, t, text);
-        const e = el('rect', {
-          x: P.X(item.at[0]) - m.width / 2, y: P.Y(item.at[1]) - m.height / 2,
-          width: m.width, height: m.height,
-          transform: (item.props && item.props.rot) ? `rotate(${item.props.rot} ${P.X(item.at[0])} ${P.Y(item.at[1])})` : null,
-          class: 'hit item-hit',
-        });
-        e.dataset.item = item.id;
-        hits.appendChild(e);
-      } else if ((item.kind || t.kind) === 'furniture') {
-        const w = (item.props && item.props.w) || (t.defaults && t.defaults.w) || 3;
-        const h = (item.props && item.props.h) || (t.defaults && t.defaults.h) || 3;
-        const e = el('rect', {
-          x: P.X(item.at[0]), y: P.Y(item.at[1]), width: P.S(w), height: P.S(h),
-          transform: `rotate(${item.props?.rot ?? t.defaults?.rot ?? 0} ${P.X(item.at[0]) + P.S(w) / 2} ${P.Y(item.at[1]) + P.S(h) / 2})`,
-          class: 'hit item-hit',
-        });
-        e.dataset.item = item.id;
-        hits.appendChild(e);
-      } else {
-        const e = el('circle', {
-          cx: P.X(item.at[0]), cy: P.Y(item.at[1]), r: (t.render && t.render.tap) || 17,
-          class: 'hit item-hit',
-        });
-        e.dataset.item = item.id;
-        hits.appendChild(e);
-      }
+    /* Item targets come from `PlanScene.hitTargets()` — the SAME function the
+     * dashboard card hit-tests with, so what is easy to grab here is what will
+     * be easy to tap there.
+     *
+     * This used to be a third hand-written copy of that geometry, and it had
+     * drifted into two bugs the review found. Every non-furniture marker got a
+     * fixed `render.tap` circle, so a signage board six feet wide was clickable
+     * only within 17px of its middle; and a perimeter cove got that same circle
+     * at a point in the middle of the room, so the strip you can see was never
+     * the thing you could click. The shared function knows how big a marker is
+     * DRAWN and traces a cove's actual outline.
+     *
+     * It also sorts biggest-first, so the smallest thing under the pointer ends
+     * up last and therefore on top: a small light standing on a big board is
+     * reached before the board, rather than whichever happened to be placed
+     * later winning. Rooms, openings and the name chips keep their own loops —
+     * the editor selects a sub-rect on its own id where the card resolves it to
+     * the primary room, and a draggable badge has to beat a marker here and
+     * must not there. */
+    for (const t of PlanScene.hitTargets(floor, S.library, scene.projector, S.states, null)) {
+      if (t.target !== 'item') continue;
+      const e = el(t.tag, Object.assign({ class: 'hit item-hit' + (t.outline ? ' hit-outline' : '') }, t.attrs));
+      e.dataset.item = t.id;
+      hits.appendChild(e);
     }
     /* Openings are objects too — a door with a sensor animates, so it has to be
      * selectable to be bound. Its hit target is the opening's own span. */

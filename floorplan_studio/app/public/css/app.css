@@ -181,6 +181,11 @@ select, input[type=text], input[type=number], input[type=search] {
 #canvas.panning { cursor: grabbing; }
 
 .hit { fill: transparent; stroke: transparent; }
+/* A target that IS its stroke — a perimeter cove traces the room's outline, and
+ * filling it would make the whole floor of that room select the cove. The rule
+ * has to live here rather than as a `fill="none"` attribute, because the class
+ * rule above beats a presentation attribute. */
+.hit.hit-outline { fill: none; }
 .room-hit { cursor: pointer; }
 .item-hit { cursor: move; }
 .sel-outline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }

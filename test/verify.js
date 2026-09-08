@@ -6344,15 +6344,121 @@ ok('resizing a family-less fixture actually redraws it bigger, not just its hand
 
 ok('every room gets a hit shape, and rooms come before markers', (() => {
   /* SVG resolves a click to the topmost sibling, so rooms must be appended
-   * FIRST — "tap the lamp, not the room it stands in". */
+   * FIRST — "tap the lamp, not the room it stands in".
+   *
+   * Item targets are no longer built here: they come from the same
+   * `PlanScene.hitTargets()` the dashboard card uses, so this asserts that the
+   * shared call still sits between the room loop and the opening loop. */
   const src = fs.readFileSync(path.join(APP, 'public', 'js', 'canvas.js'), 'utf8');
   const hits = src.indexOf("const hits = el('g', { id: 'fps-hits' })");
   const rooms = src.indexOf('for (const room of floor.rooms || [])', hits);
-  const items = src.indexOf('for (const item of floor.items || [])', hits);
+  const items = src.indexOf('PlanScene.hitTargets(floor,', hits);
   const openings = src.indexOf('for (const op of floor.openings || [])', hits);
   return hits > 0 && rooms > hits && items > rooms && openings > items
-    && /dataset\.room = room\.id/.test(src);
+    && /dataset\.room = room\.id/.test(src)
+    && /dataset\.item = t\.id/.test(src);
 })());
+
+/* ---- what is under the pointer, and in which order ----
+ *
+ * The editor used to hand-write its own item geometry, and had drifted from
+ * the card's in two ways the review found: a marker got a fixed `render.tap`
+ * circle however big it was drawn, so a six-foot signage board was clickable
+ * only near its middle; and it appended in `floor.items` order, so whichever
+ * object happened to be placed LAST won every overlap regardless of size.
+ */
+{
+  const hitFloor = (items) => ({
+    id: 'f', name: 'F', extent: { w: 30, h: 30 },
+    rooms: [{ id: 'r', name: 'R', shape: 'rect', rect: [0, 0, 30, 30] }],
+    openings: [], boundaries: [], items,
+  });
+  const P = scene.makeProjector({ ppf: 20, origin: [0, 0] });
+  const targets = (items) => scene.hitTargets(hitFloor(items), lib, P, {}, null).filter((t) => t.target === 'item');
+
+  const board = { id: 'sign', kind: 'fixture', type: 'signage', at: [15, 15], props: { w: 6, variant: 'board' } };
+  const lamp = { id: 'lamp', kind: 'fixture', type: 'spot', at: [15, 15], props: {} };
+
+  ok('a resized marker is grabbable across what it actually draws', (() => {
+    const wide = targets([{ ...board, props: { w: 6, variant: 'board' } }])[0];
+    const narrow = targets([{ ...board, props: { w: 0.8, variant: 'board' } }])[0];
+    /* Six feet at 20 px/ft is a 60 px radius; the old fixed tap was 17. */
+    return wide.attrs.r > narrow.attrs.r && wide.attrs.r > 50;
+  })());
+  ok('but never smaller than its declared tap radius, so a tiny one stays tappable',
+    targets([{ ...board, props: { w: 0.1, variant: 'board' } }])[0].attrs.r >= 17);
+
+  /* The reported case: a small entrance light standing on a big signage board.
+   * Whichever order they are declared in, the light is reached first and the
+   * board is still reachable behind it. */
+  ok('a small marker on a big one is reached first, whichever was placed later', (() => {
+    const boardLast = targets([lamp, board]).map((t) => t.id);
+    const lampLast = targets([board, lamp]).map((t) => t.id);
+    return boardLast.join() === 'sign,lamp' && lampLast.join() === 'sign,lamp';
+  })(), targets([lamp, board]).map((t) => t.id).join());
+
+  /* A cove traces the room's outline. Its target has to be that stroke — not a
+   * dot in the middle of the room, and not the room's whole interior either. */
+  const cove = targets([{ id: 'cv', kind: 'fixture', type: 'cove', at: [15, 15], room: 'r', props: { inset: 1 } }])[0];
+  ok('a cove is hit along the strip it draws, not at a point in the middle', cove.tag === 'path' && cove.outline === true);
+  ok('and its target is the stroke rather than the floor it encloses',
+    cove.attrs.fill === 'none' && cove.attrs['stroke-width'] === 12);
+  ok('a cove marker outside its own room still traces that room',
+    targets([{ id: 'cv', kind: 'fixture', type: 'cove', at: [100, 100], room: 'r', props: {} }])[0].tag === 'path');
+  ok('and one whose room is gone falls back to a plain target rather than vanishing',
+    targets([{ id: 'cv', kind: 'fixture', type: 'cove', at: [100, 100], room: 'nope', props: {} }])[0].tag === 'circle');
+
+  /* A turned sofa was hit by its unturned bounding box. */
+  const sofa = (rot) => targets([{ id: 's', kind: 'furniture', type: 'sofa', at: [10, 10], props: { w: 7, h: 3, rot } }])[0];
+  ok('a rotated piece of furniture is hit where it is drawn',
+    !sofa(0).attrs.transform && /rotate\(90 /.test(sofa(90).attrs.transform || ''));
+
+  /* ---- what a cove LOOKS like ----
+   *
+   * One run of light with six products behind it: a recessed cove, a bare
+   * strip, a strip in an aluminium channel, a plaster-in slot, rope light, and
+   * a run aimed down the wall. Each is the same polygon with a different
+   * stroke, so an L-shaped room stays one problem rather than six. */
+  const coveDraw = (props, room) => {
+    const fl = hitFloor([{ id: 'cv', kind: 'fixture', type: 'cove', at: [15, 15], room: room === undefined ? 'r' : room, entity: null, props }]);
+    return scene.build({ name: 'c', ppf: 20, origin: [0, 0], floors: [fl] }, fl, lib,
+      themes.themes.frosted.plan, { boundaries, flooring, states: {} }).layers.markers.filter((n) => n.itemId === 'cv');
+  };
+  const coveLooks = (lib.types['fixture.cove'].props.find((p) => p.key === 'variant') || {}).options || [];
+  ok('the cove offers the six looks the renderer draws', coveLooks.length === 6, coveLooks.join(','));
+  {
+    const seen = new Map();
+    let same = [];
+    for (const v of coveLooks) {
+      const key = JSON.stringify(coveDraw({ inset: 1, variant: v, pitch: 0.5, beam: 2.2 }));
+      if (seen.has(key)) same.push(`${v} == ${seen.get(key)}`);
+      seen.set(key, v);
+    }
+    ok('and no two of them draw the same run', same.length === 0, same.join(', '));
+  }
+  ok('the default look is unchanged — one traced outline and its marker dot', (() => {
+    const n = coveDraw({ inset: 1 });
+    return n.length === 2 && n[0].tag === 'path' && n[0].attrs.fill === 'none' && n[1].tag === 'circle';
+  })());
+  ok('a repeating look keeps its spacing in feet, so zooming does not rescale the pattern', (() => {
+    const dash = (pitch) => (coveDraw({ inset: 1, variant: 'rope', pitch })[0].attrs['stroke-dasharray'] || '');
+    return dash(0.3) !== dash(1.2);
+  })());
+  /* The drawing used to resolve its room by GEOMETRY alone while the light
+   * zone resolved `item.room` first — so a cove parked outside the slab it
+   * lights lit the room and drew nothing at all. */
+  ok('a cove marker outside its own room still draws that room’s run',
+    coveDraw({ inset: 1 }, 'r').some((n) => n.tag === 'path'));
+  ok('and one belonging to no room draws only its marker dot', (() => {
+    const fl = {
+      id: 'f', name: 'F', extent: { w: 30, h: 30 }, rooms: [], openings: [], boundaries: [],
+      items: [{ id: 'cv', kind: 'fixture', type: 'cove', at: [15, 15], room: null, entity: null, props: { inset: 1 } }],
+    };
+    const n = scene.build({ name: 'c', ppf: 20, origin: [0, 0], floors: [fl] }, fl, lib,
+      themes.themes.frosted.plan, { boundaries, flooring, states: {} }).layers.markers.filter((x) => x.itemId === 'cv');
+    return n.length === 1 && n[0].tag === 'circle';
+  })());
+}
 
 ok('no layer still claims a room hit shape it never built', (() => {
   /* The dead branch is gone rather than left as a second, wrong idea of where

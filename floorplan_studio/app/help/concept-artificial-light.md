@@ -46,6 +46,35 @@ length is part of its output, and its `rot` is the **axis it runs along** — no
 direction it points. A strip drawn across its wall instead of along it is a
 common and completely silent mistake.
 
+The **perimeter cove** is the other kind: rather than a straight run you place,
+it traces the room's own outline, inset by whatever you set. An L-shaped room, a
+room with a bowed wall and a plain rectangle are all one problem, so the run
+follows the plan when you reshape the room.
+
+Its **Look** says what the run is made of — the same length of light, six
+products:
+
+| Look | What it is |
+| --- | --- |
+| Cove | Recessed indirect light. The default. |
+| LED strip | A bare strip: a bright core with its spill either side. |
+| Channel | A strip in an aluminium profile, drawn as its two edges. |
+| Plaster-in slot | A continuous line broken by its fixings. |
+| Rope light | Beaded rather than continuous. |
+| Wall wash | Aimed down the wall, so the spill sits on the wall side. |
+
+**Repeat spacing** is in feet, not pixels, so a slot's fixings and a rope's
+beads stay the same real size as you zoom. The looks that draw a continuous run
+ignore it.
+
+**A perimeter cove is selected by its strip**, not by a dot in the middle of the
+room — click the line where it is drawn. Clicking inside the room selects the
+room, or whatever else is standing there.
+
+**A cove may sit outside the room it lights.** Set the room explicitly and the
+run traces that room, wherever the marker itself is parked — a pillar-mounted
+run, or a strip whose marker you moved somewhere you can reach it.
+
 ## The light model (Advanced)
 
 Settings both light models read that a plan needs none of to look right:

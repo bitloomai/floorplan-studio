@@ -93,6 +93,12 @@
 <p>A dimmable light's brightness attribute scales its contribution live. You do not need to model dim levels; bind the entity and the plan follows it.</p>
 <h2>Cove and strip lighting</h2>
 <p>A cove is a <strong>line</strong>, not a point, and it washes the surface it is set into. Its length is part of its output, and its <code>rot</code> is the <strong>axis it runs along</strong> — not a direction it points. A strip drawn across its wall instead of along it is a common and completely silent mistake.</p>
+<p>The <strong>perimeter cove</strong> is the other kind: rather than a straight run you place, it traces the room's own outline, inset by whatever you set. An L-shaped room, a room with a bowed wall and a plain rectangle are all one problem, so the run follows the plan when you reshape the room.</p>
+<p>Its <strong>Look</strong> says what the run is made of — the same length of light, six products:</p>
+<table><thead><tr><th>Look</th><th>What it is</th></tr></thead><tbody><tr><td>Cove</td><td>Recessed indirect light. The default.</td></tr><tr><td>LED strip</td><td>A bare strip: a bright core with its spill either side.</td></tr><tr><td>Channel</td><td>A strip in an aluminium profile, drawn as its two edges.</td></tr><tr><td>Plaster-in slot</td><td>A continuous line broken by its fixings.</td></tr><tr><td>Rope light</td><td>Beaded rather than continuous.</td></tr><tr><td>Wall wash</td><td>Aimed down the wall, so the spill sits on the wall side.</td></tr></tbody></table>
+<p><strong>Repeat spacing</strong> is in feet, not pixels, so a slot's fixings and a rope's beads stay the same real size as you zoom. The looks that draw a continuous run ignore it.</p>
+<p><strong>A perimeter cove is selected by its strip</strong>, not by a dot in the middle of the room — click the line where it is drawn. Clicking inside the room selects the room, or whatever else is standing there.</p>
+<p><strong>A cove may sit outside the room it lights.</strong> Set the room explicitly and the run traces that room, wherever the marker itself is parked — a pillar-mounted run, or a strip whose marker you moved somewhere you can reach it.</p>
 <h2>The light model (Advanced)</h2>
 <p>Settings both light models read that a plan needs none of to look right:</p>
 <ul><li><strong>light zones</strong> — clip a lamp's glow to its room and let it out through each</li></ul>

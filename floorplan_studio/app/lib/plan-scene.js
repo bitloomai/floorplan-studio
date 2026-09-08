@@ -1629,15 +1629,59 @@
        * room, a room with a curved wall and a plain rectangle are all the same
        * polygon problem, and the bounding box was only ever right for the
        * third. */
-      const inset = num(item.props && item.props.inset, 1);
-      const rm = ctx.room;
+      const inset = num(props.inset, num(defs.inset, 1));
+      /* `item.room` wins over geometry, the same rule the light zone below
+       * already applies (`zoneRoom`) and for the same reason: a cove marker is
+       * explicitly allowed to sit outside the slab it lights — a pillar-mounted
+       * run, a strip parked in a corridor. It used to be `ctx.room` alone, so
+       * such a marker LIT the room it named and DREW nothing at all. */
+      const rm = item.room
+        ? ((((ctx && ctx.floor) || {}).rooms || []).find((rr) => rr.id === item.room) || null)
+        : ctx.room;
       if (rm) {
         const outline = insetPolygon(roomPoints(rm), inset);
         const d = outline.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z';
-        nodes.push({
-          tag: 'path',
-          attrs: { d, fill: 'none', stroke: litColour || stroke, 'stroke-width': num(r.thickness, 1.5), 'stroke-linejoin': 'round' },
-        });
+        const ink = litColour || stroke;
+        const w = num(r.thickness, 1.5);
+        /* One run of light, drawn six ways.
+         *
+         * A cove, a bare LED strip, a strip in an aluminium channel and a rope
+         * light are different products that read differently on a plan, and the
+         * marker had exactly one look. Each variant is the same polygon with a
+         * different stroke — no branch does its own geometry, so an L-shaped
+         * room and a curved wall stay one problem rather than six.
+         *
+         * `pitch` is in FEET and converted here, so a slot's ticks and a rope's
+         * dashes stay the same physical size as the plan zooms. */
+        const look = props.variant || defs.variant || r.variant || 'cove';
+        const pitch = Math.max(2, P.S(num(props.pitch, num(defs.pitch, 0.5))));
+        const line = (extra) => ({ tag: 'path', attrs: Object.assign({
+          d, fill: 'none', stroke: ink, 'stroke-width': w, 'stroke-linejoin': 'round',
+        }, extra) });
+        if (look === 'strip') {
+          /* A bare strip is a thin bright line with the spill either side of
+           * it; the halo is what says "this is the light, not a wall". */
+          nodes.push(line({ 'stroke-width': w * 2.6, opacity: 0.28 }));
+          nodes.push(line({ 'stroke-width': Math.max(0.8, w * 0.6) }));
+        } else if (look === 'channel') {
+          /* Profile plus diffuser: two lines a channel-width apart, which is
+           * what an extrusion looks like from above. */
+          nodes.push({ tag: 'path', attrs: { d: insetPolygon(roomPoints(rm), inset - 0.12).map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z', fill: 'none', stroke: ink, 'stroke-width': Math.max(0.8, w * 0.7), 'stroke-linejoin': 'round' } });
+          nodes.push({ tag: 'path', attrs: { d: insetPolygon(roomPoints(rm), inset + 0.12).map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z', fill: 'none', stroke: ink, 'stroke-width': Math.max(0.8, w * 0.7), 'stroke-linejoin': 'round' } });
+        } else if (look === 'perimeter_slot') {
+          /* A plaster-in slot reads as a line broken by its own fixings. */
+          nodes.push(line({}));
+          nodes.push(line({ 'stroke-width': w * 2.2, opacity: 0.5, 'stroke-dasharray': `1 ${Math.max(3, pitch - 1)}`, 'stroke-linecap': 'butt' }));
+        } else if (look === 'rope') {
+          nodes.push(line({ 'stroke-dasharray': `${Math.max(2, pitch * 0.55)} ${Math.max(2, pitch * 0.45)}`, 'stroke-linecap': 'round' }));
+        } else if (look === 'wall_wash') {
+          /* Aimed down the wall, so the spill sits on the WALL side of the run
+           * rather than symmetrically around it. */
+          nodes.push({ tag: 'path', attrs: { d: insetPolygon(roomPoints(rm), Math.max(0, inset - num(props.beam, num(defs.beam, 2.2)) / 2)).map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z', fill: 'none', stroke: ink, 'stroke-width': P.S(num(props.beam, num(defs.beam, 2.2))) * 0.5, opacity: 0.22, 'stroke-linejoin': 'round' } });
+          nodes.push(line({}));
+        } else {
+          nodes.push(line({}));
+        }
       }
       nodes.push({ tag: 'circle', attrs: { cx, cy, r: 5, fill, stroke, 'stroke-width': 1.2 } });
     } else if (shape === 'camera') {
@@ -2618,12 +2662,21 @@
    * array — stays reachable. Ordering by area rather than by declaration order
    * means it holds however the plan was drawn.
    */
-  function hitTargets(floor, library, P, states, chips) {
+  function hitTargets(floor, library, P, states, chips, opts) {
     const out = [];
+    /* `roomStroke` widens a room's target to include the wall drawn on its
+     * edge, so clicking the wall selects the room it belongs to — a wall is not
+     * a separate object, it is this polygon's edge. The editor wants that; the
+     * card does not, because there a stray tap just outside a room would open
+     * its popup. Off unless asked for, so the card is unchanged. */
+    const roomStroke = (opts && opts.roomStroke) || 0;
     for (const room of floor.rooms || []) {
       out.push({
         target: 'room', id: (primaryRoom(floor, room) || room).id, tag: 'path',
-        attrs: { d: roomPoints(room).map((pt, i) => `${i ? 'L' : 'M'} ${P.X(pt[0])} ${P.Y(pt[1])}`).join(' ') + ' Z' },
+        attrs: Object.assign(
+          { d: roomPoints(room).map((pt, i) => `${i ? 'L' : 'M'} ${P.X(pt[0])} ${P.Y(pt[1])}`).join(' ') + ' Z' },
+          roomStroke ? { stroke: 'transparent', 'stroke-width': roomStroke } : {},
+        ),
       });
     }
     /* The name chip, if the caller handed back where build() put it. After the
@@ -2674,9 +2727,51 @@
         } });
       } else if ((item.kind || t.kind) === 'furniture') {
         const w = num(p.w, num(d.w, 3)), h = num(p.h, num(d.h, 3));
-        items.push({ target: 'item', id: item.id, tag: 'rect', area: P.S(w) * P.S(h), attrs: { x: P.X(item.at[0]), y: P.Y(item.at[1]), width: P.S(w), height: P.S(h) } });
+        const fx = P.X(item.at[0]), fy = P.Y(item.at[1]);
+        const fw = P.S(w), fh = P.S(h);
+        const frot = num(p.rot, num(d.rot, 0));
+        items.push({ target: 'item', id: item.id, tag: 'rect', area: fw * fh, attrs: {
+          x: fx, y: fy, width: fw, height: fh,
+          /* Furniture turns about its middle, and its target has to turn with
+           * it — a rotated sofa was hit by its unrotated bounding box. */
+          transform: frot ? `rotate(${frot} ${fx + fw / 2} ${fy + fh / 2})` : null,
+        } });
+      } else if ((t.render || {}).shape === 'perimeter') {
+        /* A cove is a STROKE around the room's outline, not a dot in the middle
+         * of it. Its target used to be a 17px circle at `item.at`, so the strip
+         * you can see was not the thing you could click and the circle itself
+         * sat under whatever furniture was placed later. Hit the line that is
+         * actually drawn.
+         *
+         * The room is resolved the same way the lamp's own light zone resolves
+         * it — `item.room` first, then geometry — because a cove marker is
+         * explicitly allowed to sit outside the slab it lights. */
+        const cRoom = item.room
+          ? ((floor.rooms || []).find((r) => r.id === item.room) || null)
+          : roomAt(floor, item.at[0], item.at[1]);
+        const pts = cRoom ? insetPolygon(roomPoints(cRoom), num(p.inset, num(d.inset, 1))) : null;
+        if (pts && pts.length) {
+          /* `outline` says this target is its STROKE, not its interior — the
+           * consumer has to know, because a CSS rule setting `fill` on every
+           * hit shape beats the attribute and would quietly make the whole
+           * room a cove target. Ranked by the length of the run rather than by
+           * the area it encloses, so a cove around a big room still loses to a
+           * lamp standing inside it. */
+          const ring = pts.reduce((n, pt, i) => n + Math.hypot(pt[0] - pts[(i + 1) % pts.length][0], pt[1] - pts[(i + 1) % pts.length][1]), 0);
+          items.push({ target: 'item', id: item.id, tag: 'path', outline: true, area: ring * P.ppf * 12, attrs: {
+            d: pts.map((pt, i) => `${i ? 'L' : 'M'} ${P.X(pt[0])} ${P.Y(pt[1])}`).join(' ') + ' Z',
+            fill: 'none', stroke: 'transparent', 'stroke-width': 12,
+          } });
+        } else {
+          const r = num(t.render && t.render.tap, 17);
+          items.push({ target: 'item', id: item.id, tag: 'circle', area: Math.PI * r * r, attrs: { cx: P.X(item.at[0]), cy: P.Y(item.at[1]), r } });
+        }
       } else {
-        const r = num(t.render && t.render.tap, 17);
+        /* `markerRadius` is how big the thing is DRAWN — a resized signage
+         * board is feet wide, and a fixed 17px circle at its centre made most
+         * of it unclickable. Never smaller than the type's tap radius, so a
+         * deliberately tiny marker stays reachable on a touch screen. */
+        const r = Math.max(num(t.render && t.render.tap, 17), markerRadius(item, t, P));
         items.push({ target: 'item', id: item.id, tag: 'circle', area: Math.PI * r * r, attrs: { cx: P.X(item.at[0]), cy: P.Y(item.at[1]), r } });
       }
     }
