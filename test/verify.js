@@ -2751,6 +2751,48 @@ ok('a cut flight says UP or DN and a whole one does not',
       ['width', 'height', 'r', 'rx', 'ry'].every(key => node.attrs[key] === undefined || node.attrs[key] >= 0))));
 }
 
+/* ---- a switchback's landing is where you actually turn round ----
+ *
+ * The landing IS the turn, so it belongs at the end where flight one stops and
+ * flight two starts. `flight` numbers its treads with `reverse`, and the two
+ * flights get `up` and `!up`, so flipping `dir` swaps which end of the well
+ * carries that join. The landing used to be drawn at a FIXED end — right for
+ * `ew`, top for `ns` — and so was correct for two of the four combinations and
+ * at the opposite end from the turn for the other two.
+ *
+ * Asserted through the TREAD SURFACES rather than the linework, because that is
+ * where it became visible: past a floor cut everything above the plane is
+ * faded, and with the landing at the wrong end the one solid tread of flight
+ * two sat marooned across the well from every other solid tread. Bare risers
+ * hid it for as long as they were the only thing being faded. */
+{
+  const surfacesOf = (axis, dir) => {
+    const ctx = Object.assign(mkCtx({ w: 10.5, h: 7.875, steps: 17, variant: 'u_switchback', axis, dir, continues: 'cut', cutAt: 0.6 }), { surfacePaths: [] });
+    Shapes.furniture('stairs', ctx);
+    return ctx.surfacePaths;
+  };
+  const along = (axis, d) => Number(d.split(' ')[axis === 'ew' ? 1 : 2]);
+  const stranded = [];
+  for (const axis of ['ew', 'ns']) {
+    for (const dir of ['up', 'down']) {
+      const paths = surfacesOf(axis, dir);
+      /* Drawn landing first, then flight one, then flight two. */
+      const landing = along(axis, paths[0].d);
+      const flightTwo = paths.slice(1 + Math.ceil(17 / 2));
+      const solid = flightTwo.filter((s) => s.opacity === 1).map((s) => along(axis, s.d));
+      const faded = flightTwo.filter((s) => s.opacity !== 1).map((s) => along(axis, s.d));
+      if (!solid.length || !faded.length) { stranded.push(`${axis}/${dir}: cut fell outside flight two`); continue; }
+      /* Every tread still on this floor must be nearer the landing than the
+       * furthest faded one is — the test of "adjacent" that does not care
+       * which end of the well the landing happens to be on. */
+      const reach = Math.max(...faded.map((v) => Math.abs(v - landing)));
+      if (solid.some((v) => Math.abs(v - landing) > reach)) stranded.push(`${axis}/${dir}`);
+    }
+  }
+  ok('a switchback lands where its two flights meet, whichever way it runs',
+    !stranded.length, stranded.join(', ') || 'ew/ns × up/down');
+}
+
 /* ---- looks that carry their own footprint ---- */
 {
   const bad = [];

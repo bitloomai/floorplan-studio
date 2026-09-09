@@ -1183,41 +1183,67 @@
         // Keep room for both flights rather than emitting negative SVG sizes.
         const gapPx = Math.min(Math.max(4, c.P.S(wellFt)), (ew ? c.H : c.W) * .8);
         const hasWell = wellFt > 0.4;
+        /* WHICH END the landing goes on follows the direction of travel,
+         * because the landing IS the turn and the turn is wherever the first
+         * flight ends.
+         *
+         * `flight` numbers its treads with `reverse`, and the two flights are
+         * given `up` and `!up`, so flipping `dir` swaps which end of the well
+         * carries the top of flight one and the bottom of flight two. The
+         * landing was drawn at a FIXED end regardless — right for `ew`, top
+         * for `ns` — so it was correct for `ew` + `down` and `ns` + `up`, and
+         * at the opposite end from the actual turn for the other two.
+         *
+         * Nothing made that visible while treads were bare: the only thing
+         * that disagreed was the fade past a floor cut, applied to dashed
+         * riser lines at 0.38 opacity. Filling the treads with a material put
+         * a solid step at the far end of an otherwise faint flight, marooned
+         * across the well from every other solid tread, which is what it looks
+         * like when the run's numbering and its landing disagree about where
+         * you turn round. */
         if (ew) {
           const half = (c.H - gapPx) / 2;
           const landing = Math.min(c.W * 0.22, half);
           const run = c.W - landing;
-          slab(c.X + run, c.Y, landing, c.H, first);
-          flight(c.X, c.Y, run, half, first, 'ew', 0, up);
-          flight(c.X, c.Y + half + gapPx, run, half, second, 'ew', first, !up);
-          n.push({ tag: 'rect', attrs: { x: c.X + run, y: c.Y, width: landing, height: c.H, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+          const landX = up ? c.X : c.X + run;
+          const runX = up ? c.X + landing : c.X;
+          slab(landX, c.Y, landing, c.H, first);
+          flight(runX, c.Y, run, half, first, 'ew', 0, up);
+          flight(runX, c.Y + half + gapPx, run, half, second, 'ew', first, !up);
+          n.push({ tag: 'rect', attrs: { x: landX, y: c.Y, width: landing, height: c.H, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
           if (hasWell) {
-            n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half, x2: c.X + run, y2: c.Y + half, stroke: c.line, 'stroke-width': 1.4 } });
-            n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half + gapPx, x2: c.X + run, y2: c.Y + half + gapPx, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: runX, y1: c.Y + half, x2: runX + run, y2: c.Y + half, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: runX, y1: c.Y + half + gapPx, x2: runX + run, y2: c.Y + half + gapPx, stroke: c.line, 'stroke-width': 1.4 } });
           } else {
-            n.push({ tag: 'line', attrs: { x1: c.X, y1: c.Y + half + gapPx / 2, x2: c.X + run, y2: c.Y + half + gapPx / 2, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: runX, y1: c.Y + half + gapPx / 2, x2: runX + run, y2: c.Y + half + gapPx / 2, stroke: c.line, 'stroke-width': 1.4 } });
           }
-          arrow(c.X + 6, c.Y + half / 2, c.X + run - 6, c.Y + half / 2, travelLabel);
+          /* The travel arrow points at the landing, so it turns round with it. */
+          arrow(up ? runX + run - 6 : runX + 6, c.Y + half / 2, up ? runX + 6 : runX + run - 6, c.Y + half / 2, travelLabel);
           const backY = c.Y + half + gapPx + half / 2;
-          arrow(bothWays ? c.X + 6 : c.X + run - 6, backY, bothWays ? c.X + run - 6 : c.X + 6, backY,
-            bothWays ? downWord : null);
+          const backFrom = bothWays ? (up ? runX + run - 6 : runX + 6) : (up ? runX + 6 : runX + run - 6);
+          const backTo = bothWays ? (up ? runX + 6 : runX + run - 6) : (up ? runX + run - 6 : runX + 6);
+          arrow(backFrom, backY, backTo, backY, bothWays ? downWord : null);
         } else {
           const half = (c.W - gapPx) / 2;
           const landing = Math.min(c.H * 0.22, half);
-          slab(c.X, c.Y, c.W, landing, first);
-          flight(c.X, c.Y + landing, half, c.H - landing, first, 'ns', 0, up);
-          flight(c.X + half + gapPx, c.Y + landing, half, c.H - landing, second, 'ns', first, !up);
-          n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: landing, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
+          const run = c.H - landing;
+          const landY = up ? c.Y : c.Y + run;
+          const runY = up ? c.Y + landing : c.Y;
+          slab(c.X, landY, c.W, landing, first);
+          flight(c.X, runY, half, run, first, 'ns', 0, up);
+          flight(c.X + half + gapPx, runY, half, run, second, 'ns', first, !up);
+          n.push({ tag: 'rect', attrs: { x: c.X, y: landY, width: c.W, height: landing, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
           if (hasWell) {
-            n.push({ tag: 'line', attrs: { x1: c.X + half, y1: c.Y + landing, x2: c.X + half, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
-            n.push({ tag: 'line', attrs: { x1: c.X + half + gapPx, y1: c.Y + landing, x2: c.X + half + gapPx, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: c.X + half, y1: runY, x2: c.X + half, y2: runY + run, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: c.X + half + gapPx, y1: runY, x2: c.X + half + gapPx, y2: runY + run, stroke: c.line, 'stroke-width': 1.4 } });
           } else {
-            n.push({ tag: 'line', attrs: { x1: c.X + half + gapPx / 2, y1: c.Y + landing, x2: c.X + half + gapPx / 2, y2: c.Y + c.H, stroke: c.line, 'stroke-width': 1.4 } });
+            n.push({ tag: 'line', attrs: { x1: c.X + half + gapPx / 2, y1: runY, x2: c.X + half + gapPx / 2, y2: runY + run, stroke: c.line, 'stroke-width': 1.4 } });
           }
-          arrow(c.X + half / 2, c.Y + c.H - 6, c.X + half / 2, c.Y + landing + 6, travelLabel);
+          arrow(c.X + half / 2, up ? runY + run - 6 : runY + 6, c.X + half / 2, up ? runY + 6 : runY + run - 6, travelLabel);
           const backX = c.X + half + gapPx + half / 2;
-          arrow(backX, bothWays ? c.Y + c.H - 6 : c.Y + landing + 6, backX, bothWays ? c.Y + landing + 6 : c.Y + c.H - 6,
-            bothWays ? downWord : null);
+          const backFrom = bothWays ? (up ? runY + run - 6 : runY + 6) : (up ? runY + 6 : runY + run - 6);
+          const backTo = bothWays ? (up ? runY + 6 : runY + run - 6) : (up ? runY + run - 6 : runY + 6);
+          arrow(backX, backFrom, backX, backTo, bothWays ? downWord : null);
         }
         return n;
       }

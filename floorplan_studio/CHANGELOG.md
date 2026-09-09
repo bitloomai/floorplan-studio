@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### A switchback lands where you actually turn round
+
+- The landing on a U-switchback was drawn at a **fixed** end of the well — the
+  right for an east-west run, the top for a north-south one — while which end
+  the two flights actually meet at flips with `dir`. So it was right for
+  `ew`+`down` and `ns`+`up`, and at the opposite end from the turn for the other
+  two. The flights now shift to make room for the landing at the end where
+  flight one stops and flight two starts, and the travel arrows follow it.
+- Nothing made this visible while treads were bare: the only thing that
+  disagreed was the fade past a floor cut, applied to dashed riser lines at 0.38
+  opacity. Filling treads with a material put one solid step at the far end of
+  an otherwise faint flight, marooned across the well from every other solid
+  tread — which is what it looks like when a run's numbering and its landing
+  disagree about where you turn round.
+
 ### The headless API, which had shipped undocumented
 
 - `/app-api/v1` — REST plus a WebSocket, for a native or remote client that
