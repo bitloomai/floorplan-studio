@@ -58,3 +58,22 @@ passes open. That is the whole point of a door.
 
 Changes apply everywhere that type is used, on every floor, and are saved as you
 make them.
+
+## How wide is a wall, and what is its top made of?
+
+After choosing a treatment for an edge, an enclosing wall offers **Wall top width
+(ft)** and **Wall top finish**. Clear the width to follow the treatment's default.
+The type editor's Advanced **Thickness (ft)** changes the default everywhere that
+type is used. An open edge or threshold has no horizontal wall top.
+
+Choose any floor finish for the wall top; its generator options affect this run
+only. Reset the options to use the material's own look, or clear the finish to
+restore the treatment colour. Partial runs stop at their endpoints, and curved
+walls use the same flattened boundary geometry as their outlines. Materials cover
+the band seen from above, not a wall elevation.
+
+Wall runs store overrides in `props`: `thicknessFt`, `topFinish` (a flooring
+key), and `topFinishOptions` (generator options). These override the type's
+`render` values and survive project export and dashboard generation. A material
+is generated over the floor extent and clipped to the wall bands, preserving its
+physical scale. Overlapping bands using the same material share one paint pass.

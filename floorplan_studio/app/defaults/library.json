@@ -8507,7 +8507,8 @@
       "group": "Structure",
       "render": {
         "shape": "stairs",
-        "bindable": true
+        "bindable": true,
+        "surface": "treads"
       },
       "defaults": {
         "w": 3.5,
@@ -8664,6 +8665,19 @@
             "together",
             "progressive"
           ]
+        },
+        {
+          "key": "treadFinish",
+          "label": "Tread finish",
+          "type": "text",
+          "hint": "Flooring key for the horizontal treads and landing; empty keeps the scheme colour."
+        },
+        {
+          "key": "treadFinishOptions",
+          "label": "Tread finish options",
+          "type": "json",
+          "advanced": true,
+          "hint": "Per-item overrides of the flooring generator options."
         }
       ],
       "_comment": "A flight is architecture: the variant decides how it turns, `steps`/`dir`/`axis` how it is climbed, and `lighting`/`lightEvery` what is lit on it. Bind an entity and the lit parts follow it — `sequence` decides whether they all come up together, as most step lighting does, or climb the flight one step at a time the way a motion-triggered progressive stair light does."

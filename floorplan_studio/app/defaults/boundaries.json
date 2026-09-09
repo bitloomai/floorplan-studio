@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "_comment": "Boundary treatments — what sits on a room edge. A wall, a glass railing, a grill and an open edge differ in exactly three ways: how they DRAW, how much light they pass (transmission 0..1), and whether they read as enclosure. Making that one registry means 'change this balcony edge to glass railing' is a dropdown, and the daylight model picks it up for free because it only ever reads `transmission`.",
+  "_surface_comment": "A floor boundary run may override its type render with props.thicknessFt (ft), props.topFinish (a flooring key) and props.topFinishOptions (generator overrides). Only enclosing types have a horizontal wall top.",
   "defaults": {
     "exterior": "wall_exterior",
     "interior": "wall_partition"

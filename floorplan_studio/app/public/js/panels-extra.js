@@ -42,79 +42,107 @@ window.PanelsExtra = (function () {
 
   /* ---------------------------------------------------------- flooring ---- */
 
-  function flooringField(box, room) {
-    const group = h('section', { class: 'settings-group', 'aria-label': 'Floor finish' }, h('h3', {}, 'Floor finish'));
-    box.appendChild(group);
-    box = group;
+  // Generator schemas supply the option controls. Text beside each colour swatch
+  // preserves @theme tokens that a native colour input cannot represent.
+  function finishOptionRow(t, spec, changed) {
+    const o = t.options || (t.options = {});
+    const set = (v) => { if (v === undefined || v === '') delete o[spec.key]; else o[spec.key] = v; changed(); };
+    const val = o[spec.key];
+
+    if (spec.kind === 'color') {
+      const text = h('input', {
+        type: 'text', value: val === undefined ? '' : String(val), placeholder: '@token or #hex',
+        style: 'flex:1;min-width:0',
+        onchange: (e) => set(e.target.value.trim()),
+      });
+      // A commit repaints the inspector. Input on each colour-picker drag tick
+      // would destroy the active picker; change fires once after it closes.
+      const swatch = h('input', {
+        type: 'color', value: normHex(val), style: 'width:38px;flex:none',
+        onchange: (e) => { text.value = e.target.value; set(e.target.value); },
+      });
+      return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
+        h('div', { style: 'display:flex;gap:6px' }, text, swatch));
+    }
+
+    if (spec.kind === 'colorList') {
+      return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
+        h('input', {
+          type: 'text', value: Array.isArray(val) ? val.join(', ') : (val || ''),
+          placeholder: '#aaa, #bbb, #ccc',
+          onchange: (e) => {
+            const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+            set(list.length ? list : undefined);
+          },
+        }));
+    }
+
+    if (spec.kind === 'fraction') {
+      return h('div', { class: 'field' }, h('label', {}, `${spec.label || spec.key} — ${Math.round((val ?? 0) * 100)}%`),
+        h('input', {
+          type: 'range', min: 0, max: 100, step: 1, value: Math.round((val ?? 0) * 100),
+          onchange: (e) => set(Number(e.target.value) / 100),
+        }));
+    }
+
+    const step = spec.kind === 'angle' ? 15 : (spec.step ?? 1);
+    return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
+      h('input', {
+        type: 'number', step, min: spec.min, max: spec.max, value: val === undefined ? '' : val,
+        onchange: (e) => set(e.target.value === '' ? undefined : Number(e.target.value)),
+      }));
+  }
+
+  // The same picker and generator-declared options serve rooms, treads and wall tops.
+  // set() owns the transaction, allowing a wall edit to preserve its run identity.
+  function flooringField(box, room, config) {
+    const cfg = config || {
+      label: 'Floor finish', get: () => ({ key: room.flooring || 'plain', options: room.flooringOptions }),
+      set: (key, options) => Store.mutate(() => { room.flooring = key; room.flooringOptions = options; }, 'flooring'),
+    };
+    const group = h('section', { class: 'settings-group', 'aria-label': cfg.label, 'data-ui-location': config ? null : 'section:room.flooring' }, h('h3', {}, cfg.label));
+    box.appendChild(group); box = group;
+    const { key: cur, options } = cfg.get();
     const types = Object.entries((S.flooring && S.flooring.types) || {});
     const groups = [...new Set(types.map(([, t]) => t.group || 'Other'))];
-    const cur = room.flooring || 'plain';
-    const picker = h('select', {
-      onchange: (e) => Store.mutate(() => { room.flooring = e.target.value; }, 'flooring'),
-    }, ...groups.map((g) => h('optgroup', { label: g },
-      ...types.filter(([, t]) => (t.group || 'Other') === g)
-        .map(([k, t]) => h('option', { value: k, selected: cur === k }, t.label || k)))));
-
-    /* The picker chooses WHICH finish; this opens what a finish IS. They were
-     * previously two different things with only the first reachable — you could
-     * say "this room is oak" and had no way to say what oak looks like. */
-    const row = h('div', { class: 'field' },
-      h('label', { 'data-ui-location': 'section:room.flooring' }, UINavigation.label('section:room.flooring'),
-        h('button', {
-          class: 'link', style: 'float:right;font-weight:400',
-          title: 'Change what this finish looks like, or add one',
-          onclick: () => editFlooring(cur),
-        }, UINavigation.label('dialog:flooring'))),
-      picker);
-    box.appendChild(row);
-
-    const def = (S.flooring && S.flooring.types && S.flooring.types[cur]) || {};
-    if (def.generator === 'script') {
-      box.appendChild(h('p', { class: 'hint' }, 'This finish is drawn by a script. Its options are editable under “edit finishes”; the script body itself lives in flooring.json.'));
+    box.appendChild(field(cfg.label, h('select', {
+      'aria-label': cfg.label,
+      onchange: e => cfg.set(e.target.value || null, null),
+    }, cfg.nullable && h('option', { value: '', selected: !cur }, 'Scheme / type colour'),
+      ...groups.map(g => h('optgroup', { label: g }, ...types.filter(([,t]) => (t.group || 'Other') === g)
+        .map(([k,t]) => h('option', { value: k, selected: cur === k }, t.label || k)))))));
+    box.appendChild(h('button', { class: 'link', title: 'edit finishes', onclick: () => editFlooring(cur) }, UINavigation.label('dialog:flooring')));
+    if (!cur) return;
+    const def = S.flooring.types[cur] || {};
+    const o = options || {};
+    const schema = (S.flooring.generatorOptions || {})[def.generator] || [];
+    for (const spec of schema) {
+      const value = { options: { ...def.options, ...o } };
+      box.appendChild(finishOptionRow(value, spec, () => {
+        const next = { ...o };
+        if (value.options[spec.key] === undefined) delete next[spec.key];
+        else next[spec.key] = value.options[spec.key];
+        cfg.set(cur, Object.keys(next).length ? next : null);
+      }));
     }
-    // Per-room overrides of the flooring's own options — angle and colour are
-    // the two people actually want to vary room to room.
-    const o = room.flooringOptions || {};
-    box.appendChild(h('div', { class: 'field row' },
-      h('div', {}, h('label', {}, 'Angle'), numInput(o.angle ?? (def.options || {}).angle ?? 0,
-        (v) => Store.mutate(() => { room.flooringOptions = Object.assign({}, room.flooringOptions, { angle: v ?? 0 }); }, 'flooring angle'), 15)),
-      h('div', {}, h('label', {}, 'Colour'), h('input', {
-        /* `onchange`, not `oninput`: a native colour input fires `input` on
-         * every drag tick while its picker is open, and `Store.mutate` repaints
-         * the ENTIRE room panel synchronously (see `renderInspector`'s
-         * `box.replaceChildren()`) — which recreates this very element mid-drag
-         * and closes the browser's own picker the instant it opens. `change`
-         * fires once, when the picker commits, by which point tearing the
-         * panel down is harmless. */
-        type: 'color', value: normHex(o.color || (def.options || {}).color || '#e6eaf0'),
-        onchange: (e) => Store.mutate(() => { room.flooringOptions = Object.assign({}, room.flooringOptions, { color: e.target.value }); }, 'flooring colour'),
-      })),
-    ));
-    /* How much light this floor throws back.
-     *
-     * A property of the SURFACE, not of the lamps: white polished marble bounces
-     * light round the room and black granite swallows it, so two identical
-     * fittings over them are not the same amount of usable light. Each flooring
-     * type carries its real figure; this is the per-room override, because the
-     * same tile comes in gloss and matte and only the person standing in the
-     * room knows which was laid. */
-    const typeR = def.reflectance ?? (def.options || {}).reflectance ?? 0;
-    const curR = o.reflectance ?? typeR;
-    box.appendChild(field(`Reflection — ${Math.round(curR * 100)}%`, h('input', {
-      type: 'range', min: 0, max: 100, step: 1, value: Math.round(curR * 100),
-      onchange: (e) => Store.mutate(() => {
-        room.flooringOptions = Object.assign({}, room.flooringOptions, { reflectance: Number(e.target.value) / 100 });
-      }, 'floor reflection'),
-    })));
-    box.appendChild(settingHelp(
-      `${def.label || cur}: ${Math.round(typeR * 100)}% reflection by default.`, 'Choosing reflection',
-      'Raise it for a glossy finish; lower it for matte or dark stone.',
-      'More reflection makes the room brighter with the same lighting.',
-      'Use 0% for a flat colour that reflects no light.'));
+    // Only room floors contribute reflection to the room lighting model.
+    if (!config) {
+      const typeR = def.reflectance ?? (def.options || {}).reflectance ?? 0;
+      const curR = o.reflectance ?? typeR;
+      box.appendChild(field(`Reflection — ${Math.round(curR * 100)}%`, h('input', {
+        type: 'range', min: 0, max: 100, step: 1, value: Math.round(curR * 100),
+        onchange: (e) => Store.mutate(() => {
+          room.flooringOptions = Object.assign({}, room.flooringOptions, { reflectance: Number(e.target.value) / 100 });
+        }, 'floor reflection'),
+      })));
+      box.appendChild(settingHelp(
+        `${def.label || cur}: ${Math.round(typeR * 100)}% reflection by default.`, 'Choosing reflection',
+        'Raise it for a glossy finish; lower it for matte or dark stone.',
+        'More reflection makes the room brighter with the same lighting.',
+        'Use 0% for a flat colour that reflects no light.'));
 
-    if (room.flooringOptions) {
-      box.appendChild(h('button', { class: 'btn tiny', onclick: () => Store.mutate(() => { room.flooringOptions = null; }, 'reset flooring') }, 'Reset to the type’s own look'));
     }
+    if (options) box.appendChild(h('button', { class: 'btn tiny', onclick: () => cfg.set(cur, null) }, 'Reset to the type’s own look'));
   }
 
   /* ----------------------------------------------- the boundaries editor ---
@@ -496,63 +524,6 @@ window.PanelsExtra = (function () {
       if (!entries.length) listBox.append(h('p', { class: 'hint' }, 'No finishes match.'));
     }
 
-    /* One row per option. `kind` picks the control; a colour is a TEXT box with
-     * a picker beside it because a shipped value is often a theme token
-     * (@floorWood) and a bare colour input cannot hold one — it would silently
-     * turn the token into black the moment the row was touched. */
-    function optionRow(t, spec) {
-      const o = t.options || (t.options = {});
-      const set = (v) => { if (v === undefined || v === '') delete o[spec.key]; else o[spec.key] = v; flooringChanged(); };
-      const val = o[spec.key];
-
-      if (spec.kind === 'color') {
-        const text = h('input', {
-          type: 'text', value: val === undefined ? '' : String(val), placeholder: '@token or #hex',
-          style: 'flex:1;min-width:0',
-          onchange: (e) => set(e.target.value.trim()),
-        });
-        /* `onchange`: `set()` calls `flooringChanged()`, which emits
-         * `Store.emit('selection')` — and that repaints the room panel the
-         * same destructive way `Store.mutate` does (see the note on the
-         * per-room swatch above). `input` fires on every drag tick, so the
-         * panel behind this modal was rebuilding, and the swatch with it,
-         * before a drag ever reached a second colour. */
-        const swatch = h('input', {
-          type: 'color', value: normHex(val), style: 'width:38px;flex:none',
-          onchange: (e) => { text.value = e.target.value; set(e.target.value); },
-        });
-        return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
-          h('div', { style: 'display:flex;gap:6px' }, text, swatch));
-      }
-
-      if (spec.kind === 'colorList') {
-        return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
-          h('input', {
-            type: 'text', value: Array.isArray(val) ? val.join(', ') : (val || ''),
-            placeholder: '#aaa, #bbb, #ccc',
-            onchange: (e) => {
-              const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
-              set(list.length ? list : undefined);
-            },
-          }));
-      }
-
-      if (spec.kind === 'fraction') {
-        return h('div', { class: 'field' }, h('label', {}, `${spec.label || spec.key} — ${Math.round((val ?? 0) * 100)}%`),
-          h('input', {
-            type: 'range', min: 0, max: 100, step: 1, value: Math.round((val ?? 0) * 100),
-            onchange: (e) => set(Number(e.target.value) / 100),
-          }));
-      }
-
-      const step = spec.kind === 'angle' ? 15 : (spec.step ?? 1);
-      return h('div', { class: 'field' }, h('label', {}, spec.label || spec.key),
-        h('input', {
-          type: 'number', step, min: spec.min, max: spec.max, value: val === undefined ? '' : val,
-          onchange: (e) => set(e.target.value === '' ? undefined : Number(e.target.value)),
-        }));
-    }
-
     function drawForm() {
       const t = doc.types[current];
       if (!t) { formBox.replaceChildren(h('p', { class: 'hint' }, 'Nothing selected.')); return; }
@@ -592,7 +563,7 @@ window.PanelsExtra = (function () {
         h('p', { class: 'hint' }, 'How much light this surface throws back — polished white marble is about 65%, mid oak 25%, black granite 5%. Both light models read it, so it changes how bright a room lit by the same fittings actually looks.'),
         h('div', { class: 'subhead' }, 'Pattern options'),
         ...(schema.length || extra.length
-          ? [...schema, ...extra].map((s) => optionRow(t, s))
+          ? [...schema, ...extra].map((s) => finishOptionRow(t, s, flooringChanged))
           : [h('p', { class: 'hint' }, 'This pattern takes no options.')]),
         t.generator === 'script'
           ? h('p', { class: 'hint' }, 'The script body itself is edited in flooring.json — this dialog changes the values it reads.')
@@ -739,6 +710,7 @@ window.PanelsExtra = (function () {
        * pins numbers down. */
       if (next.from === undefined || next.from === null || Number(next.from) <= edge.lo + 1e-6) delete next.from;
       if (next.to === undefined || next.to === null || Number(next.to) >= edge.hi - 1e-6) delete next.to;
+      if (next.props && !Object.keys(next.props).length) delete next.props;
       if (i >= 0) floor.boundaries[i] = next; else floor.boundaries.push(next);
     }, 'boundary');
 
@@ -767,6 +739,23 @@ window.PanelsExtra = (function () {
        * default wall" is not a thing you can express, and offering the fields
        * anyway would suggest it is. */
       if (!cur) continue;
+      if (def && def.encloses !== false) {
+        const setProp = (changes) => {
+          const props = { ...existing.props, ...changes };
+          for (const key of Object.keys(props)) if (props[key] == null) delete props[key];
+          writeBoundary(edge, { props });
+        };
+        box.appendChild(field('Wall top width (ft)', h('input', {
+          type: 'number', min: 0, max: 10, step: .05,
+          value: existing.props?.thicknessFt ?? '', placeholder: String(def.render?.thicknessFt ?? def.thicknessFt ?? .3),
+          'aria-label': 'Wall top width (ft)',
+          onchange: e => setProp({ thicknessFt: e.target.value === '' ? null : Math.max(0, Math.min(10, Number(e.target.value))) }),
+        })));
+        flooringField(box, null, { label: 'Wall top finish', nullable: true,
+          get: () => ({ key: existing.props?.topFinish, options: existing.props?.topFinishOptions }),
+          set: (key, options) => setProp({ topFinish: key, topFinishOptions: options }),
+        });
+      }
       if (edge.curved) {
         box.appendChild(h('p', { class: 'hint' },
           'A curved wall takes its treatment whole — there is no straight axis to measure a range along.'));

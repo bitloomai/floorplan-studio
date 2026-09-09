@@ -912,6 +912,13 @@
        * where a single cut flight fades what is no longer on it. */
       const fadePast = continues === 'cut';
       const n = [];
+      // Collect physical horizontal surfaces from the same geometry as the linework.
+      // Above-cut treads remain ghosted; wells and space outside the flights stay empty.
+      const surface = (d, index) => {
+        if (c.surfacePaths) c.surfacePaths.push({ d, opacity: fadePast && index >= cutIdx ? 0.18 : 1 });
+      };
+      const slab = (x, y, w, h, index) => surface(
+        `M ${x} ${y} h ${w} v ${h} h ${-w} Z`, index);
 
       /* One lit step. `i` is its index up the flight, so the chase delay can be
        * proportional and the light appears to climb rather than blink. */
@@ -1018,6 +1025,10 @@
        * flight, which is the sort of error that looks like a shading choice. */
       const flight = (x, y, w, h, count, axis, from, reverse) => {
         const stepAt = (slot) => from + (reverse ? count - 1 - slot : slot);
+        for (let i = 0; i < count; i++) {
+          if (axis === 'ns') slab(x, y + h * i / count, w, h / count, stepAt(i));
+          else slab(x + w * i / count, y, w / count, h, stepAt(i));
+        }
         for (let i = 1; i < count; i++) {
           const t = i / count;
           const far = fadePast && Math.min(stepAt(i - 1), stepAt(i)) >= cutIdx;
@@ -1054,6 +1065,9 @@
           const x1 = cx + Math.cos(a) * rIn, y1 = cy + Math.sin(a) * rIn;
           const x2 = cx + Math.cos(a) * rOut, y2 = cy + Math.sin(a) * rOut;
           if (i >= steps) break;
+          const b = (((i + 1) / steps) * sweep - 90) * Math.PI / 180;
+          const sweepFlag = sweep >= 0 ? 1 : 0;
+          surface(`M ${x1} ${y1} L ${x2} ${y2} A ${rOut} ${rOut} 0 0 ${sweepFlag} ${cx + Math.cos(b)*rOut} ${cy + Math.sin(b)*rOut} L ${cx + Math.cos(b)*rIn} ${cy + Math.sin(b)*rIn} A ${rIn} ${rIn} 0 0 ${1-sweepFlag} ${x1} ${y1} Z`, i);
           const far = fadePast && i >= cutIdx;
           n.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: c.line, 'stroke-width': 1, opacity: far ? 0.38 : 1, 'stroke-dasharray': far ? '3 2.5' : null } });
           if (!far) stepLight(x1, y1, x2, y2, i);
@@ -1097,6 +1111,17 @@
         flight(c.X + c.W - armW, c.Y + armW, armW, legB, second, 'ns', first + winders, !up);
         const kx = c.X + c.W - armW, ky = c.Y;
         if (winders) {
+          // The tapered turn occupies the corner square; partition at its perimeter.
+          const perimeter = t => {
+            const a = t * Math.PI / 2;
+            return t <= .5 ? [kx + Math.tan(a)*armW, ky]
+              : [kx + armW, ky + armW - armW/Math.tan(a)];
+          };
+          for (let i=0; i<winders; i++) {
+            const a=perimeter(i/winders), b=perimeter((i+1)/winders);
+            const corner = i/winders < .5 && (i+1)/winders > .5 ? `L ${kx+armW} ${ky}` : '';
+            surface(`M ${kx} ${ky+armW} L ${a[0]} ${a[1]} ${corner} L ${b[0]} ${b[1]} Z`, first+i);
+          }
           for (let i = 1; i < winders; i++) {
             const a = (i / winders) * (Math.PI / 2);
             const x2 = kx + Math.sin(a) * armW, y2 = ky + armW - Math.cos(a) * armW;
@@ -1105,6 +1130,7 @@
             if (!far) stepLight(kx, ky + armW, x2, y2, first + i);
           }
         } else {
+          slab(kx, ky, armW, armW, first);
           n.push({ tag: 'rect', attrs: { x: kx, y: ky, width: armW, height: armW, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
         }
         /* The travel arrow follows the L rather than cutting the corner off,
@@ -1161,6 +1187,7 @@
           const half = (c.H - gapPx) / 2;
           const landing = Math.min(c.W * 0.22, half);
           const run = c.W - landing;
+          slab(c.X + run, c.Y, landing, c.H, first);
           flight(c.X, c.Y, run, half, first, 'ew', 0, up);
           flight(c.X, c.Y + half + gapPx, run, half, second, 'ew', first, !up);
           n.push({ tag: 'rect', attrs: { x: c.X + run, y: c.Y, width: landing, height: c.H, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });
@@ -1177,6 +1204,7 @@
         } else {
           const half = (c.W - gapPx) / 2;
           const landing = Math.min(c.H * 0.22, half);
+          slab(c.X, c.Y, c.W, landing, first);
           flight(c.X, c.Y + landing, half, c.H - landing, first, 'ns', 0, up);
           flight(c.X + half + gapPx, c.Y + landing, half, c.H - landing, second, 'ns', first, !up);
           n.push({ tag: 'rect', attrs: { x: c.X, y: c.Y, width: c.W, height: landing, fill: 'none', stroke: c.line, 'stroke-width': 1.2 } });

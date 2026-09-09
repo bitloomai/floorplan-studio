@@ -485,7 +485,8 @@ async function handleApi(req, res, pathname, query) {
     const library = await store.readLibrary();
     const themes = await store.readThemes();
     try {
-      const out = exporter.build(project, library, themes, body.format || 'bundle', body.floorId);
+      const [boundaries, flooring] = await Promise.all([store.readBoundaries(), store.readFlooring()]);
+      const out = exporter.build(project, library, themes, body.format || 'bundle', body.floorId, { boundaries, flooring });
       return sendJson(res, 200, out);
     } catch (e) {
       return sendJson(res, 400, { error: e.message, stack: OPTIONS.log_level === 'debug' ? e.stack : undefined });

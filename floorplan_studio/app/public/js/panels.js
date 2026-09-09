@@ -999,7 +999,17 @@ window.Panels = (function () {
     const markerVariants = family && window.Shapes ? Shapes.variantsOf(family) : [];
     const furnitureVariants = furnitureShape && window.Shapes ? Shapes.furnitureVariantsOf(furnitureShape) : [];
     const hasVariantGrid = markerVariants.length > 1 || furnitureVariants.length > 1;
-    const rest = props.filter((p) => UINavigation.propSection(t, p) === 'properties');
+    const rest = props.filter((p) => UINavigation.propSection(t, p) === 'properties'
+      && !((t.render || {}).surface && ['treadFinish', 'treadFinishOptions'].includes(p.key)));
+    if ((t.render || {}).surface) PanelsExtra.flooringField(box, null, {
+      label: 'Tread finish', nullable: true,
+      get: () => ({ key: Object.hasOwn(item.props, 'treadFinish') ? item.props.treadFinish : t.defaults?.treadFinish,
+        options: Object.hasOwn(item.props, 'treadFinishOptions') ? item.props.treadFinishOptions : t.defaults?.treadFinishOptions }),
+      set: (key, options) => Store.mutate(() => {
+        item.props.treadFinish = key || null;
+        item.props.treadFinishOptions = options || null;
+      }, 'tread finish'),
+    });
 
     if (markerVariants.length > 1) {
       box.appendChild(locationTitle('section:item.look'));

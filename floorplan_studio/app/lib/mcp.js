@@ -939,6 +939,8 @@ add): floors and rooms get a slug from their name ("Formal Living" ->
 number ("f1" for the first fixture, "d1" for the first device); openings get
 "op1", "op2", ...
 
+SURFACE MATERIALS: furniture types declaring render.surface accept props.treadFinish (a flooring key) and props.treadFinishOptions. Boundary runs accept props.thicknessFt, props.topFinish and props.topFinishOptions; these paint the horizontal wall top in plan view. Clear an override to follow the type again.
+
 ID CONVENTIONS also cover boundaries: they get "b1", "b2", … like openings
 get "op1".
 

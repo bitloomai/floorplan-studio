@@ -51,3 +51,18 @@ treads themselves — a pip each side, a lit nosing, or both — and `lightEvery
 the cadence an electrician actually installs. `sequence: progressive` makes the
 flight climb one tread at a time when it comes on, which is what a
 motion-triggered stair light does.
+
+## What the treads are made of
+
+Choose **Tread finish** in the stair inspector to use any floor material, including
+granite, marble, wood or tile. The same finish editor and generator options serve
+rooms, stair treads and wall tops. Options here change this stair only; **edit
+finishes** changes the reusable material. Clear the finish to keep the colour scheme.
+
+Materials cover horizontal treads and landings in top-down view. They leave an
+open well and the centre of a spiral unpainted, rotate with the stair, and stay
+faint beyond a floor cut. Riser lines, direction labels and step lights remain
+above the material. This does not add vertical riser cladding or change room lighting.
+
+For project editing, store a flooring key in `props.treadFinish` and optional
+generator overrides in `props.treadFinishOptions`.

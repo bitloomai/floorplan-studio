@@ -512,7 +512,7 @@
     return out;
   }
 
-  function boundaryNodes(run, edge, bDoc, theme, P) {
+  function boundaryNodes(run, edge, bDoc, theme, P, surface) {
     const def = (bDoc.types || {})[run.type] || (bDoc.types || {}).wall_partition || {};
     const r = Object.assign({}, def.render || {}, run.props || {});
     if (r.style === 'none') return [];
@@ -529,8 +529,8 @@
      * a token, a hex, or a hex with alpha for anything translucent. It goes
      * down FIRST so the style's own strokes still read on top, and a type that
      * sets no fill draws exactly as it always did. */
-    if (r.fill) {
-      const half = P.S(num(r.thicknessFt, num(def.thicknessFt, 0.3))) / 2;
+    if (r.fill || (r.topFinish && def.encloses !== false)) {
+      const half = P.S(Math.max(0, num(r.thicknessFt, num(def.thicknessFt, 0.3)))) / 2;
       const len = Math.hypot(x2 - x1, y2 - y1) || 1;
       const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
       const nx = -uy * half, ny = ux * half;
@@ -565,8 +565,14 @@
           stroke: 'none',
         },
       });
+      if (surface && r.topFinish && def.encloses !== false) {
+        const xs = [ax-nx, bx-nx, bx+nx, ax+nx], ys = [ay-ny, by-ny, by+ny, ay+ny];
+        surface(r, nodes[0].attrs.d, {
+          x0: (Math.min(...xs)-P.X(0))/P.S(1), y0: (Math.min(...ys)-P.Y(0))/P.S(1),
+          x1: (Math.max(...xs)-P.X(0))/P.S(1), y1: (Math.max(...ys)-P.Y(0))/P.S(1),
+        });
+      }
     }
-
     switch (r.style) {
       case 'solid':
         nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: col, 'stroke-width': w, 'stroke-linecap': 'square' } });
@@ -1818,6 +1824,24 @@
 
   /* -------------------------------------------------------------- the scene */
 
+  // Every horizontal surface uses the same finish builder and definition pool.
+  // Clip the group, never a generator node: those nodes may transform themselves.
+  function paintSurface(flDoc, key, P, ctx) {
+    const fl = ctx.built || Flooring().build(flDoc, key, P, ctx);
+    if (fl.error) {
+      const target = ctx.room ? { room: ctx.room.id } : ctx.tag.itemId ? { item: ctx.tag.itemId } : {};
+      ctx.warnings.push({ ...target, kind: 'flooring', message: fl.error });
+    }
+    for (const def of fl.defs || []) {
+      if (ctx.patternIds.has(def.attrs.id)) continue;
+      ctx.patternIds.add(def.attrs.id); ctx.layers.defs.push(def);
+    }
+    ctx.base.push({ tag: 'path', ...ctx.tag, attrs: { d: ctx.d, fill: fl.fill } });
+    if ((fl.nodes || []).length) ctx.field.push({ tag: 'g', ...ctx.tag,
+      attrs: { 'clip-path': `url(#${ctx.clipId})` }, children: fl.nodes });
+    return fl;
+  }
+
   function build(project, floor, library, theme, opts) {
     opts = opts || {};
     let P = makeProjector(project);
@@ -2032,42 +2056,28 @@
       }
 
       const [bx, by, bw, bh] = roomBBox(room);
-      const fl = Flooring().build(flDoc, room.flooring || room.floor || 'plain', P, {
-        bounds: { x0: bx, y0: by, x1: bx + bw, y1: by + bh },
-        room, overrides: room.flooringOptions, theme,
+      paintSurface(flDoc, room.flooring || room.floor || 'plain', P, {
+        bounds: { x0: bx, y0: by, x1: bx + bw, y1: by + bh }, room,
+        overrides: room.flooringOptions, theme, layers, patternIds, warnings,
+        d, clipId, base: layers.flooring, field: layers.flooringField, tag: { roomId: room.id },
       });
-      if (fl.error) warnings.push({ room: room.id, kind: 'flooring', message: fl.error });
-      for (const def of fl.defs || []) {
-        if (patternIds.has(def.attrs.id)) continue;
-        patternIds.add(def.attrs.id);
-        layers.defs.push(def);
-      }
-      layers.flooring.push({ tag: 'path', roomId: room.id, attrs: { d, fill: fl.fill } });
-      /* The field goes in a GROUP that carries the clip, not a clip stamped on
-       * every node in it.
-       *
-       * `clip-path` resolves in the user space the element ITSELF establishes,
-       * so a node carrying its own `transform` was clipped by a TRANSFORMED
-       * copy of the room, which is not the room. Generators place their work
-       * with transforms and several do: the tonal wash under soil, gravel and
-       * turf turns each of its brushes with `rotate(...)`, and grass is one
-       * path per tuft `translate(...)`d to where it grows. So the brushes came
-       * out on the bare sheet OUTSIDE the boundary wall as soft brown blobs —
-       * reported, correctly, as soil spilling off the plan — and every tuft
-       * was clipped by a rectangle displaced by its own coordinates, which is
-       * nowhere near the tuft.
-       *
-       * On the group the clip is in the room's own coordinates, and a node's
-       * transform applies inside it where it belongs. It is also cheaper than
-       * what it replaces: one attribute per room instead of one per speck. */
-      if ((fl.nodes || []).length) {
-        layers.flooringField.push({
-          tag: 'g', roomId: room.id,
-          attrs: { 'clip-path': `url(#${clipId})` }, children: fl.nodes,
-        });
-      }
     }
 
+    // One floor-wide field per resolved wall finish. A union clip paints shared
+    // walls and overlapping corner bands once, even when two rooms name them.
+    const wallSurfaces = new Map();
+    const collectWallSurface = (r, d, band) => {
+      const options = Flooring().resolveTokens({
+        ...(Flooring().resolve(flDoc, r.topFinish).options || {}), ...r.topFinishOptions,
+      }, theme);
+      // Explicitly restating a default must not introduce a second paint pass.
+      const key = JSON.stringify([r.topFinish, Object.keys(options).sort().map(k => [k, options[k]])]);
+      if (!wallSurfaces.has(key)) wallSurfaces.set(key, { r, paths: [], bounds: { x0: 0, y0: 0, x1: ext.w, y1: ext.h } });
+      const entry = wallSurfaces.get(key);
+      entry.paths.push(d);
+      for (const k of ['x0', 'y0']) entry.bounds[k] = Math.min(entry.bounds[k], band[k]);
+      for (const k of ['x1', 'y1']) entry.bounds[k] = Math.max(entry.bounds[k], band[k]);
+    };
     /* ---- boundaries + openings ---- */
     for (const room of floor.rooms || []) {
       for (const edge of roomEdges(room)) {
@@ -2084,12 +2094,32 @@
 
         const isExterior = edgeIsExterior(edge);
         for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
-          for (const n of boundaryNodes(run, edge, bDoc, theme, P)) {
+          for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface)) {
             n.roomId = room.id; n.wall = edge.wall;
             layers.boundaries.push(n);
           }
         }
       }
+    }
+
+    if (wallSurfaces.size) {
+      const material = [];
+      for (const { r, paths, bounds } of wallSurfaces.values()) {
+        const clipId = `fpsWallSurface-${material.length}`;
+        layers.defs.push({ tag: 'clipPath', attrs: { id: clipId },
+          children: [...new Set(paths)].map(d => ({ tag: 'path', attrs: { d } })) });
+        const children = [];
+        paintSurface(flDoc, r.topFinish, P, {
+          bounds, overrides: r.topFinishOptions,
+          theme, layers, patternIds, warnings, clipId,
+          d: `M ${P.X(bounds.x0)} ${P.Y(bounds.y0)} h ${P.S(bounds.x1-bounds.x0)} v ${P.S(bounds.y1-bounds.y0)} h ${-P.S(bounds.x1-bounds.x0)} Z`,
+          base: children, field: children, tag: {},
+        });
+        material.push({ tag: 'g', attrs: { 'clip-path': `url(#${clipId})` }, children });
+      }
+      const bands = layers.boundaries.filter(n => n.attrs.stroke === 'none');
+      const lines = layers.boundaries.filter(n => n.attrs.stroke !== 'none');
+      layers.boundaries = [...bands, ...material, ...lines];
     }
 
     /* The dashed quarter-circle a door leaf sweeps through. Scoped house →
@@ -2389,7 +2419,27 @@
           accent: fOn ? lampColour(fSt, theme, null) : null,
         };
         const target = type.aboveDaylight ? layers.overDaylight : layers.furniture;
-        for (const n of Shapes().furniture((type.render && type.render.shape) || 'rect', c)) {
+        const surface = type.render && type.render.surface;
+        if (surface && p.treadFinish) c.surfacePaths = [];
+        const furnitureNodes = Shapes().furniture((type.render && type.render.shape) || 'rect', c);
+        if (c.surfacePaths && c.surfacePaths.length) {
+          const built = Flooring().build(flDoc, p.treadFinish, P, {
+            bounds: { x0: c.x, y0: c.y, x1: c.x+w, y1: c.y+h }, overrides: p.treadFinishOptions, theme,
+          });
+          const finishes = [];
+          for (const opacity of [...new Set(c.surfacePaths.map(v => v.opacity))]) {
+            const d = c.surfacePaths.filter(v => v.opacity === opacity).map(v => v.d).join(' ');
+            const clipId = `fpsTread-${item.id}-${opacity}`;
+            layers.defs.push({ tag: 'clipPath', attrs: { id: clipId }, children: [{ tag: 'path', attrs: { d } }] });
+            const children = [];
+            paintSurface(flDoc, p.treadFinish, P, { built, layers, patternIds, warnings,
+              d, clipId, base: children, field: children, tag: { itemId: item.id } });
+            finishes.push({ tag: 'g', attrs: { opacity }, children });
+          }
+          // Keep the original scheme frame below the material and all linework above.
+          furnitureNodes.splice(1, 0, ...finishes);
+        }
+        for (const n of furnitureNodes) {
           n.itemId = item.id;
           /* A furniture drawer may already rotate its own details (radial
            * leaves/fronds, for example). Preserve that local transform when

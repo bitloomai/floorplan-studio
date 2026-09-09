@@ -5838,7 +5838,7 @@ ok('a colour field keeps a theme token instead of flattening it to a hex', (() =
    * type=color> cannot hold one — handed a token it silently reports black.
    * The editor's colour row is therefore a text box with a picker beside it. */
   const src = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8');
-  const row = /if \(spec\.kind === 'color'\) \{([\s\S]*?)\n      \}/.exec(src);
+  const row = /if \(spec\.kind === 'color'\) \{([\s\S]*?)(?=if \(spec\.kind === 'colorList'\))/.exec(src);
   return !!row && /type: 'text'/.test(row[1]) && /@token or #hex/.test(row[1]);
 })());
 
@@ -5853,7 +5853,7 @@ ok('a colour swatch commits on change, not on every drag tick', (() => {
    * actually got a chance to change, as "flooring colour does nothing." Found
    * by reproducing it: dispatching repeated `input` events on the real DOM
    * element and watching the room panel replace it mid-sequence. */
-  const row = /if \(spec\.kind === 'color'\) \{([\s\S]*?)\n      \}/.exec(
+  const row = /if \(spec\.kind === 'color'\) \{([\s\S]*?)(?=if \(spec\.kind === 'colorList'\))/.exec(
     fs.readFileSync(path.join(APP, 'public', 'js', 'panels-extra.js'), 'utf8'));
   return !!row && /onchange: \(e\) => \{ text\.value = e\.target\.value; set\(e\.target\.value\); \}/.test(row[1])
     && !/oninput.*set\(/.test(row[1]);
@@ -7480,6 +7480,7 @@ if (!myHouseFile) {
 
 require('./coverings')(ok);
 require('./room-identity')(ok);
+require('./surfaces')(ok);
 console.log(`\n${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);
 })();

@@ -208,7 +208,11 @@
 <p><code>cutAt</code> is how far along the break falls, because that depends on the riser height — a flight of six deep treads is cut much later than a flight of eighteen.</p>
 <p>Under <code>both</code>, both arrows point the <strong>same</strong> way: they are two runs that each leave this floor, not two halves of one climb.</p>
 <h2>Step lighting</h2>
-<p>A stair can be bound to an entity like any fixture. <code>lighting</code> puts light on the treads themselves — a pip each side, a lit nosing, or both — and <code>lightEvery</code> is the cadence an electrician actually installs. <code>sequence: progressive</code> makes the flight climb one tread at a time when it comes on, which is what a motion-triggered stair light does.</p></div>
+<p>A stair can be bound to an entity like any fixture. <code>lighting</code> puts light on the treads themselves — a pip each side, a lit nosing, or both — and <code>lightEvery</code> is the cadence an electrician actually installs. <code>sequence: progressive</code> makes the flight climb one tread at a time when it comes on, which is what a motion-triggered stair light does.</p>
+<h2>What the treads are made of</h2>
+<p>Choose <strong>Tread finish</strong> in the stair inspector to use any floor material, including granite, marble, wood or tile. The same finish editor and generator options serve rooms, stair treads and wall tops. Options here change this stair only; <strong>edit finishes</strong> changes the reusable material. Clear the finish to keep the colour scheme.</p>
+<p>Materials cover horizontal treads and landings in top-down view. They leave an open well and the centre of a spiral unpainted, rotate with the stair, and stay faint beyond a floor cut. Riser lines, direction labels and step lights remain above the material. This does not add vertical riser cladding or change room lighting.</p>
+<p>For project editing, store a flooring key in <code>props.treadFinish</code> and optional generator overrides in <code>props.treadFinishOptions</code>.</p></div>
 <div class="related">Read next: <a href="library-guide.html#item-aim">Which way a device faces</a> · <a href="reference.html#concept-units">Feet, and which way is north</a></div>
 </article>
 </div>

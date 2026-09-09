@@ -180,7 +180,7 @@ function specForFloor(project, floor, library) {
   return { spec, warnings };
 }
 
-function build(project, library, themesDoc, format, floorId) {
+function build(project, library, themesDoc, format, floorId, surfaces) {
   const themeId = project.activeTheme || themesDoc.active || Object.keys(themesDoc.themes)[0];
   const theme = (themesDoc.themes[themeId] || {}).plan || {};
   const floors = (project.floors || []).filter((f) => !floorId || f.id === floorId);
@@ -200,7 +200,7 @@ function build(project, library, themesDoc, format, floorId) {
       });
     }
     if (format === 'svg' || format === 'bundle') {
-      const scene = PlanScene.build(project, floor, library, theme, { grid: { show: false } });
+      const scene = PlanScene.build(project, floor, library, theme, { ...surfaces, grid: { show: false } });
       files.push({
         name: `${floor.id}.svg`,
         type: 'image/svg+xml',
