@@ -1590,12 +1590,20 @@
        * it something different and none of them is worth a branch inside a
        * drawing function. */
       const pct = num(a2.percentage, num(a2.current_position, num(a2.battery_level, num(parseFloat(st && st.state), 60))));
-      /* `RY` is the second half of the footprint. Every family drawer that has
-       * not opted in reads `c.R` alone and is unaffected — `RY` equals `R`
-       * unless the type declares a `resize2`. */
+      /* `RY` is the second half of the footprint, and it is passed ONLY by a
+       * type that declares a `resize2`.
+       *
+       * `markerExtent` answers `{ rx, ry: rx }` for a type with no second axis,
+       * which is the right answer for hit geometry and for the resize handles.
+       * It is the wrong thing to hand a DRAWER: a variant that reads `c.RY` as
+       * its depth would then draw a set-top box switched to the flat-panel look
+       * as deep as it is wide, because "no second axis" and "a second axis that
+       * happens to equal the first" would look identical to it. Undefined says
+       * the one thing the drawer needs to know — nobody has named a depth, so
+       * use your own proportion — and every drawer already tests for it. */
       const ext2 = markerExtent(item, type, P);
       const nodes2 = Shapes().marker(family, variantOf(item, type), {
-        cx, cy, R: ext2.rx, RY: ext2.ry,
+        cx, cy, R: ext2.rx, RY: (type.render || {}).resize2 ? ext2.ry : undefined,
         fill, line: stroke, glyph: glyphC,
         accent: litColour || (sch ? sch.accent : colour('@fanRim', theme, '#2fb5a4')),
         facing, on: sk.on, pct,

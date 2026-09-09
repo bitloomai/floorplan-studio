@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### Screens, soundbars and air conditioners are the shape they are
+
+- **A television now reads as a television from above.** `screen.flat` drew a
+  2.3 × 1.4 box — a cabinet, not a screen — and `size` was one number, so no
+  amount of dragging made a 55-inch panel look like one. `device.tv` declares a
+  second axis and ships slim: its body goes from 19.5 × 11.9 to 19.5 × 4.4, with
+  the stand drawn behind the panel so the depth you set is the screen's own.
+- **A soundbar and an air conditioner can be turned.** Every `cool` variant and
+  the `speaker.bar` look offered `Facing (deg)` and drew identically at every
+  angle — `device.ac` even *defaults* facing to 270°, which is somebody
+  recording which way the unit points and getting nothing back for it. They are
+  drawn aimed now. A ceiling cassette stays unturned on purpose: it is square
+  and blows four ways.
+- **Depth on the plan** joins `Marker size` under Advanced on `device.tv`,
+  `device.speaker`, `device.ac`, `device.ac_window`, `device.ac_outdoor` and
+  `device.heat_pump`, and each look that ships with those types reads it.
+  Everything except the television keeps the exact proportion it drew before, so
+  only the TV changes on an existing plan.
+- The renderer now passes `RY` **only** for a type that declares a `resize2`.
+  `markerExtent` answers `{rx, ry: rx}` when there is no second axis, which is
+  right for hit geometry and for the resize handles and wrong to hand a drawer:
+  "no second axis" and "a depth that happens to equal the width" would look
+  identical to it, and a set-top box switched to the flat-panel look would draw
+  as deep as it is wide.
+- The suite only ever checked one direction — a family that turns, used by a
+  type offering no facing. The reverse, a type offering facing whose family
+  draws no direction, was a documented decision on the grounds that those
+  markers are radially symmetric. That was true of discs and not of a wall
+  unit with a front, which is how a whole family of them went unnoticed.
+
 ### A switchback lands where you actually turn round
 
 - The landing on a U-switchback was drawn at a **fixed** end of the well — the

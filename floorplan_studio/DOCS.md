@@ -933,9 +933,12 @@ What that changes depends on what the thing is:
 - Everything else resizes **how big it is drawn**, in pixels, because a smoke
   detector at true scale is a four-inch dot nobody can tap.
 
-Most markers are round, and one number is the whole answer for them. A few have
-a footprint that is not square — a signage board is long and slim — and those
-get **two axes**: the handles sit on the object's own axes rather than the
+Most markers are round, and one number is the whole answer for them. Some have
+a footprint that is not square — a television seen from above is a slim bar, and
+so is a soundbar or a split AC — and those get **two axes**: `Marker size` is
+the width and **Depth on the plan** is how far it reaches back across its
+facing, both under Advanced, or drag either pair of handles. The handles sit on
+the object's own axes rather than the
 screen's, and each pair drags its own dimension, so a board turned ninety
 degrees still has its width dragged by the handle that visibly moves its width.
 Hold `Shift` to keep the proportions. `-` and `+` always scale both, so the

@@ -1701,6 +1701,13 @@
           "unit": "px",
           "min": 5,
           "max": 26
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 1.5,
+          "max": 26,
+          "aspect": 0.525
         }
       },
       "states": {
@@ -1780,6 +1787,16 @@
           "max": 26,
           "step": 0.5,
           "advanced": true
+        },
+        {
+          "key": "d",
+          "label": "Depth on the plan (px)",
+          "type": "number",
+          "min": 1.5,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "How deep the marker is drawn, across its facing. A flat panel is mostly width and almost no depth; a condenser is closer to square."
         }
       ],
       "defaults": {
@@ -1788,7 +1805,8 @@
         "tons": 1.5,
         "size": 8.5,
         "variant": "split",
-        "cone": false
+        "cone": false,
+        "d": 4.5
       }
     },
     "device.ac_outdoor": {
@@ -1808,6 +1826,13 @@
           "unit": "ft",
           "min": 0.5,
           "max": 20
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 1.5,
+          "max": 26,
+          "aspect": 0.8
         }
       },
       "states": {
@@ -1869,13 +1894,24 @@
           "min": 0.25,
           "max": 200,
           "step": 0.25
+        },
+        {
+          "key": "d",
+          "label": "Depth on the plan (px)",
+          "type": "number",
+          "min": 1.5,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "How deep the marker is drawn, across its facing. A flat panel is mostly width and almost no depth; a condenser is closer to square."
         }
       ],
       "defaults": {
         "rot": 0,
         "w": 3,
         "h": 1.2,
-        "variant": "outdoor"
+        "variant": "outdoor",
+        "d": 6.8
       }
     },
     "device.heater": {
@@ -2363,6 +2399,13 @@
           "unit": "px",
           "min": 5,
           "max": 26
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 1.5,
+          "max": 26,
+          "aspect": 0.26
         }
       },
       "states": {
@@ -2457,6 +2500,16 @@
           "max": 26,
           "step": 0.5,
           "advanced": true
+        },
+        {
+          "key": "d",
+          "label": "Depth on the plan (px)",
+          "type": "number",
+          "min": 1.5,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "How deep the marker is drawn, across its facing. A flat panel is mostly width and almost no depth; a condenser is closer to square."
         }
       ],
       "defaults": {
@@ -2467,7 +2520,8 @@
         "range": 12,
         "size": 8.5,
         "variant": "flat",
-        "cone": false
+        "cone": false,
+        "d": 2.2
       }
     },
     "device.stb": {
@@ -2578,6 +2632,13 @@
           "unit": "px",
           "min": 5,
           "max": 26
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 1.5,
+          "max": 26,
+          "aspect": 1.05
         }
       },
       "states": {
@@ -2651,6 +2712,16 @@
           "max": 26,
           "step": 0.5,
           "advanced": true
+        },
+        {
+          "key": "d",
+          "label": "Depth on the plan (px)",
+          "type": "number",
+          "min": 1.5,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "How deep the marker is drawn, across its facing. A flat panel is mostly width and almost no depth; a condenser is closer to square."
         }
       ],
       "defaults": {
@@ -2659,7 +2730,8 @@
         "range": 14,
         "size": 8.5,
         "variant": "box",
-        "cone": false
+        "cone": false,
+        "d": 8.9
       }
     },
     "device.console": {
@@ -11792,6 +11864,13 @@
           "unit": "px",
           "min": 5,
           "max": 26
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 1.5,
+          "max": 26,
+          "aspect": 0.7
         }
       },
       "states": {
@@ -11874,6 +11953,16 @@
           "max": 26,
           "step": 0.5,
           "advanced": true
+        },
+        {
+          "key": "d",
+          "label": "Depth on the plan (px)",
+          "type": "number",
+          "min": 1.5,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "How deep the marker is drawn, across its facing. A flat panel is mostly width and almost no depth; a condenser is closer to square."
         }
       ],
       "defaults": {
@@ -11883,7 +11972,8 @@
         "range": 14,
         "size": 8.5,
         "variant": "window",
-        "cone": false
+        "cone": false,
+        "d": 6
       },
       "onRule": "notOff"
     },
@@ -12010,6 +12100,13 @@
           "unit": "px",
           "min": 5,
           "max": 26
+        },
+        "resize2": {
+          "prop": "d",
+          "unit": "px",
+          "min": 1.5,
+          "max": 26,
+          "aspect": 0.8
         }
       },
       "states": {
@@ -12070,13 +12167,24 @@
           "max": 26,
           "step": 0.5,
           "advanced": true
+        },
+        {
+          "key": "d",
+          "label": "Depth on the plan (px)",
+          "type": "number",
+          "min": 1.5,
+          "max": 26,
+          "step": 0.5,
+          "advanced": true,
+          "hint": "How deep the marker is drawn, across its facing. A flat panel is mostly width and almost no depth; a condenser is closer to square."
         }
       ],
       "defaults": {
         "rot": 0,
         "watt": 2500,
         "size": 8.5,
-        "variant": "outdoor"
+        "variant": "outdoor",
+        "d": 6.8
       },
       "onRule": "notOff"
     },

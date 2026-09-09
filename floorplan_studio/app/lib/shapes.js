@@ -2771,13 +2771,30 @@
 
   /* ---- screen ---- */
   MARKERS.screen = {
+    /* A flat panel seen FROM ABOVE is a slim bar with a foot sticking back
+     * from it — that is the whole shape of the thing on a plan. It used to be
+     * drawn 2.3 by 1.4, which from above is a cabinet rather than a screen, and
+     * `size` could only grow both halves at once so no amount of dragging made
+     * a 55-inch television read as one. `RY` is the depth, so a type declaring
+     * a `resize2` draws its real proportion and can be dragged to it. */
     flat: (c) => {
       const u = c.R / 10;
-      return face(c, [boxBody(c, c.R * 2.3, c.R * 1.4, 1 * u), ln(c, c.cx - 2.4 * u, c.cy + 8.2 * u, c.cx + 2.4 * u, c.cy + 8.2 * u, 1.4), ln(c, c.cx, c.cy + 7 * u, c.cx, c.cy + 8.2 * u, 1.2)]);
+      const dep = (c.RY === undefined ? c.R * 0.7 : c.RY) * 2;
+      const half = dep / 2;
+      return face(c, [
+        boxBody(c, c.R * 2.3, dep, Math.min(1 * u, half)),
+        /* The stand: a spine back from the panel and a foot across it, drawn
+         * behind the screen so the depth you set is the PANEL's, not the
+         * panel plus its furniture. */
+        ln(c, c.cx - 2.4 * u, c.cy + half + 2.6 * u, c.cx + 2.4 * u, c.cy + half + 2.6 * u, 1.4),
+        ln(c, c.cx, c.cy + half, c.cx, c.cy + half + 2.6 * u, 1.2),
+      ]);
     },
     frame: (c) => {
       const u = c.R / 10;
-      return face(c, [boxBody(c, c.R * 2.3, c.R * 1.5, 0.6 * u), rect(c, c.cx - c.R * 0.94, c.cy - c.R * 0.56, c.R * 1.88, c.R * 1.12, { rx: 0.4 * u })]);
+      const dep = (c.RY === undefined ? c.R * 0.75 : c.RY) * 2;
+      return face(c, [boxBody(c, c.R * 2.3, dep, Math.min(0.6 * u, dep / 2)),
+        rect(c, c.cx - c.R * 0.94, c.cy - dep * 0.4, c.R * 1.88, dep * 0.8, { rx: 0.4 * u })]);
     },
     projector: (c) => {
       const u = c.R / 10;
@@ -2818,16 +2835,28 @@
 
   /* ---- speaker ---- */
   MARKERS.speaker = {
+    /* A cabinet speaker is deeper than it is wide, and that depth is a real
+     * measurement worth setting — the drivers move with it so a shallow
+     * bookshelf box does not draw its cones overlapping. */
     box: (c) => {
       const u = c.R / 10;
-      return [boxBody(c, c.R * 1.5, c.R * 2.1, 1.2 * u), mk('circle', { cx: c.cx, cy: c.cy - 4 * u, r: 2.4 * u, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }), mk('circle', { cx: c.cx, cy: c.cy + 3.4 * u, r: 3.4 * u, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 })];
+      const dep = (c.RY === undefined ? c.R * 1.05 : c.RY) * 2;
+      const tw = Math.min(2.4 * u, dep * 0.2), bw = Math.min(3.4 * u, dep * 0.28);
+      return [boxBody(c, c.R * 1.5, dep, Math.min(1.2 * u, dep / 2)),
+        mk('circle', { cx: c.cx, cy: c.cy - dep * 0.19, r: tw, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }),
+        mk('circle', { cx: c.cx, cy: c.cy + dep * 0.16, r: bw, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 })];
     },
     round: (c) => [body(c), mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.62, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }), dot(c, c.cx, c.cy, c.R * 0.2)],
+    /* A soundbar has a front — it is aimed at the seating, and on a plan that
+     * is most of what saying "soundbar" is for. It drew the same at every
+     * angle, so `Facing` was a control that did nothing. */
     bar: (c) => {
       const u = c.R / 10;
-      const n = [boxBody(c, c.R * 2.6, c.R * 0.85, 1.6 * u)];
-      for (let i = -1; i <= 1; i++) n.push(mk('circle', { cx: c.cx + i * 7.4 * u, cy: c.cy, r: 2 * u, fill: 'none', stroke: c.glyph, 'stroke-width': 1.1 }));
-      return n;
+      const dep = (c.RY === undefined ? c.R * 0.425 : c.RY) * 2;
+      const n = [boxBody(c, c.R * 2.6, dep, Math.min(1.6 * u, dep / 2))];
+      const r = Math.min(2 * u, dep * 0.32);
+      for (let i = -1; i <= 1; i++) n.push(mk('circle', { cx: c.cx + i * 7.4 * u, cy: c.cy, r, fill: 'none', stroke: c.glyph, 'stroke-width': 1.1 }));
+      return face(c, n);
     },
     horn: (c) => {
       const u = c.R / 10;
@@ -2837,13 +2866,30 @@
     },
   };
 
-  /* ---- cool ---- air conditioning, by how the box is mounted */
+  /* ---- cool ---- air conditioning, by how the box is mounted
+   *
+   * These all had a `Facing (deg)` control and drew the same at every angle —
+   * `device.ac` even DEFAULTS it to 270°, which is somebody recording which way
+   * the unit points and getting nothing back for it. A split unit blows out of
+   * one long side, a window unit sits in a wall, an outdoor condenser throws
+   * its air one way: all of them have a front, and the plan is where you check
+   * that it is not aimed at the bed.
+   *
+   * `cassette` stays unturned on purpose. A ceiling cassette is square and
+   * blows four ways, so it genuinely does look the same at every angle — the
+   * same reason a downlight offers no facing. */
   MARKERS.cool = {
     split: (c) => {
       const u = c.R / 10;
-      const n = [boxBody(c, c.R * 2.4, c.R * 1.05, 1.6 * u)];
-      for (let i = -1; i <= 1; i++) n.push(ln(c, c.cx - c.R * 0.9, c.cy + i * 1.9 * u + 1 * u, c.cx + c.R * 0.9, c.cy + i * 1.9 * u + 1 * u, 1));
-      return n;
+      const dep = (c.RY === undefined ? c.R * 0.525 : c.RY) * 2;
+      const n = [boxBody(c, c.R * 2.4, dep, Math.min(1.6 * u, dep / 2))];
+      /* The louvre lines are the face it blows out of, so they stay on the
+       * front half however deep the body is drawn. */
+      for (let i = -1; i <= 1; i++) {
+        const y = c.cy + dep * (0.12 + i * 0.19);
+        n.push(ln(c, c.cx - c.R * 0.9, y, c.cx + c.R * 0.9, y, 1));
+      }
+      return face(c, n);
     },
     cassette: (c) => {
       const u = c.R / 10;
@@ -2856,17 +2902,24 @@
     },
     window: (c) => {
       const u = c.R / 10;
-      const n = [boxBody(c, c.R * 1.9, c.R * 1.4, 1 * u)];
-      for (let i = 0; i < 4; i++) n.push(ln(c, c.cx - c.R * 0.7 + i * c.R * 0.47, c.cy - c.R * 0.5, c.cx - c.R * 0.7 + i * c.R * 0.47, c.cy + c.R * 0.5, 1));
-      return n;
+      const dep = (c.RY === undefined ? c.R * 0.7 : c.RY) * 2;
+      const n = [boxBody(c, c.R * 1.9, dep, Math.min(1 * u, dep / 2))];
+      for (let i = 0; i < 4; i++) {
+        const x = c.cx - c.R * 0.7 + i * c.R * 0.47;
+        n.push(ln(c, x, c.cy - dep * 0.36, x, c.cy + dep * 0.36, 1));
+      }
+      return face(c, n);
     },
     outdoor: (c) => {
       const u = c.R / 10;
-      return [boxBody(c, c.R * 2, c.R * 1.6, 1.2 * u), mk('circle', { cx: c.cx, cy: c.cy, r: c.R * 0.56, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }), dot(c, c.cx, c.cy, 1.1 * u)];
+      const dep = (c.RY === undefined ? c.R * 0.8 : c.RY) * 2;
+      const fan = Math.min(c.R * 0.56, dep * 0.35);
+      return face(c, [boxBody(c, c.R * 2, dep, Math.min(1.2 * u, dep / 2)),
+        mk('circle', { cx: c.cx, cy: c.cy, r: fan, fill: 'none', stroke: c.glyph, 'stroke-width': 1.2 }), dot(c, c.cx, c.cy, 1.1 * u)]);
     },
     portable: (c) => {
       const u = c.R / 10;
-      return [boxBody(c, c.R * 1.2, c.R * 2, 1.6 * u), ln(c, c.cx - c.R * 0.4, c.cy - c.R * 0.6, c.cx + c.R * 0.4, c.cy - c.R * 0.6, 1.1), ln(c, c.cx - c.R * 0.4, c.cy - c.R * 0.2, c.cx + c.R * 0.4, c.cy - c.R * 0.2, 1.1), d(c, `M ${c.cx + c.R * 0.6} ${c.cy + c.R * 0.7} q ${2 * u} ${-2 * u} ${4 * u} 0`, 1.1)];
+      return face(c, [boxBody(c, c.R * 1.2, c.R * 2, 1.6 * u), ln(c, c.cx - c.R * 0.4, c.cy - c.R * 0.6, c.cx + c.R * 0.4, c.cy - c.R * 0.6, 1.1), ln(c, c.cx - c.R * 0.4, c.cy - c.R * 0.2, c.cx + c.R * 0.4, c.cy - c.R * 0.2, 1.1), d(c, `M ${c.cx + c.R * 0.6} ${c.cy + c.R * 0.7} q ${2 * u} ${-2 * u} ${4 * u} 0`, 1.1)]);
     },
   };
 

@@ -6684,6 +6684,55 @@ ok('every room gets a hit shape, and rooms come before markers', (() => {
       ['puck', 'square', 'usb', 'pins3', 'ev'].every((v) => JSON.stringify(Shapes.marker('plug', v, faceCtx(0)))
         !== JSON.stringify(Shapes.marker('plug', v, faceCtx(90)))));
   }
+
+  /* ---- the things that hang on a wall and point at you ----
+   *
+   * A soundbar is aimed at the seating, a split AC blows out of one long side,
+   * a condenser throws its air one way. All three offered `Facing (deg)` and
+   * drew identically at every angle — `device.ac` even DEFAULTS facing to 270°,
+   * which is somebody recording which way the unit points and getting nothing
+   * back for it. The suite only ever checked the other direction (a family that
+   * turns, used by a type with no facing prop), so this went unseen.
+   *
+   * `cool.cassette` is excluded on purpose: a ceiling cassette is square and
+   * blows four ways, so it genuinely looks the same at every angle. */
+  {
+    const aimed = [['cool', 'split'], ['cool', 'window'], ['cool', 'outdoor'], ['cool', 'portable'], ['speaker', 'bar']];
+    const flat = aimed.filter(([f, v]) => JSON.stringify(Shapes.marker(f, v, faceCtx(0)))
+      === JSON.stringify(Shapes.marker(f, v, faceCtx(90))));
+    ok('a unit with a front is drawn aimed, so its facing means something',
+      !flat.length, flat.map((p) => p.join('.')).join(', '));
+    ok('a ceiling cassette stays the same at every angle, because it is',
+      JSON.stringify(Shapes.marker('cool', 'cassette', faceCtx(0)))
+      === JSON.stringify(Shapes.marker('cool', 'cassette', faceCtx(90))));
+  }
+
+  /* ---- a flat panel is mostly width ----
+   *
+   * `size` is one number, so a television could only grow as a square-ish
+   * cabinet; from above a 55-inch screen is a slim bar. The types that are
+   * genuinely slim now declare a `resize2`, and their drawers read it. */
+  {
+    const slim = ['device.tv', 'device.speaker', 'device.ac', 'device.ac_window', 'device.ac_outdoor', 'device.heat_pump'];
+    const without = slim.filter((k) => !((lib.types[k].render || {}).resize2 || {}).prop);
+    ok('the markers that are slim in plan carry a second size axis', !without.length, without.join(', '));
+    /* Declared AND reachable: a second axis nothing draws is the same dead
+     * control this block exists to stop. */
+    const deaf = [];
+    for (const key of slim) {
+      const t = lib.types[key];
+      const v = (t.defaults || {}).variant || t.render.variant;
+      const ctx = (ry) => Object.assign(faceCtx(0), { RY: ry });
+      if (JSON.stringify(Shapes.marker(t.render.family, v, ctx(3))) === JSON.stringify(Shapes.marker(t.render.family, v, ctx(9)))) deaf.push(`${key} (${v})`);
+    }
+    ok('and the look each of them ships with actually reads it', !deaf.length, deaf.join(', '));
+    /* A drawer that reads RY must still have its own proportion for a type
+     * that names no depth — otherwise a set-top box switched to the flat-panel
+     * look draws as deep as it is wide. */
+    const undef = JSON.stringify(Shapes.marker('screen', 'flat', faceCtx(0)));
+    ok('and falls back to its own proportion when no depth is named',
+      undef !== JSON.stringify(Shapes.marker('screen', 'flat', Object.assign(faceCtx(0), { RY: 12 }))));
+  }
   ok('and one belonging to no room draws only its marker dot', (() => {
     const fl = {
       id: 'f', name: 'F', extent: { w: 30, h: 30 }, rooms: [], openings: [], boundaries: [],
