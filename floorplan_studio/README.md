@@ -43,7 +43,8 @@ no separate login and no port to open for the editor itself.
 | `entity_refresh_seconds` | `60` | How long the entity catalogue and state snapshot are cached. |
 | `mcp_enabled` | `true` | Serves `/mcp` for AI clients. Off means the path answers 404. |
 | `mcp_allow_dashboard_install` | `false` | Lets an MCP client write a dashboard. Off, the tool is not even listed. |
-| `ssl_cert`, `ssl_key` | empty | Name a cert/key in Home Assistant's shared `ssl` folder to also serve MCP over HTTPS. |
+| `headless_endpoints_enabled` | `false` | Serves `/app-api/v1` — REST plus a WebSocket — for a native or remote client that is not a browser inside Ingress. Off, those paths answer 404 on every port. Deliberately separate from `mcp_enabled`: an AI client and a phone are different callers that merely share a listener. |
+| `ssl_cert`, `ssl_key` | empty | Name a cert/key in Home Assistant's shared `ssl` folder to also serve MCP and the headless API over HTTPS. |
 | `mcp_ssl_port` | `8443` | Port for that HTTPS listener. Only used when both of the above are set. |
 
 Full documentation is in [DOCS.md](DOCS.md), which Home Assistant also shows in

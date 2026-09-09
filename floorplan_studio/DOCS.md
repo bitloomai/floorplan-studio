@@ -218,10 +218,16 @@ noon casts shorter beams than a low morning sun.
 ## Walls, railings and grills
 
 Select a room. **Walls & railings** lists its four edges; each defaults to a
-wall and can become a glass railing, grill, louvre, half wall, mesh, fence,
-hedge, open edge, step, void edge or compound wall. The transmission shown
-beside each is exactly what the daylight model reads — that is why changing a
-balcony edge to glass railing brightens the room with no other setting.
+wall and can become any of **31 treatments** — glass railings framed and
+frameless, metal, cable, timber and stone balustrades, grills, louvres and
+jaali screens, half walls and parapets, tinted, frosted and structural glazing,
+mesh, fences, hedges, gates, compound walls, thresholds, steps, voids and open
+edges. The full table, with what each one passes, is generated from the registry
+itself on the
+[walls page](https://bitloomai.github.io/floorplan-studio/walls.html) and in the
+editor's own **?**. The transmission shown beside each is exactly what the
+daylight model reads — that is why changing a balcony edge to glass railing
+brightens the room with no other setting.
 
 To restyle only *part* of an edge, add `from` and `to` to the boundary entry in
 `project.json`; the edge splits into runs and each draws its own type.
@@ -562,6 +568,41 @@ whole plan freely but cannot put anything on your actual dashboard.
 
 Shared registry edits refresh an idle editor. Finish any open settings dialog
 or unsaved local edit, then reload to use external registry changes.
+
+## The headless API (`/app-api/v1`)
+
+A second, separate surface for a client that is **not a browser inside
+Ingress** — a native or remote app, mostly. Ingress authenticates with a
+per-browser-session cookie only Home Assistant's own frontend can mint, so a
+phone has no way to complete that handshake; it presents a Home Assistant token
+instead, exactly as `/mcp` does and through the same door.
+
+Turn it on with the app option **`headless_endpoints_enabled`**, default off.
+When it is off those paths answer 404 on every port, as though the module were
+not loaded. It is deliberately **not** tied to `mcp_enabled`: an AI client and a
+phone are two different callers that merely happen to share a listener, so
+turning one off must never silently turn the other off. It is served on the same
+ports as MCP, so `ssl_cert`/`ssl_key` cover it too — worth setting before
+exposing either beyond the LAN, because a Bearer token in cleartext is a
+credential on the wire.
+
+**It is not a Home Assistant proxy.** It answers one question — what does the
+plan look like — and never lends the app's supervisor credential to a caller.
+The client holds its own authenticated Home Assistant connection for live state
+and for calling services, as itself. So nothing here can turn a light on, and
+nothing here can show a caller an entity Home Assistant would not show them:
+the read-only claim above is as true for a phone as it is for the editor. Every
+request needs a token Home Assistant itself confirms, and a write additionally
+requires that token to belong to an **admin**.
+
+Routes address a **house** (`/houses/{houseId}/…`) because a client may talk to
+more than one Floorplan Studio and has to cache them apart. Storage is still one
+project, so exactly one house is exposed and its id is stable; the route shape is
+the contract from day one, so real multi-house storage later is a storage change
+rather than a protocol break. Cacheable responses carry a `revision` and an
+`etag` and honour `If-None-Match` with a 304 — and the revision changes when the
+*configuration* changes, never when a light turns on, because live state does not
+come from here at all.
 
 While it works, this editor (if open) reflects each project change within about a
 second — no reload — as long as you don't have unsaved edits of your own in
@@ -1016,8 +1057,10 @@ if a spec carries one.
 ## Flooring
 
 Select a room → **Flooring**. 178 surfaces in 14 groups — Basic, Wood, Stone,
-India, Outdoor, Parquet, tile, marble, terrazzo, cement, fibre and the rest —
-plus per-room **angle** and **colour** overrides.
+India, Outdoor, Parquet, Ceramic & porcelain, Marble & travertine, Natural
+stone, Terrazzo & granite, Patterned cement, Textile & natural fibre, Concrete &
+oxide, and Resilient & utility — plus per-room **angle** and **colour**
+overrides.
 
 Marble, terrazzo, soil, gravel and grass are *field* generators: they draw
 across the room and clip to it, so veining runs through a doorway instead of

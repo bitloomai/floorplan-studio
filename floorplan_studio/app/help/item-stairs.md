@@ -4,7 +4,7 @@ title: Stairs and lifts
 summary: A stair on a plan is a stair CUT — which is why it has an up run, a down run and a break line.
 category: library
 tags: stairs, lift, circulation, steps, cut
-applies: type:furniture.stairs, type:furniture.lift, shape:stairs, section:item.stairs
+applies: type:furniture.stairs, type:furniture.lift, shape:stairs, section:item.stairs, field:item.treadFinish
 see: item-aim, concept-units
 order: 52
 ---

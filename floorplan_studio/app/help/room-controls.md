@@ -4,7 +4,7 @@ title: What a room's popup offers
 summary: Tap a room on the dashboard and this is what you get — sections, filters and shortcuts.
 category: controls
 tags: controls, popup, room, sections, shortcuts, presets
-applies: section:room.controls, registry:controls, dialog:controls, dialog:room-buttons, field:room.controls
+applies: section:room.controls, registry:controls, dialog:controls, dialog:room-buttons, field:room.controls, field:controls.markerTap
 see: panel-room, dashboard-install
 order: 55
 ---

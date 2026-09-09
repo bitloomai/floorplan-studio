@@ -4,7 +4,7 @@ title: Drawing and moving things
 summary: The five tools, what each is for, and where every key and gesture is listed.
 category: plan
 tags: canvas, tools, draw, select, pan, zoom, shortcuts
-applies: canvas, tool:select, tool:rect, tool:poly, tool:opening, tool:pan
+applies: canvas, tool:select, tool:rect, tool:poly, tool:opening, tool:pan, dialog:notes
 see: input-devices, concept-units, library-palette, panel-room
 order: 12
 ---

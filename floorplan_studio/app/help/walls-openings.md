@@ -4,7 +4,7 @@ title: Doors, windows and openings
 summary: Holes cut in a wall — where they sit, how wide they are, and what light they let through.
 category: walls
 tags: opening, door, window, swing, sill, transmission, gate, garage, shutter, folding, sliding, villa
-applies: panel:opening, section:opening.mechanism, section:opening.overhead, field:opening.at, field:opening.wall, concept:opening
+applies: panel:opening, section:opening.mechanism, section:opening.overhead, field:opening.at, field:opening.wall, concept:opening, section:opening.state
 see: walls-boundaries, opening-coverings, concept-daylight
 order: 35
 ---

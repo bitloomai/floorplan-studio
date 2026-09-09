@@ -4,7 +4,7 @@ title: What a wall is made of
 summary: Every run of wall can be glass, a railing, a louvre or a jali — and each passes a different amount of light.
 category: walls
 tags: wall, boundary, glass, railing, transmission, daylight
-applies: section:room.walls, registry:boundaries, dialog:boundaries, concept:boundary
+applies: section:room.walls, registry:boundaries, dialog:boundaries, concept:boundary, field:boundary.thicknessFt, field:boundary.topFinish
 see: concept-daylight, walls-curved, walls-openings
 order: 30
 ---

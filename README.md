@@ -147,7 +147,7 @@ repository.yaml            what Supervisor reads first
 floorplan_studio/          the app — the only thing installed
   config.yaml  Dockerfile  apparmor.txt  icon.png  logo.png
   app/  samples/  translations/
-  README.md  DOCS.md  CHANGELOG.md
+  README.md  DOCS.md  CHANGELOG.md  SKILL.md
   LICENSE  NOTICE  THIRD_PARTY_NOTICES.md
 test/  tools/  branding/  docs/    development material, never installed
 ```
@@ -483,6 +483,17 @@ section.
   Home Assistant, and it is not even listed among the tools an MCP client
   sees unless `mcp_allow_dashboard_install` is turned on.
 
+- `floorplan_studio/app/lib/app-api.js` is the headless surface — `/app-api/v1`
+  REST and its WebSocket, for a native or remote client that cannot complete
+  Ingress's cookie handshake. Gated by its own option
+  `headless_endpoints_enabled`, default off, and deliberately not tied to
+  `mcp_enabled`: an AI client and a phone are different callers that merely
+  share a listener. It is **not a Home Assistant proxy** — it answers what the
+  plan looks like and never lends the app's supervisor credential to a caller,
+  so it cannot turn anything on and cannot show an entity Home Assistant would
+  not show that caller. Every request needs a Home Assistant-confirmed Bearer
+  token; writes additionally require an admin token.
+
 - `floorplan_studio/app/lib/provenance.js` is the shared ownership contract: every write is
   stamped, and an existing dashboard at the target path is only overwritten if
   its own stamp names that same path (`assertOwnedConfig`). The very first
@@ -572,6 +583,9 @@ a Floorplan Studio version.
   usage; Home Assistant shows this in the app's Documentation tab.
 - [`floorplan_studio/CHANGELOG.md`](./floorplan_studio/CHANGELOG.md) —
   version history.
+- [`floorplan_studio/SKILL.md`](./floorplan_studio/SKILL.md) — the agent-facing
+  guide. It ships inside the image and is what MCP's `get_guide` serves, so a
+  model driving the editor reads the same document a person would.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — contribution terms, the
   zero-dependency rule, house style, and the support policy.
 - [`SECURITY.md`](./SECURITY.md) — how to report a vulnerability privately.

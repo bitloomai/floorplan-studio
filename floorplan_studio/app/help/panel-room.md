@@ -4,7 +4,7 @@ title: The room panel
 summary: Everything a room is — its shape, its floor, its walls, and what its popup offers.
 category: rooms
 tags: room, panel, inspector
-applies: panel:room, section:room.label
+applies: panel:room, section:room.label, field:room.id, field:room.showCount
 see: room-flooring, room-lighting, room-controls, walls-boundaries
 order: 10
 ---

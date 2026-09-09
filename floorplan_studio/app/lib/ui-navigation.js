@@ -15,6 +15,7 @@
     'panel:item': { label: 'Item inspector', instruction: 'Choose Select, then click an item on the plan to open its inspector on the right. On a narrow screen the inspector is a drawer: use the Properties button in the top bar, or double-tap the item.' },
     'panel:opening': { label: 'Opening', instruction: 'Choose Select, then click a door, gate, shutter or window on the plan to open its inspector.' },
     'section:opening.mechanism': { parent: 'panel:opening', label: 'Opening mechanism' },
+    'section:opening.state': { parent: 'panel:opening', label: 'State on the plan' },
     'dialog:sun': { parent: 'topbar', label: 'Sun', element: 'btnSun' },
     'dialog:lighting': { parent: 'topbar', label: 'Light', element: 'btnLighting' },
     'dialog:logic': { parent: 'topbar', label: 'Logic', element: 'btnLogic' },
@@ -34,6 +35,12 @@
     'dialog:more': { parent: 'topbar', label: 'More', element: 'btnMore', glyph: true,
       instruction: 'On a narrow screen the top bar folds its Sun, Light, Logic, Dashboard, Import and Export buttons, the theme picker and the view switches into this menu.' },
     'field:project.activeTheme': { parent: 'topbar', label: 'Editor theme', element: 'themePick', input: true },
+    'dialog:notes': { parent: 'topbar', label: 'Notes', element: 'btnNotes' },
+    /* The grid controls are the one cluster that lives in the STATUS BAR
+     * rather than in a panel or a dialog, so it needs saying outright — a
+     * reader sent to "the floor inspector" for Snap would not find it. */
+    'field:view.grid': { parent: 'canvas', label: 'Grid and snap', element: 'gridSize',
+      instruction: 'Snap, Grid and the grid size are in the status bar under the plan.' },
     'section:item.look': { parent: 'panel:item', label: 'Look' },
     'section:item.colour': { parent: 'panel:item', label: 'Colour' },
     'dialog:schemes': { parent: 'section:item.colour', label: 'edit colours…' },
@@ -46,6 +53,8 @@
     'section:item.tap': { parent: 'panel:item', label: 'Tap area', advanced: true },
     'section:item.hold': { parent: 'panel:item', label: 'Long press opens', advanced: true },
     'field:item.room': { parent: 'panel:item', label: 'Room', advanced: true },
+    'field:item.treadFinish': { parent: 'panel:item', label: 'Tread finish' },
+    'field:room.id': { parent: 'panel:room', label: 'id' },
     'section:room.curved': { parent: 'panel:room', label: 'Curved walls', advanced: true },
     'section:room.label': { parent: 'panel:room', label: 'Name position', advanced: true },
     'section:room.daylight': { parent: 'panel:room', label: 'Room daylight', advanced: true },
@@ -59,6 +68,9 @@
     'dialog:flooring': { parent: 'section:room.flooring', label: 'edit finishes' },
     'dialog:boundaries': { parent: 'section:room.walls', label: 'edit treatments…' },
     'dialog:controls': { parent: 'section:room.controls', label: 'edit the house defaults…' },
+    'field:controls.markerTap': { parent: 'dialog:controls', label: 'Tapping a marker' },
+    'field:boundary.thicknessFt': { parent: 'section:room.walls', label: 'Wall top width (ft)' },
+    'field:boundary.topFinish': { parent: 'section:room.walls', label: 'Wall top finish' },
     'dialog:room-buttons': { parent: 'section:room.controls', label: 'Entity buttons…', instruction: 'Enable room controls to show the entity buttons editor.' },
     'section:opening.covering': { parent: 'panel:opening', label: 'Covering' },
     'dialog:library': { parent: 'panel:library', label: 'edit', element: 'btnEditLibrary' },
@@ -83,6 +95,18 @@
     'section:item.stairs': 'section:item.properties', 'section:floor.sun': 'dialog:sun',
     'field:project.compass': 'dialog:sun', 'panel:dashboard': 'dialog:dashboard',
     'panel:project': 'dialog:import',
+    /* Fields a topic addresses that have no control of their own to point at —
+     * they sit among the plain inputs of the panel named here. Aliased rather
+     * than registered so the access path says "the floor inspector", which is
+     * what a reader is actually looking for, instead of naming a row.
+     *
+     * These six were being written about and routing NOWHERE: `applies:` only
+     * validated a selector's PREFIX, never that its target existed, so
+     * `field:opening.at` passed every check while nothing could ever ask for
+     * it. The suite now walks these, which is what keeps this list honest. */
+    'field:floor.extent': 'panel:floor', 'field:floor.level': 'panel:floor',
+    'field:floor.grid': 'field:view.grid', 'field:room.showCount': 'section:room.label',
+    'field:opening.at': 'panel:opening', 'field:opening.wall': 'panel:opening',
   };
   const groups = { size: ['w', 'h'], aim: ['rot', 'fov', 'range', 'cone'], lamp: ['watt', 'count', 'efficacy', 'beam', 'kelvin'] };
   function label(id) { return locations[aliases[id] || id]?.label || id; }

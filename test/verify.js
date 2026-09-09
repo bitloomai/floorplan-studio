@@ -7097,6 +7097,37 @@ console.log('\n== help ==');
   }
   ok('no topic points at a type or shape that stopped existing', dangling.length === 0, dangling.join(', '));
 
+  /* The same rot in the half nothing was checking. `validateTopic` only
+   * verifies a selector's PREFIX is in the closed vocabulary — never that its
+   * target exists — so `field:opening.at` passed every check while routing
+   * nowhere: help.js's own promise that the vocabulary is closed "so a typo is
+   * an error rather than a topic that silently applies to nothing" held for
+   * `type:` and `shape:` and for nothing else. Six field selectors were in that
+   * state, written about and unreachable.
+   *
+   * Only the selectors that name a PLACE are walked. `concept:` is an idea
+   * rather than somewhere you can be sent, and `type:`/`shape:` are checked
+   * against the registries just above. */
+  const PLACE = ['panel:', 'section:', 'field:', 'dialog:', 'tool:', 'registry:'];
+  const unrouted = [];
+  for (const t of written) {
+    for (const s of t.applies) {
+      if (!PLACE.some((p) => s.startsWith(p))) continue;
+      try { Nav.route(s); } catch { unrouted.push(`${t.id} -> ${s}`); }
+    }
+  }
+  ok('every selector naming a place in the UI reaches one', !unrouted.length, unrouted.join(', '));
+
+  /* A location that names a DOM id is promising the reader a specific button.
+   * When that button is renamed, the access path still reads plausibly and
+   * points at nothing — the failure is invisible in all four surfaces at once,
+   * which is the whole reason this section exists. */
+  const indexHtml = fs.readFileSync(path.join(APP, 'public', 'index.html'), 'utf8');
+  const missingEl = Object.entries(Nav.locations)
+    .filter(([, loc]) => loc.element && !indexHtml.includes(`id="${loc.element}"`))
+    .map(([id, loc]) => `${id} -> #${loc.element}`);
+  ok('every location naming a control names one that exists', !missingEl.length, missingEl.join(', '));
+
   /* The reverse rot, and the one that had actually happened: a place in the UI
    * that nothing is written about. `dialog:logic` was a top-bar button with no
    * topic, invisible because the check below only ever asked about panels. A

@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### The headless API, which had shipped undocumented
+
+- `/app-api/v1` — REST plus a WebSocket, for a native or remote client that
+  cannot complete Ingress's cookie handshake — is behind the app option
+  `headless_endpoints_enabled`, default off, and is now written down. It shipped
+  with a good comment in `config.yaml` and `app-api.js`, an entry in neither
+  README, no line in DOCS.md and no changelog entry, even though `app-api.js`'s
+  own header says it is what "keeps the safety claim in DOCS.md true for a phone
+  as well as for the editor". It is not a Home Assistant proxy, it never lends
+  the app's supervisor credential, and writes require an admin token.
+
+### Help that can be looked up where the control is
+
+- Eight controls added by the batches above — Notes, State on the plan, Tread
+  finish, Wall top width, Wall top finish, room **id**, Tapping a marker, and
+  the status bar's Grid and snap — are registered as UI locations, so the
+  editor's "?", MCP `get_help` and the site's "Find a control" page can all
+  reach them and say where they are. `ui-navigation.js` had not been touched by
+  any of the eight batches.
+- Six selectors that were already being written about routed nowhere
+  (`field:floor.extent`, `field:floor.level`, `field:floor.grid`,
+  `field:room.showCount`, `field:opening.at`, `field:opening.wall`).
+  `validateTopic` checked a selector's *prefix* against the closed vocabulary
+  and never that its target existed, so the promise that "a typo is an error
+  rather than a topic that silently applies to nothing" held for `type:` and
+  `shape:` and for nothing else. The suite now walks every selector that names a
+  place, and checks that a location naming a DOM control names one that exists.
+
 ### Targeted review notes
 
 - `floor.annotations` pins a note to a floor, a room, an item, an opening, a
