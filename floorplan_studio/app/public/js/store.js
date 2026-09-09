@@ -104,6 +104,7 @@ window.Store = (function () {
     if (S.undoStack.length > MAX_UNDO) S.undoStack.shift();
     S.redoStack.length = 0;
     const result = fn(S.project);
+    if (window.Annotations) Annotations.reconcile(S.undoStack[S.undoStack.length - 1].snapshot, S.project, S.library);
     preserveDeployment();
     S.dirty = true;
     emit('project');
@@ -235,6 +236,7 @@ window.Store = (function () {
     if (!S.selection) return null;
     const f = floor();
     if (!f) return null;
+    if (S.selection.kind === 'annotation') return (f.annotations || []).find(n => n.id === S.selection.id) || null;
     if (S.selection.kind === 'room') return (f.rooms || []).find((r) => r.id === S.selection.id) || null;
     if (S.selection.kind === 'opening') return (f.openings || []).find((o) => o.id === S.selection.id) || null;
     return (f.items || []).find((i) => i.id === S.selection.id) || null;

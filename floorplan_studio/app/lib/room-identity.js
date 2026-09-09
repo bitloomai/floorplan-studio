@@ -8,6 +8,7 @@
   'use strict';
   const REFERENCES = [
     ['items', 'room'], ['openings', 'room'], ['boundaries', 'room'], ['rooms', 'part_of'],
+    ['annotations', 'target.id', 'room'], ['annotations', 'target.room', 'boundary'],
   ];
   function uniqueId(base, taken) {
     const slug = String(base || 'room').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '') || 'room';
@@ -26,8 +27,14 @@
     room.name = name;
     if (explicit || options.matchName) delete room._autoId;
     if (next !== oldId) {
-      for (const [collection, key] of REFERENCES) {
-        for (const value of floor[collection] || []) if (value[key] === oldId) value[key] = next;
+      for (const [collection, key, targetKind] of REFERENCES) {
+        for (const value of floor[collection] || []) {
+          if (targetKind && value.target?.kind !== targetKind) continue;
+          const path = key.split('.');
+          const owner = path.length === 2 ? value[path[0]] : value;
+          const field = path[path.length - 1];
+          if (owner?.[field] === oldId) owner[field] = next;
+        }
       }
       room.id = next;
     }

@@ -140,6 +140,7 @@ function specForFloor(project, floor, library) {
     _generated_at: new Date().toISOString(),
   }, JSON.parse(JSON.stringify(floor._legacy || {})));
 
+  delete spec.annotations;
   if (floor.grid && floor.grid.reference) spec.grid = floor.grid.reference;
 
   /* room_master and ganged_rooms are edited per-room in the builder but live

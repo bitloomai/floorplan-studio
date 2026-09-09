@@ -539,6 +539,10 @@ window.Panels = (function () {
     }
     if (S.multi.length > 1) return renderMultiPanel(box);
     const sel = Store.selected();
+    if (window.NotesUI) {
+      if (S.selection?.kind === 'annotation' && sel) return NotesUI.renderInspector(box, sel);
+      NotesUI.notesRow(box, sel ? { kind: S.selection.kind, id: sel.id } : { kind: 'floor' });
+    }
     if (!sel) return renderFloorPanel(box, floor);
     if (S.selection.kind === 'room') return renderRoomPanel(box, floor, sel);
     if (S.selection.kind === 'opening') return PanelsExtra.renderOpeningPanel(box, floor, sel);

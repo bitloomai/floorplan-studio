@@ -1,0 +1,90 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Annotation gesture checks</title>
+<style>body{font:14px system-ui}iframe{width:1200px;height:800px;border:1px solid #aaa}pre{white-space:pre-wrap}</style>
+<button id="run">Run annotation gesture checks</button><pre id="results">Ready. Use only with an isolated test-house server.</pre>
+<iframe src="/"></iframe>
+<script>
+// Browser integration harness: copy beside index.html on an isolated offline
+// development server. It drives PointerEvents through the real canvas handlers.
+// No HA calls; restoring the in-memory document also restores the test canvas.
+document.querySelector('#run').onclick = async () => {
+  const out=document.querySelector('#results'), win=document.querySelector('iframe').contentWindow;
+  const {Store,Canvas,NotesUI}=win; if (!Store?.S.project) {out.textContent='Wait for the test house to load.';return;}
+  out.textContent=''; const check=(name,value)=>{out.textContent+=(value?'PASS ':'FAIL ')+name+'\n';};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  const original=Store.clone(Store.S.project), originalHistory=Store.S.undoStack.slice();
+  // Autosave is disabled through its real checkbox so gestures remain local.
+  const auto=win.document.querySelector('#autoSave') || [...win.document.querySelectorAll('input')].find(e=>e.closest('label')?.textContent.includes('Autosave'));
+  if(auto?.checked) auto.click();
+  const svg=win.document.querySelector('#canvas');
+  const point=node=>{const r=node.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};};
+  let serial=40;
+  function pointer(type,node,at,id,extra={}) {node.dispatchEvent(new win.PointerEvent(type,{bubbles:true,cancelable:true,pointerId:id,pointerType:'touch',isPrimary:true,button:0,buttons:type==='pointerup'?0:1,clientX:at.x,clientY:at.y,...extra}));}
+  function item(){return svg.querySelector('[data-item]');}
+  try {
+    Store.setTool('select'); Store.select(null); Canvas.paint();
+    let node=item(), at=point(node), id=serial++, before=JSON.stringify(Store.floor().items);
+    pointer('pointerdown',node,at,id); await wait(570);
+    check('500 ms touch hold opens context menu',!!win.document.querySelector('[role=menu]'));
+    check('hold does not mutate geometry',JSON.stringify(Store.floor().items)===before);
+    pointer('pointerup',svg,at,id); NotesUI.close();
+
+    node=item(); at=point(node); id=serial++;
+    pointer('pointerdown',node,at,id); pointer('pointermove',svg,{x:at.x+20,y:at.y},id); await wait(570);
+    check('movement past slop cancels hold',!win.document.querySelector('[role=menu]'));
+    pointer('pointerup',svg,{x:at.x+20,y:at.y},id);
+
+    node=item(); at=point(node); id=serial++;
+    pointer('pointerdown',node,at,id); pointer('pointerdown',svg,{x:at.x+60,y:at.y},id+1,{isPrimary:false}); await wait(570);
+    check('second finger cancels hold',!win.document.querySelector('[role=menu]'));
+    pointer('pointerup',svg,at,id); pointer('pointerup',svg,{x:at.x+60,y:at.y},id+1,{isPrimary:false}); serial++;
+
+    for(const cancel of ['pointerup','pointercancel','lostpointercapture','blur']) {
+      node=item(); at=point(node); id=serial++; pointer('pointerdown',node,at,id);
+      if(cancel==='blur') win.dispatchEvent(new win.Event('blur')); else pointer(cancel,svg,at,id);
+      await wait(570); check(cancel+' cancels pending hold',!win.document.querySelector('[role=menu]'));
+      pointer('pointerup',svg,at,id);
+    }
+    node=item();at=point(node);id=serial++;pointer('pointerdown',node,at,id,{pointerType:'pen'});await wait(570);
+    check('pen hold opens context menu',!!win.document.querySelector('[role=menu]'));pointer('pointerup',svg,at,id,{pointerType:'pen'});NotesUI.close();
+
+    const f=Store.floor();Store.mutate(()=>{(f.annotations ||= []).push(win.Annotations.make(f,{text:'Gesture note',target:{kind:'point',at:[8,8]}},Store.S.library));},'test note');
+    const note=f.annotations.at(-1);Store.select('annotation',note.id);Canvas.paint();
+    node=svg.querySelector(`[data-annotation="${note.id}"]`);at=point(node);id=serial++;const pos=note.at.slice(), count=Store.S.undoStack.length;
+    pointer('pointerdown',node,at,id,{pointerType:'mouse'});pointer('pointermove',svg,{x:at.x+45,y:at.y+30},id,{pointerType:'mouse'});pointer('pointerup',svg,{x:at.x+45,y:at.y+30},id,{pointerType:'mouse'});
+    check('pin drag changes position in one undo step',JSON.stringify(note.at)!==JSON.stringify(pos)&&Store.S.undoStack.length===count+1);
+    Store.undo();check('pin undo restores position',JSON.stringify(Store.floor().annotations.at(-1).at)===JSON.stringify(pos));Store.redo();
+    node=svg.querySelector(`[data-annotation="${note.id}"]`);at=point(node);id=serial++;const cancelPos=Store.floor().annotations.at(-1).at.slice();
+    pointer('pointerdown',node,at,id,{pointerType:'mouse'});pointer('pointermove',svg,{x:at.x+45,y:at.y+30},id,{pointerType:'mouse'});pointer('pointercancel',svg,at,id,{pointerType:'mouse'});
+    check('cancelled pin drag restores geometry',JSON.stringify(Store.floor().annotations.at(-1).at)===JSON.stringify(cancelPos));
+    node=svg.querySelector(`[data-annotation="${note.id}"]`);at=point(node);id=serial++;pointer('pointerdown',node,at,id,{pointerType:'mouse'});pointer('pointerup',svg,at,id,{pointerType:'mouse'});
+    check('pin tap opens editor',!!win.document.querySelector('textarea[aria-label="Note text"]'));NotesUI.close();
+    // Exercise default-wall actions through the same contextmenu entry point.
+    Store.select(null); Canvas.paint();
+    const room=Store.floor().rooms[0], edge=win.PlanScene.roomEdges(room)[0];
+    const P=win.PlanScene.build(Store.S.project,Store.floor(),Store.S.library,Store.theme(),{boundaries:Store.S.boundaries,annotations:true,annotationScale:1/Store.S.view.zoom}).projector;
+    const xy=[edge.a[0]+(edge.b[0]-edge.a[0])*.1,edge.a[1]+(edge.b[1]-edge.a[1])*.1], r=svg.getBoundingClientRect();
+    const wallAt={x:r.left+P.X(xy[0])*Store.S.view.zoom,y:r.top+P.Y(xy[1])*Store.S.view.zoom};
+    const right=()=>svg.dispatchEvent(new win.MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:wallAt.x,clientY:wallAt.y,button:2}));
+    const button=text=>[...win.document.querySelectorAll('.notes-surface button')].find(b=>b.textContent===text);
+    right(); check('right click resolves a default wall',!!button('Wall top width…'));
+    button('Wall top width…')?.click();
+    const width=win.document.querySelector('.notes-surface [aria-label="Wall top width (ft)"]');
+    if(width){width.value='0.8';width.dispatchEvent(new win.Event('input',{bubbles:true}));button('Save').click();}
+    check('wall menu saves width on a boundary override',Store.floor().boundaries.some(b=>b.room===room.id&&b.props?.thicknessFt===.8));
+    right();button('Wall top material…')?.click();
+    const finish=win.document.querySelector('.notes-surface select[aria-label="Wall top finish"]');
+    if(finish){const choice=[...finish.options].find(o=>o.value&&Store.S.flooring.types[o.value]?.generator);finish.value=choice.value;finish.dispatchEvent(new win.Event('change',{bubbles:true}));check('wall finish picker refreshes generator controls',win.document.querySelectorAll('.notes-surface .settings-group input').length>0);button('Save').click();}
+    check('wall menu saves material',Store.floor().boundaries.some(b=>b.room===room.id&&b.props?.topFinish));
+    const object=Store.floor().items[0];
+    Store.mutate(()=>Store.floor().annotations.push(win.Annotations.make(Store.floor(),{text:'Attached delete check',target:{kind:'item',id:object.id}},Store.S.library)),'test attached note');
+    const attachedId=Store.floor().annotations.at(-1).id;
+    Store.select('item',object.id);Canvas.deleteSelected({withNotes:true});
+    check('explicit delete removes attached note',!Store.floor().annotations.some(n=>n.id===attachedId));
+    Store.undo();check('one undo restores deleted object and note',Store.floor().items.some(i=>i.id===object.id)&&Store.floor().annotations.some(n=>n.id===attachedId));
+    out.textContent+='Finished.\n';
+  } catch(e){out.textContent+='FAIL '+e.stack+'\n';}
+  finally {NotesUI.close();Store.S.project=original;Store.S.undoStack=originalHistory;Store.S.redoStack=[];Store.select(null);Canvas.paint();}
+};
+</script>

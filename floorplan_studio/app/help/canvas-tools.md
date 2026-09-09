@@ -47,3 +47,11 @@ On a touch screen, tap it: a plain drag moves the plan rather than the room, and
 only something already selected can be dragged. A press counts as a tap until it
 has travelled about nine pixels, so an unsteady finger never nudges what it
 meant to pick.
+
+## Review notes
+
+Use **Notes** (N) to list this floor’s open or completed feedback. Add a floor note there, use the inspector’s **Add note**, or right-click an object or wall and choose **Add note here**. On touch screens, hold still for half a second. **Select behind** in the same menu reaches overlapping objects. Moving or adding a second finger cancels the hold. Right-click still finishes a polygon while drawing.
+
+Notes appear as numbered pins above the plan. Click a pin to edit, save, delete or cancel; Escape cancels. Drag a pin or use the arrow keys to move it without changing its target. Moving an object carries its notes, and deleting it leaves them at their last position as point notes. Room renames preserve attachments. Undo and redo include notes. Use Mark done after addressing feedback; completed notes remain available in the Done filter.
+
+Editable project exports keep feedback. HA deployment strips notes from both card data and the embedded project copy; exported SVG drawings also omit pins. Agents can read expanded targets using list_annotations and manage notes through edit_collection.

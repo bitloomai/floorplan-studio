@@ -50,6 +50,25 @@
   const NEEDS = ['undo', 'redo', 'selection', 'poly'];
 
   const ACTIONS = [
+    { id: 'delete-with-notes', group: 'Review and context menu', label: 'Delete object and its notes', glyph: '×', keys: [], match: [], hint: 'Explicitly discard feedback attached to the deleted object.' },
+    { id: 'notes', group: 'Review and context menu', label: 'Floor notes', glyph: '•', keys: ['N'], match: [{ key: 'n' }], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'note-add', group: 'Review and context menu', label: 'Add note', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'note-edit', group: 'Review and context menu', label: 'Edit note', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'note-done', group: 'Review and context menu', label: 'Mark note done / reopen', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'note-delete', group: 'Review and context menu', label: 'Delete note', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'properties', group: 'Review and context menu', label: 'Properties', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'select-behind', group: 'Review and context menu', label: 'Select behind', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'layer-forward', group: 'Review and context menu', label: 'Bring forward', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'layer-backward', group: 'Review and context menu', label: 'Send backward', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'copy-item', group: 'Review and context menu', label: 'Copy item', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'paste-item', group: 'Review and context menu', label: 'Paste item', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'turn-left', group: 'Review and context menu', label: 'Turn 90° left', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'turn-right', group: 'Review and context menu', label: 'Turn 90° right', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'opening-shut', group: 'Review and context menu', label: 'Draw opening shut', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'opening-part', group: 'Review and context menu', label: 'Draw opening part open', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'opening-open', group: 'Review and context menu', label: 'Draw opening open', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'wall-width', group: 'Review and context menu', label: 'Wall top width', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'wall-material', group: 'Review and context menu', label: 'Wall top material', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
     /* ---- tools ----
      *
      * They are in the shortcut bar as well as the rail because the rail is a
@@ -151,6 +170,14 @@
    * command — and it is the reason the catalogue has two halves: an action has
    * a key, a gesture has three answers and no key at all. */
   const GESTURES = [
+    { id: 'context-menu', label: 'Review notes and object actions',
+      mouse: 'Right-click the plan. Arrow keys navigate the menu; Enter chooses and Escape closes it.',
+      trackpad: 'Secondary-click the plan. Select behind lists the overlapping objects.',
+      touch: 'Hold one finger or a pen still for half a second. Movement or a second finger cancels the menu.' },
+    { id: 'review-pin', label: 'Read or move a review note',
+      mouse: 'Click a numbered pin to edit. Drag it or use arrow keys to move it. Notes (N) lists this floor’s feedback.',
+      trackpad: 'Click a numbered pin to edit or drag it to move it.',
+      touch: 'Tap a numbered pin to edit; drag to move it. Notes opens the floor’s open/done list.' },
     { id: 'pan', label: 'Move around a zoomed-in plan',
       mouse: 'Drag with the middle button, hold Space and drag, or use the H tool. The scroll wheel scrolls.',
       trackpad: 'Two-finger scroll, in any direction.',

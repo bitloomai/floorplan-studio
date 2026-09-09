@@ -5587,7 +5587,7 @@ ok('the editor drops the echo of its own write rather than warning about it', ((
   /* The guard must come BEFORE the dirty check, or the toast fires first and
    * the suppression never runs. */
   const guard = main.indexOf('API.clientId()');
-  const dirty = main.indexOf('if (S.dirty)', main.indexOf('addEventListener(\'project\''));
+  const dirty = main.indexOf('if (S.dirty || NotesUI.active())', main.indexOf('addEventListener(\'project\''));
   return guard > 0 && dirty > 0 && guard < dirty;
 })());
 
@@ -7481,6 +7481,7 @@ if (!myHouseFile) {
 require('./coverings')(ok);
 require('./room-identity')(ok);
 require('./surfaces')(ok);
+require('./annotations')(ok);
 console.log(`\n${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);
 })();

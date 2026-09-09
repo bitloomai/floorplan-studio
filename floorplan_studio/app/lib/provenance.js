@@ -32,8 +32,8 @@
       note: 'Written by Floorplan Studio. Deleting this key stops the editor recognising and updating this dashboard; the cards keep working.',
     };
     if (embedProject && project) {
-      value.project = project;
-      value.project_bytes = JSON.stringify(project).length;
+      value.project = require('./annotations').withoutNotes(project);
+      value.project_bytes = JSON.stringify(value.project).length;
     }
     return value;
   }

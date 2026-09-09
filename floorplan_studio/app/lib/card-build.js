@@ -54,7 +54,7 @@ const SHARED = ['shapes.js', 'flooring.js', 'sun.js', 'controls.js', 'lighting.j
  * import residue (`_legacy`, kept for round-tripping an old spec, which the
  * dashboard has no use for) and per-floor comments. Dropping them is worth
  * roughly a fifth of the payload on a real house. */
-const DROP_FLOOR_KEYS = ['_legacy', '_comment', '_notes', '_open_questions', '_source'];
+const DROP_FLOOR_KEYS = ['annotations', '_legacy', '_comment', '_notes', '_open_questions', '_source'];
 const DROP_ITEM_KEYS = ['_legacy', '_comment'];
 
 function trimProject(project) {

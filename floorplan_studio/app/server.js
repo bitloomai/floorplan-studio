@@ -731,7 +731,7 @@ const server = http.createServer(async (req, res) => {
     /* The scene builder is shared with the server, so the browser is served the
      * very same file rather than a copy under public/. One implementation, no
      * chance of the editor and the exporter drifting apart. */
-    const SHARED = ['room-identity.js', 'ui-navigation.js', 'input-actions.js', 'plan-scene.js', 'flooring.js', 'shapes.js', 'sun.js', 'controls.js', 'lighting.js'];
+    const SHARED = ['annotations.js', 'room-identity.js', 'ui-navigation.js', 'input-actions.js', 'plan-scene.js', 'flooring.js', 'shapes.js', 'sun.js', 'controls.js', 'lighting.js'];
     const sharedName = pathname.startsWith('/js/') ? pathname.slice(4) : null;
     if (sharedName && SHARED.includes(sharedName)) {
       return fs.createReadStream(path.join(__dirname, 'lib', sharedName))

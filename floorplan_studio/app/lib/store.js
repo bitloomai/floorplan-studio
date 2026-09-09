@@ -159,6 +159,13 @@ function upgradeDoc(key, doc) {
   let fresh;
   try { fresh = JSON.parse(fs.readFileSync(seed, 'utf8')); } catch { return doc; }
   let added = [];
+  if (key === 'themes') {
+    for (const [id, theme] of Object.entries(doc.themes || {})) for (const token of ['annotationPin','annotationInk']) {
+      if (theme.plan && theme.plan[token] === undefined && fresh.themes?.[id]?.plan?.[token] !== undefined) {
+        theme.plan[token] = fresh.themes[id].plan[token]; added.push(id + '.' + token);
+      }
+    }
+  }
   if (key === 'library') {
     added.push(...renameLibraryTypes(doc, fresh));
     /* This was a shipped semantic error, not a style preference: the one
@@ -616,6 +623,9 @@ module.exports = {
   async writeProject(project, opts) {
     if (!project || typeof project !== 'object') throw new Error('project must be an object');
     if (!Array.isArray(project.floors)) throw new Error('project.floors must be an array');
+    const noteErrors = [];
+    for (const floor of project.floors) if (floor) require('./annotations').validate(floor, (path, message) => noteErrors.push(path + ': ' + message), () => {}, 'annotations');
+    if (noteErrors.length) throw new Error(noteErrors.join('; '));
     const file = path.join(DATA_DIR, FILES.project);
     /* Snapshot AND write inside one queue slot. Queuing only the write is not
      * enough: `snapshotProject` copies the very file a concurrent rename is
@@ -623,6 +633,11 @@ module.exports = {
      * here rather than `writeAtomic` because we are already holding the slot —
      * queueing again from inside it would wait on ourselves. */
     const saved = await enqueue(file, async () => {
+      if ((project.floors || []).some(f => f.annotations?.length)) {
+        let previous;
+        try { previous = JSON.parse(await fsp.readFile(file, 'utf8')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+        if (previous?.id === project.id) require('./annotations').reconcile(previous, project, await readDoc('library'));
+      }
       await snapshotProject();
       const installedAt = await deploymentTime(project.id);
       if (installedAt) project.dashboard = { ...project.dashboard, installedAt };

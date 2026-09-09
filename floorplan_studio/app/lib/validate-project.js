@@ -123,6 +123,7 @@ function validate(project, library) {
     floorIds.add(floor.id);
     if (floor.level_ft !== undefined && !isFiniteNum(floor.level_ft)) err(`${fpath}.level_ft`, 'level_ft must be a number');
 
+    require('./annotations').validate(floor, err, warn, `${fpath}.annotations`);
     const rooms = Array.isArray(floor.rooms) ? floor.rooms : [];
     if (!Array.isArray(floor.rooms)) warn(`${fpath}.rooms`, 'missing — treated as empty');
     const roomIds = new Set();

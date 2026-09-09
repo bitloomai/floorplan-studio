@@ -5,6 +5,7 @@ module.exports = function (ok) {
   const make = () => {
     const room = { id: 'room_1', name: 'Room 1', _autoId: true };
     const floor = { id: 'f', rooms: [room, { id: 'study', part_of: room.id }],
+      annotations: [{ target: { kind: 'room', id: room.id } }, { target: { kind: 'boundary', room: room.id } }],
       items: [{ room: room.id, entity: 'light.room_1' }], openings: [{ room: room.id }], boundaries: [{ room: room.id }] };
     return { room, floor, project: { id: 'test', floors: [floor, { id: 'other', items: [{ room: room.id }] }] } };
   };
@@ -12,7 +13,7 @@ module.exports = function (ok) {
   const result = identity.rename(a.project, a.floor, a.room, 'Study');
   ok('automatic room rename resolves collision', result.id === 'study_2');
   for (const [collection, key] of identity.REFERENCES) {
-    ok('room rename rewrites ' + collection, a.floor[collection].some(v => v[key] === result.id));
+    ok('room rename rewrites ' + collection, a.floor[collection].some(v => key.split('.').reduce((o,k) => o?.[k], v) === result.id));
   }
   ok('room rename leaves other floors alone', a.project.floors[1].items[0].room === 'room_1');
   ok('room rename leaves entity ids alone', a.floor.items[0].entity === 'light.room_1');

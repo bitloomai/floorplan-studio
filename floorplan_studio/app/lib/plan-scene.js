@@ -1842,6 +1842,35 @@
     return fl;
   }
 
+  function edgeIsExterior(floor, edge) {
+    const ext = floor.extent || { w: 40, h: 40 };
+    const onExtent = (x,y) => Math.abs(x) < 1e-6 || Math.abs(y) < 1e-6 || Math.abs(x-ext.w) < 1e-6 || Math.abs(y-ext.h) < 1e-6;
+    if (edge.diagonal) return onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
+    const atExtent = edge.horizontal
+      ? (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.h) < 1e-6)
+      : (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.w) < 1e-6);
+    if (atExtent) return true;
+    /* A compound wall plus a setback drawn around the house — not unusual
+     * for a real plot — puts the BUILDING's own outer wall short of the
+     * floor's recorded extent, and the test above alone called every one of
+     * those walls a mere partition. A wall that faces an actual OUTDOOR
+     * ROOM (the setback, a car park, a terrace) is this room's own
+     * exterior wall regardless of where the floor extent happens to land —
+     * the same probe the same-primary-room skip below already uses.
+     *
+     * Deliberately narrower than "no neighbour at all": undrawn space past
+     * an edge stays a partition, exactly as it did before this — see "a
+     * wide interior edge is not mistaken for an exterior wall", pinned
+     * from the same real house. Only a room that says `outdoor: true`
+     * upgrades the wall; empty space one edge does not name is not a
+     * claim that a wall there is this room's exterior. */
+    const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
+    const nrm = WALL_NORMAL[edge.wall] * RAD;
+    const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
+    const neighbour = roomAt(floor, probe[0], probe[1]);
+    return !!(neighbour && neighbour.outdoor);
+  }
+
   function build(project, floor, library, theme, opts) {
     opts = opts || {};
     let P = makeProjector(project);
@@ -1872,6 +1901,13 @@
           }
         }
       }
+    }
+    if (opts.annotations === true) for (const note of floor.annotations || []) {
+      if (!Array.isArray(note.at) || !note.at.every(Number.isFinite)) continue;
+      const x = P.X(note.at[0]), y = P.Y(note.at[1]);
+      const pad = 16 * (opts.annotationScale || 1);
+      minX = Math.min(minX, x-pad); minY = Math.min(minY, y-pad);
+      maxX = Math.max(maxX, x+pad); maxY = Math.max(maxY, y+pad);
     }
     if (minX < 0 || minY < 0 || maxX > width || maxY > height) {
       P = makeProjector({...project, origin:[P.X(0)-minX,P.Y(0)-minY]});
@@ -1937,7 +1973,6 @@
     );
     /* Declared here rather than beside the boundary loop below, because the
      * light zones now read boundary runs too and are built first. */
-    const onExtent = (x, y) => Math.abs(x) < 1e-6 || Math.abs(y) < 1e-6 || Math.abs(x - ext.w) < 1e-6 || Math.abs(y - ext.h) < 1e-6;
     /* An edge is on the building's own perimeter only if the coordinate that
      * stays FIXED along its length sits on the extent — not merely because its
      * two endpoints each happen to touch the extent somewhere. `onExtent`
@@ -1950,32 +1985,7 @@
      * wall in the middle of the plan, stacked on top of the room's own
      * (correctly thin) wall at the same seam. Diagonal edges have no single
      * fixed coordinate, so they keep the old two-point test. */
-    const edgeIsExterior = (edge) => {
-      if (edge.diagonal) return onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
-      const atExtent = edge.horizontal
-        ? (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.h) < 1e-6)
-        : (Math.abs(edge.fixed) < 1e-6 || Math.abs(edge.fixed - ext.w) < 1e-6);
-      if (atExtent) return true;
-      /* A compound wall plus a setback drawn around the house — not unusual
-       * for a real plot — puts the BUILDING's own outer wall short of the
-       * floor's recorded extent, and the test above alone called every one of
-       * those walls a mere partition. A wall that faces an actual OUTDOOR
-       * ROOM (the setback, a car park, a terrace) is this room's own
-       * exterior wall regardless of where the floor extent happens to land —
-       * the same probe the same-primary-room skip below already uses.
-       *
-       * Deliberately narrower than "no neighbour at all": undrawn space past
-       * an edge stays a partition, exactly as it did before this — see "a
-       * wide interior edge is not mistaken for an exterior wall", pinned
-       * from the same real house. Only a room that says `outdoor: true`
-       * upgrades the wall; empty space one edge does not name is not a
-       * claim that a wall there is this room's exterior. */
-      const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
-      const nrm = WALL_NORMAL[edge.wall] * RAD;
-      const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
-      const neighbour = roomAt(floor, probe[0], probe[1]);
-      return !!(neighbour && neighbour.outdoor);
-    };
+    const edgeIsExteriorHere = edge => edgeIsExterior(floor, edge);
     const defaults = Object.assign({ exterior: 'wall_exterior', interior: 'wall_partition' }, bDoc.defaults || {});
 
     const zonePathOf = (room) => {
@@ -2027,7 +2037,7 @@
        * exactly like a doorway does — by its own transmission. */
       for (const other of [room, ...(floor.rooms || []).filter((r) => r.id !== room.id
         && (primaryRoom(floor, r) || r).id === room.id)]) {
-        for (const run of transmissiveRuns(other, floor, bDoc, defaults, edgeIsExterior)) {
+        for (const run of transmissiveRuns(other, floor, bDoc, defaults, edgeIsExteriorHere)) {
           const a = pointOn(run.edge, run.from - 0.25), b = pointOn(run.edge, run.to + 0.25);
           const c = roomCentroid(other);
           const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
@@ -2092,7 +2102,7 @@
           if (neighbour && primaryRoom(floor, neighbour) === primaryRoom(floor, room) && neighbour !== room) continue;
         }
 
-        const isExterior = edgeIsExterior(edge);
+        const isExterior = edgeIsExteriorHere(edge);
         for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
           for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface)) {
             n.roomId = room.id; n.wall = edge.wall;
@@ -2174,7 +2184,7 @@
          * before this the model could only see a hole somebody had drawn as an
          * `opening`. Same shape as the openings above, so `roomDaylight` needs
          * no idea which of the two it is looking at. */
-        for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExterior)) {
+        for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExteriorHere)) {
           ops.push({
             at: [pointOn(run.edge, run.from), pointOn(run.edge, run.to)],
             width: run.width,
@@ -2343,7 +2353,7 @@
          */
         const spillFt = num(zoneCfg.spillFt, 3.5);
         if (zoneCfg.enabled !== false) {
-          for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExterior)) {
+          for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExteriorHere)) {
             const carried = clamp(lit.level * lightCfg.maxWash * run.transmission, 0, 1);
             if (carried <= 0.02) continue;
             const a = pointOn(run.edge, run.from), b = pointOn(run.edge, run.to);
@@ -2766,6 +2776,21 @@
       }
     }
 
+    // Review pins are explicitly requested by the editor. Card/SVG callers
+    // never opt in, including callers rendering an editable project export.
+    if (opts.annotations === true) {
+      order.push('annotations');
+      layers.annotations = [];
+      const scale = opts.annotationScale || 1;
+      (floor.annotations || []).forEach((note, i) => {
+        if (!Array.isArray(note.at) || !note.at.every(Number.isFinite)) return;
+        const x = P.X(note.at[0]), y = P.Y(note.at[1]);
+        const ink = theme.annotationInk || '#ffffff', pin = theme.annotationPin || '#945318';
+        layers.annotations.push({ tag: 'circle', attrs: { cx: x, cy: y, r: 11 * scale, fill: note.status === 'done' ? ink : pin, stroke: pin, 'stroke-width': 2 } });
+        layers.annotations.push({ tag: 'text', attrs: { x, y: y + 4 * scale, 'text-anchor': 'middle', 'font-size': 11 * scale, 'font-weight': 700, fill: note.status === 'done' ? pin : ink }, text: String(i + 1) });
+      });
+    }
+
     /* roomLevels is handed back rather than kept private because the control
      * surfaces and the dashboard glance cards all want to say "3 of 8 lights,
      * 62% lit" about the same room, and recomputing it in three places is how
@@ -2959,6 +2984,7 @@
 
   return {
     build, toSvg, nodeToSvg, resolveType, specLine, hitTargets,
+    openingEdgeOf, pointOn, edgeIsExterior,
     makeProjector, roomPoints, roomBBox, roomCentroid, pointInRoom, roomAt, roomEdges,
     primaryRoom, colour, stateOf, lampColour, openingIsOpen, openingState, openingTransmission, coneNodes, MOTION_CSS,
     variantOf, schemeOf, markerRadius, markerExtent, labelText, thresholdColour, labelMetrics,

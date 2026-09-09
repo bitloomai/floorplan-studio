@@ -126,6 +126,25 @@
    * a key and missing from the buttons, or listed in the dialog and wired to
    * nothing. The suite checks the two halves line up. */
   const RUN = {
+    notes: () => NotesUI.list(),
+    'note-add': context => NotesUI.edit(null, context),
+    'note-edit': context => NotesUI.edit(context.id),
+    'note-done': context => NotesUI.done(context.id),
+    'note-delete': context => NotesUI.remove(context.id),
+    'delete-with-notes': () => Canvas.deleteSelected({ withNotes: true }),
+    properties: () => Canvas.inspect(),
+    'select-behind': target => NotesUI.select(target),
+    'layer-forward': () => NotesUI.reorder(1),
+    'layer-backward': () => NotesUI.reorder(-1),
+    'copy-item': () => NotesUI.copy(),
+    'paste-item': context => NotesUI.paste(context),
+    'turn-left': () => Canvas.nudgeRotation(-90),
+    'turn-right': () => Canvas.nudgeRotation(90),
+    'opening-shut': () => NotesUI.openingPosition(0),
+    'opening-part': () => NotesUI.openingPosition(50),
+    'opening-open': () => NotesUI.openingPosition(100),
+    'wall-width': target => NotesUI.wall(target, false),
+    'wall-material': target => NotesUI.wall(target, true),
     'tool-select': () => Store.setTool('select'),
     'tool-rect': () => Store.setTool('rect'),
     'tool-poly': () => Store.setTool('poly'),
@@ -133,6 +152,7 @@
     'tool-pan': () => Store.setTool('pan'),
 
     escape: () => {
+      if (NotesUI.close()) return;
       if (!$('modal').hidden) { Panels.closeModal(); return; }
       if (closeOverlays()) return;
       Canvas.cancelPoly();
@@ -184,6 +204,7 @@
     const fn = RUN[id];
     if (fn) fn(ev);
   }
+  NotesUI.init(runAction);
 
   /* ---------- the shortcut bar ----------
    *
@@ -296,6 +317,7 @@
 
     $('libSearch').addEventListener('input', () => Panels.renderLibrary());
     $('btnEditLibrary').addEventListener('click', () => Panels.editLibrary());
+    $('btnNotes').addEventListener('click', () => runAction('notes'));
     $('btnSun').addEventListener('click', () => PanelsExtra.sunDialog());
     $('btnLighting').addEventListener('click', () => PanelsDashboard.lightingDialog());
     $('btnLogic').addEventListener('click', () => PanelsExtra.logicDialog());
@@ -426,7 +448,7 @@
     });
 
     window.addEventListener('beforeunload', (ev) => {
-      if (S.dirty) { ev.preventDefault(); ev.returnValue = ''; }
+      if (S.dirty || NotesUI.isEditing()) { ev.preventDefault(); ev.returnValue = ''; }
     });
   }
 
@@ -588,13 +610,13 @@
     let lastNudge = 0;
     const es = new EventSource('api/project/stream');
     es.addEventListener('registry', async () => {
-      if (S.dirty || !$('modal').hidden) {
+      if (S.dirty || NotesUI.active() || !$('modal').hidden) {
         Panels.toast('Shared settings changed elsewhere. Finish your edit, then reload to use them.', true);
         return;
       }
       try {
         const data = await API.bootstrap();
-        if (S.dirty || !$('modal').hidden) return;
+        if (S.dirty || NotesUI.active() || !$('modal').hidden) return;
         for (const key of ['library','themes','flooring','boundaries','controls']) S[key] = data[key];
         Panels.applyUiTheme(); Panels.renderThemePicker(); Panels.renderLibrary(); Panels.renderInspector(); Canvas.paint();
       } catch { Panels.toast('Shared settings changed. Reload to use them.', true); }
@@ -609,7 +631,7 @@
       try { data = JSON.parse(ev.data || '{}'); } catch (e) { /* treat as somebody else's */ }
       if (data.origin && data.origin === API.clientId()) return;
 
-      if (S.dirty) {
+      if (S.dirty || NotesUI.active()) {
         const now = Date.now();
         if (now - lastNudge > 5000) {
           lastNudge = now;
@@ -621,7 +643,7 @@
       fetchTimer = setTimeout(async () => {
         try {
           const project = await API.project();
-          if (!S.dirty) Store.replaceProject(project);
+          if (!S.dirty && !NotesUI.active()) Store.replaceProject(project);
         } catch (e) { /* the next event will try again */ }
       }, 300);
     });

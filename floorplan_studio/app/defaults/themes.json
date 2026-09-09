@@ -69,7 +69,9 @@
         "levelLow": "#e05555",
         "glow": "#ffc88c",
         "glowOpacity": 0.55,
-        "nightScrim": "#050912"
+        "nightScrim": "#050912",
+        "annotationPin": "#945318",
+        "annotationInk": "#ffffff"
       }
     },
     "blueprint": {
@@ -137,7 +139,9 @@
         "levelLow": "#ff7676",
         "glow": "#ffd08a",
         "glowOpacity": 0.42,
-        "nightScrim": "#050912"
+        "nightScrim": "#050912",
+        "annotationPin": "#945318",
+        "annotationInk": "#ffffff"
       }
     },
     "ha": {
@@ -206,7 +210,9 @@
         "levelLow": "#e05555",
         "glow": "#ffc88c",
         "glowOpacity": 0.55,
-        "nightScrim": "#050912"
+        "nightScrim": "#050912",
+        "annotationPin": "#945318",
+        "annotationInk": "#ffffff"
       },
       "follows": {
         "light": "frosted",

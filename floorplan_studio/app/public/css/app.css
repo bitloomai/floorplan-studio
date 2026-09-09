@@ -632,3 +632,20 @@ table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-t
 .btn, .tool, .lib-item, .quick-btn, .help-btn, .variant-grid .variant, label.inline, select {
   touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
+
+/* Review surfaces remain legible over a busy plan. */
+.notes-surface { width: 340px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; border: 1px solid var(--panelBorder, #ccd2dd); border-radius: 12px; padding: 16px; background: var(--panelBg, #fff); color: var(--ink, #243049); box-shadow: 0 12px 48px #0004; }
+.notes-surface::backdrop { background: #0001; }
+.notes-surface h2 { margin: 0 0 12px; font-size: 17px; }
+.notes-surface textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 100px; }
+.notes-surface select { margin: 8px 0; }
+.notes-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.notes-surface[role=menu] { padding: 6px; }
+.notes-surface[role=menu] button { display: block; width: 100%; min-height: 36px; border: 0; background: transparent; color: inherit; text-align: left; padding: 8px 12px; border-radius: 6px; }
+.notes-surface[role=menu] button:focus-visible, .notes-surface[role=menu] button:hover { background: #7194bb26; outline: 2px solid #2774d4; outline-offset: -2px; }
+.notes-surface[role=menu] button:disabled { opacity: .4; }
+.notes-list { display: grid; gap: 8px; }
+.note-row { white-space: pre-wrap; text-align: left; overflow-wrap: anywhere; }
+.note-row small { display: block; opacity: .7; }
+.note-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (pointer: coarse) { .notes-surface[role=menu] button { min-height: 44px; } }

@@ -102,6 +102,7 @@ window.Canvas = (function () {
     const theme = Store.theme();
 
     scene = PlanScene.build(S.project, floor, S.library, theme, {
+      annotations: true, annotationScale: 1 / S.view.zoom,
       grid: { show: S.view.showGrid, size: S.view.gridSize < 1 ? 1 : S.view.gridSize },
       states: S.view.live ? S.states : {},
       boundaries: S.boundaries,
@@ -191,12 +192,12 @@ window.Canvas = (function () {
     for (const op of floor.openings || []) {
       const room = (floor.rooms || []).find((r) => r.id === op.room);
       if (!room) continue;
-      const edge = PlanScene.roomEdges(room).find((e) => e.wall === op.wall);
+      const edge = PlanScene.openingEdgeOf(room, op);
       if (!edge) continue;
       const P = scene.projector;
       const at = op.at || 0, w = op.w || 2.5;
-      const a = edge.horizontal ? [at, edge.fixed] : [edge.fixed, at];
-      const b = edge.horizontal ? [at + w, edge.fixed] : [edge.fixed, at + w];
+      const a = PlanScene.pointOn(edge, at);
+      const b = PlanScene.pointOn(edge, at + w);
       const e = el('line', {
         x1: P.X(a[0]), y1: P.Y(a[1]), x2: P.X(b[0]), y2: P.Y(b[1]),
         stroke: 'transparent', 'stroke-width': 14, class: 'hit item-hit',
@@ -208,6 +209,11 @@ window.Canvas = (function () {
       const e = el('rect', { x: chip.x, y: chip.y, width: chip.width, height: chip.height,
         transform: chip.rot, fill: 'transparent', class: 'hit room-label-hit', style: 'cursor:move' });
       e.dataset.roomLabel = chip.roomId;
+      hits.appendChild(e);
+    }
+    for (const note of floor.annotations || []) {
+      const e = el('circle', { cx: scene.projector.X(note.at[0]), cy: scene.projector.Y(note.at[1]), r: (touching() ? 22 : 15) / S.view.zoom, fill: 'transparent', class: 'hit annotation-hit', tabindex: 0, role: 'button', 'aria-label': `Note ${(floor.annotations || []).indexOf(note) + 1}: ${note.text}` });
+      e.dataset.annotation = note.id;
       hits.appendChild(e);
     }
     frag.appendChild(hits);
@@ -362,6 +368,11 @@ window.Canvas = (function () {
 
     const sel = Store.selected();
     if (!sel) return;
+
+    if (S.selection.kind === 'annotation') {
+      ov.appendChild(el('circle', { cx: P.X(sel.at[0]), cy: P.Y(sel.at[1]), r: 16 / S.view.zoom, fill: 'none', stroke: '#2774d4', 'stroke-width': 2, 'pointer-events': 'none' }));
+      return;
+    }
 
     if (selectedLabel()) {
       const b = labelBox(sel);
@@ -719,6 +730,11 @@ window.Canvas = (function () {
    * Works for a room too, unlike rotation/resize, because dragging a whole
    * room a few inches is just as fiddly as dragging one marker. */
   function nudgePosition(dx, dy) {
+    if (S.selection?.kind === 'annotation') {
+      const note = Store.selected();
+      if (note) Store.mutate(() => { note.at = [note.at[0] + dx, note.at[1] + dy]; }, 'move note');
+      return;
+    }
     const label = selectedLabel();
     if (label) {
       const at = labelCentre(label);
@@ -1043,7 +1059,41 @@ window.Canvas = (function () {
    * press is one of the things a DEVICE does — pinch, two-finger pan, drag the
    * paper — before anything asks which tool is active. Below it, `beginInner`
    * is the original mouse logic, unchanged in what it means. */
+  let holdTimer = null, contextHeld = false;
+  function cancelHold() { clearTimeout(holdTimer); holdTimer = null; }
+  function contextAt(ev) {
+    const ft = feetAt(ev, false), candidates = [], seen = new Set();
+    for (const node of document.elementsFromPoint(ev.clientX, ev.clientY)) {
+      if (!svg.contains(node)) continue;
+      const d = node.dataset || {};
+      const kind = d.annotation ? 'annotation' : d.item ? 'item' : d.opening ? 'opening' : d.room || d.roomLabel ? 'room' : null;
+      const id = d.annotation || d.item || d.opening || d.room || d.roomLabel;
+      if (kind && !seen.has(kind + id)) { candidates.push({ kind, id }); seen.add(kind + id); }
+    }
+    // Use the renderer's flattened edges, including curves and angled walls.
+    let nearest = null, distance = 12 / (S.view.zoom * scene.projector.S(1));
+    for (const room of Store.floor().rooms || []) for (const edge of PlanScene.roomEdges(room)) {
+      const dx = edge.b[0] - edge.a[0], dy = edge.b[1] - edge.a[1];
+      const t = Math.max(0, Math.min(1, ((ft.x-edge.a[0])*dx + (ft.y-edge.a[1])*dy)/(dx*dx+dy*dy || 1)));
+      const d = Math.hypot(ft.x-edge.a[0]-t*dx, ft.y-edge.a[1]-t*dy);
+      if (d < distance) { distance = d; nearest = { kind: 'boundary', room: room.id, wall: edge.wall, edge: edge.src ?? edge.index }; }
+    }
+    if (nearest) {
+      const match = (Store.floor().boundaries || []).find(b => b.room === nearest.room && b.wall === nearest.wall && (b.edge == null || b.edge === nearest.edge) && (b.from == null || (['n','s'].includes(b.wall) ? ft.x : ft.y) >= b.from) && (b.to == null || (['n','s'].includes(b.wall) ? ft.x : ft.y) <= b.to));
+      if (match?.id) nearest = { kind: 'boundary', id: match.id };
+      candidates.splice(candidates.findIndex(c => c.kind === 'room') < 0 ? candidates.length : candidates.findIndex(c => c.kind === 'room'), 0, nearest);
+    }
+    NotesUI.menu({ candidates, at: [ft.x, ft.y], x: ev.clientX, y: ev.clientY });
+  }
+  function locate(at) {
+    if (!scene) return;
+    const r = svg.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+    wrap.scrollLeft += r.left + scene.projector.X(at[0])*S.view.zoom - w.left - w.width/2;
+    wrap.scrollTop += r.top + scene.projector.Y(at[1])*S.view.zoom - w.top - w.height/2;
+  }
   function begin(ev) {
+    if (ev.button === 2) return;
+    cancelHold(); contextHeld = false;
     /* `isPrimary` means "the first pointer of its kind currently down", so a
      * primary press while the map still holds something is proof that the
      * something is stale — a pointerup delivered somewhere this element never
@@ -1063,6 +1113,21 @@ window.Canvas = (function () {
      * here, a real double tap 150 ms apart looked like two taps a second
      * apart, and never opened anything. */
     press = { x: ev.clientX, y: ev.clientY, t: ev.timeStamp || Date.now(), target: ev.target };
+    if (S.tool === 'select' && ['touch', 'pen'].includes(ev.pointerType)) {
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        if (pointers.size !== 1 || drag?.moved) return;
+        contextHeld = true; drag = null; ghost(null); svg.classList.remove('panning');
+        contextAt(ev);
+      }, 500);
+    }
+    if (S.tool === 'select' && ev.target.dataset.annotation) {
+      const id = ev.target.dataset.annotation;
+      Store.select('annotation', id);
+      drag = { mode: 'annotation', id, start: feetAt(ev, false), before: Store.selected().at.slice() };
+      try { svg.setPointerCapture(ev.pointerId); } catch {}
+      return;
+    }
     beginInner(ev);
   }
 
@@ -1181,7 +1246,7 @@ window.Canvas = (function () {
 
     if (S.tool === 'rect') {
       drag = { mode: 'rect', from: ft };
-      svg.setPointerCapture(ev.pointerId);
+      try { svg.setPointerCapture(ev.pointerId); } catch {}
       return;
     }
 
@@ -1209,13 +1274,13 @@ window.Canvas = (function () {
         before: Store.clone(room), grabFt: raw, origin: centre,
         radius: Math.max(1, Math.hypot(pt.x - P.X(centre[0]), pt.y - P.Y(centre[1]))) };
       Store.select('room', id, 'label');
-      svg.setPointerCapture(ev.pointerId);
+      try { svg.setPointerCapture(ev.pointerId); } catch {}
       return;
     }
     if (target.dataset && target.dataset.vertex !== undefined) {
       const room = Store.selected();
       drag = { mode: 'vertex', index: +target.dataset.vertex, room: room.id, before: Store.clone(room) };
-      svg.setPointerCapture(ev.pointerId);
+      try { svg.setPointerCapture(ev.pointerId); } catch {}
       return;
     }
     if (target.dataset && target.dataset.rotate !== undefined) {
@@ -1223,7 +1288,7 @@ window.Canvas = (function () {
       if (item) {
         item.props = item.props || {};
         drag = { mode: 'rotate', id: item.id, before: item.props.rot };
-        svg.setPointerCapture(ev.pointerId);
+        try { svg.setPointerCapture(ev.pointerId); } catch {}
       }
       return;
     }
@@ -1240,7 +1305,7 @@ window.Canvas = (function () {
              * inferred from the direction the pointer ends up going. */
             axis: target.dataset.axis || null,
             before2: rz.prop2 ? item.props[rz.prop2] : undefined };
-        svg.setPointerCapture(ev.pointerId);
+        try { svg.setPointerCapture(ev.pointerId); } catch {}
       }
       return;
     }
@@ -1263,7 +1328,7 @@ window.Canvas = (function () {
       }
       Store.select('item', item.id);
       drag = { mode: 'item', id: item.id, grabFt: raw, origin: item.at.slice() };
-      svg.setPointerCapture(ev.pointerId);
+      try { svg.setPointerCapture(ev.pointerId); } catch {}
       return;
     }
     if (target.dataset && target.dataset.room) {
@@ -1275,14 +1340,14 @@ window.Canvas = (function () {
       }
       Store.select('room', room.id);
       drag = { mode: 'room', id: room.id, grabFt: raw, before: Store.clone(room) };
-      svg.setPointerCapture(ev.pointerId);
+      try { svg.setPointerCapture(ev.pointerId); } catch {}
       return;
     }
     /* Empty canvas, Select tool: a drag from here is a marquee, a plain click
      * is the deselect-everything it always was — `end()` tells them apart by
      * whether the marquee ever grew past a few pixels. */
     drag = { mode: 'marquee', from: raw, shift: ev.shiftKey || S.view.multiSelect };
-    svg.setPointerCapture(ev.pointerId);
+    try { svg.setPointerCapture(ev.pointerId); } catch {}
   }
 
   /* One drag origin snapshot per member, the multi-item generalisation of the
@@ -1297,10 +1362,18 @@ window.Canvas = (function () {
     }).filter(Boolean);
     if (!members.length) return;
     drag = { mode: 'group', grabFt: raw, members };
-    svg.setPointerCapture(ev.pointerId);
+    try { svg.setPointerCapture(ev.pointerId); } catch {}
   }
 
   function move(ev) {
+    if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > SLOP_PX()) cancelHold();
+    if (contextHeld) return;
+    if (drag?.mode === 'annotation' && pointers.size === 1) {
+      if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) <= SLOP_PX() && !drag.moved) return;
+      const at = feetAt(ev, false), note = (Store.floor().annotations || []).find(n => n.id === drag.id);
+      if (note) { drag.moved = true; note.at = [Store.snap(drag.before[0] + at.x - drag.start.x), Store.snap(drag.before[1] + at.y - drag.start.y)]; paint(); drawSelection(); }
+      return;
+    }
     const held = pointers.get(ev.pointerId);
     if (held) { held.x = ev.clientX; held.y = ev.clientY; }
 
@@ -1593,7 +1666,20 @@ window.Canvas = (function () {
   }
 
   function end(ev) {
+    cancelHold();
     pointers.delete(ev.pointerId);
+    if (contextHeld) { contextHeld = false; return; }
+    if (drag?.mode === 'annotation') {
+      const d = drag; drag = null;
+      const note = (Store.floor().annotations || []).find(n => n.id === d.id);
+      if (!note) return;
+      const after = note.at.slice(); note.at = d.before;
+      if (ev.type === 'pointercancel') { paint(); drawSelection(); return; }
+      if (d.moved) Store.mutate(() => { note.at = after; }, 'move note');
+      else NotesUI.edit(d.id);
+      try { svg.releasePointerCapture(ev.pointerId); } catch {}
+      return;
+    }
 
     /* A pinch ends when it stops being two fingers. The finger still down does
      * NOT become a drag — lifting one of two is a release, not the start of
@@ -1913,7 +1999,13 @@ window.Canvas = (function () {
     }, 'align');
   }
 
-  function deleteSelected() {
+  function deleteSelected(options = {}) {
+    if (S.selection?.kind === 'annotation') { NotesUI.remove(S.selection.id); return; }
+    const attached = options.withNotes ? new Set((Store.floor()?.annotations || [])
+      .filter(n => Annotations.anchor(Store.floor(), n.target, S.library)).map(n => n.id)) : null;
+    const pruneNotes = floor => {
+      if (attached) floor.annotations = (floor.annotations || []).filter(n => !attached.has(n.id) || Annotations.anchor(floor, n.target, S.library));
+    };
     const label = selectedLabel();
     if (label) { Store.mutate(() => { label.noLabel = true; }, 'hide room label'); Store.select('room', label.id); return; }
     if (S.multi.length > 1) {
@@ -1926,6 +2018,7 @@ window.Canvas = (function () {
         floor.items = (floor.items || []).filter((i) => !itemIds.has(i.id));
         floor.openings = (floor.openings || []).filter((o) => !roomIds.has(o.room));
         floor.boundaries = (floor.boundaries || []).filter((b) => !roomIds.has(b.room));
+        pruneNotes(floor);
       }, 'delete selection');
       Store.select(null);
       return;
@@ -1944,6 +2037,7 @@ window.Canvas = (function () {
       } else {
         floor.items = floor.items.filter((i) => i.id !== sel.id);
       }
+      pruneNotes(floor);
     }, 'delete');
     Store.select(null);
   }
@@ -2019,7 +2113,10 @@ window.Canvas = (function () {
     svg.addEventListener('pointercancel', end);
     svg.addEventListener('pointerleave', () => { const g = svg.querySelector('#fps-measure'); if (g) g.replaceChildren(); });
     svg.addEventListener('dblclick', (ev) => { if (S.tool === 'poly') { ev.preventDefault(); finishPoly(); } });
-    svg.addEventListener('contextmenu', (ev) => { if (S.tool === 'poly') { ev.preventDefault(); finishPoly(); } });
+    svg.addEventListener('contextmenu', (ev) => { ev.preventDefault(); cancelHold(); if (S.tool === 'poly') finishPoly(); else if (!contextHeld) contextAt(ev); });
+    svg.addEventListener('lostpointercapture', cancelHold);
+    window.addEventListener('blur', cancelHold);
+    svg.addEventListener('keydown', ev => { if (ev.target.dataset.annotation && ['Enter',' '].includes(ev.key)) { ev.preventDefault(); ev.stopPropagation(); NotesUI.edit(ev.target.dataset.annotation); } });
 
     /* Hold Space to pan — promised by the Pan tool's own tooltip since the
      * first version of this editor, and bound by nothing until now. It is the
@@ -2090,6 +2187,7 @@ window.Canvas = (function () {
    * its variant previews. A picker that renders its options by any other route
    * is a picker that can lie about what you are choosing. */
   return {
+    locate, inspect: () => onInspect(),
     init, paint, fit, zoomTo, zoomStep, deleteSelected, finishPoly, cancelPoly, drawSelection, roomEdges,
     usingTouch: () => touching(),
     nudgeRotation, nudgeSize, nudgePosition, duplicateSelected, alignMulti, nodeToEl,
