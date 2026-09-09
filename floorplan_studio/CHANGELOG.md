@@ -2,6 +2,130 @@
 
 ## Unreleased
 
+### Targeted review notes
+
+- `floor.annotations` pins a note to a floor, a room, an item, an opening, a
+  wall — including a default wall that has no override of its own — or a bare
+  point. Notes draw as numbered pins at a constant size on screen, and **Notes**
+  (`N`) lists a floor's open and done feedback.
+- A note follows its target when the target moves, keeping its own pin offset,
+  and survives the target's deletion as a point note rather than vanishing with
+  it. **Delete object and its notes** is the explicit way to discard both. Room
+  renames rewrite attachments. Undo and redo cover all of it in one entry.
+- `list_annotations` reads notes back with their targets expanded — item type,
+  label and current properties — and `edit_collection` with
+  `collection: "annotations"` adds, edits, restatuses and removes them.
+  Validation rejects malformed notes, and edits made outside the browser keep
+  their attachments.
+- **Notes never reach Home Assistant.** They are stripped from the dashboard
+  card's data and from the editable project embedded in the deployment's
+  ownership stamp, including the legacy floor sidecar; the exported SVG never
+  draws pins. An exported project file keeps them, because that is the copy you
+  would hand to somebody to review.
+
+### A canvas context menu
+
+- Right-click the plan — or hold one finger or a pen still for half a second —
+  for the objects under the pointer, **Select behind** for the overlapped ones,
+  turn, stacking order, item copy/paste, opening previews, the shared wall-top
+  width and material controls, and adding a note. Arrow keys navigate it, Enter
+  chooses, Escape closes. A hold cancels on movement, a second pointer, release,
+  cancellation, capture loss or blur. Right-click still finishes a polygon while
+  the Shape tool is drawing.
+
+### Materials on every horizontal surface
+
+- Stair **treads**, landings and winders take any of the 178 floor finishes
+  (`props.treadFinish`, with `props.treadFinishOptions` for the generator
+  overrides). The material paints the surfaces the stair actually has, rotates
+  with it, leaves the well and the centre of a spiral bare, and stays faint
+  beyond a floor cut. Riser lines, direction arrows and step lights stay above it.
+- **Wall tops** gain a width (`props.thicknessFt`) and a finish
+  (`props.topFinish`, `props.topFinishOptions`) on any enclosing treatment. A
+  material is generated once over the floor extent and clipped to the bands, so
+  its physical scale is continuous across the house and a wall two rooms both
+  name is painted once rather than twice. An open edge or threshold has no wall
+  top and offers neither.
+- SVG export now receives the saved boundary and flooring registries, so an
+  exported plate is painted like the editor rather than from the defaults.
+
+### Room ids that read like room names
+
+- A newly drawn room takes its id from its name — "Formal Living" becomes
+  `formal_living` — and keeps following the name until the id is edited or the
+  project is deployed. Collisions get `_2`, `_3`; a name in another script keeps
+  that script.
+- Editing **id**, or choosing **Match the name**, rewrites items, openings, wall
+  overrides, merged-room references and review notes on that floor in one undo
+  step. Entity ids are data rather than references and are left alone.
+- The deployment record lives in `project-deployments.json`, outside the project
+  document, so undoing a dashboard setting cannot re-arm automatic renaming for
+  a room that is already published.
+
+### Coverings, openings and skylights
+
+- A covering now **draws** as the top-down footprint it occupies: drapes gather
+  into end stacks, a roller's head cassette stays put while the fabric darkens
+  as it comes down, venetian and vertical slats turn on their axis, mesh reads
+  as a screen, and an awning projects out from the wall by its own `projectFt`
+  with the plan's bounds making room for it. Vertical travel becomes ink density,
+  because from above there is nothing else it could honestly be.
+- **State on the plan** — shut, part open, open, or follow the type — is stored
+  on the opening rather than being a preview, so a door drawn closed is closed in
+  the editor, the exported plate and the generated card alike. The control only
+  appears on a type that has a state to be in.
+- A glazed panel is drawn as **one aperture**: the corner-to-corner diagonal that
+  made a long thin panel read as a light fitting is gone, and its colour scheme
+  reaches it at last through the type's own `render.fill`/`render.line`. Eight
+  cuts — plain, grid, diagonal, chevron, hexagon, arabesque, floral, starburst —
+  are drawn at a pitch in **feet**, so a bigger panel gets more of the pattern
+  rather than a magnified copy. The cut is drawn, not modelled: set the panel's
+  transmission yourself.
+
+### Selection, sizing and direct manipulation
+
+- The editor and the card now share **one** answer to what is under the pointer.
+  A marker's target is how big it is drawn rather than a fixed 17px circle, a
+  perimeter cove is hit along the run you can see, rotated furniture is hit by a
+  box that turns with it, and targets rank by area so the smallest thing under
+  the pointer wins instead of whichever was placed last.
+- `render.resize2` gives a marker a **second axis**. Each handle pair drags its
+  own dimension, on the object's own axes, so a board turned ninety degrees still
+  has its width dragged by the handle that visibly moves its width; `Shift` keeps
+  the proportions and `-`/`+` always scale both. A type declaring no second axis
+  is unchanged.
+- A drag **latches to the axis** it started along once it has travelled far
+  enough to have one, with a dashed hairline showing which; a 45° drag latches to
+  the diagonal. `Shift` latches immediately, `Alt` switches it off. A tablet has
+  neither key, which is why the latch is automatic.
+- `Alt`-drag pans from **bare floor** only. It used to pan from anywhere, which
+  meant `Alt` could never reach any drag — so "hold `Alt` to ignore the alignment
+  guides", promised by the gesture catalogue since it existed, had never once
+  worked. The middle button, `Space` and the H tool still pan from anywhere.
+- Perimeter fittings draw six ways — cove, strip, channel, plaster-in slot, rope
+  and wall-wash — from one polygon, so an L-shaped room and a curved wall stay
+  one problem. A cove marker that names a room with `item.room` now draws that
+  room's outline even when the marker sits outside the slab it lights.
+- Smart plugs gain a puck, a rounded square, a USB-port square and a long slab
+  body, with the status light as a rim or a corner pip rather than a recoloured
+  body — a row of solid blobs cannot say which one is switched.
+
+### Four controls whose machinery already existed
+
+- **Facing** is now offered by every type whose drawing can actually be turned.
+  Radially symmetric families keep theirs harmlessly; a family that *can* turn,
+  used by a type offering no way to turn it, is asserted against.
+- **What a marker tap does** is settable per house (`openOn.markerTap`), the
+  other half of `markerHold`. `auto` runs the domain action but opens more-info
+  when holding is set to do nothing — a wall tablet with `markerHold: "none"`
+  previously had no way into an entity's dialog at all. A type's own
+  `render.tapAction: "moreInfo"` still beats both.
+- The **Save** button says which of four things is true — Save, Saving…, Saved
+  (greyed out, nothing to do) and Retry save — with the time of the last
+  successful write beside it.
+- Reopening a dashboard from Home Assistant records when it was installed, so an
+  imported project knows it is published.
+
 ### Mouse, trackpad and touch
 
 - One catalogue (`app/lib/input-actions.js`) now defines every command, its

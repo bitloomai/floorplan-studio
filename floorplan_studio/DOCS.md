@@ -28,12 +28,17 @@ readiness.
 | `R` | Room | Drag a rectangle. |
 | `P` | Shape | Click each corner; `Enter`, double-click or right-click closes the outline. `Esc` cancels. |
 | `A` | Opening | Pick a door or window type, then click near a wall. The nearest room edge is highlighted as you hover. |
-| `H` | Pan | Drag the canvas. Also middle-drag or `Alt`-drag from any tool. |
+| `H` | Pan | Drag the canvas. Also middle-drag, or hold `Space`, from any tool. `Alt`-drag pans from empty floor only — over an object `Alt` means "ignore the alignment guides", and a pan that started before the target was looked at made that unreachable. |
 
 `Ctrl`+wheel zooms. `Ctrl`/`Cmd`+`Z` undoes, `Shift` too redoes,
 `Ctrl`/`Cmd`+`S` saves, `Delete` removes the selection, `Esc` clears the
 selection or disarms the palette. `[` and `]` rotate the selected item — hold
-`Shift` for 45° steps.
+`Shift` for 45° steps. `N` opens this floor's review notes.
+
+**Right-click the plan** for a context menu: the objects under the pointer,
+turn, stacking order, copy/paste, the wall's own controls, and adding a note.
+On touch, hold one finger or a pen still for half a second. While the Shape
+tool is drawing, right-click still closes the outline.
 
 ## Mouse, trackpad and touch
 
@@ -46,6 +51,17 @@ editor actually binds, so it cannot promise a key that is not there.
 | **Zoom** | `Ctrl`/`Cmd`+wheel | pinch | pinch |
 | **Move something** | drag it | drag it | tap to select it, then drag it |
 | **Select several** | `Shift`-click, or drag a box | `Shift`-click, or drag a box | turn on **Multi**, then tap each |
+| **Drag or extend in a straight line** | keep going the way you started | keep going the way you started | keep going the way you started |
+| **Object actions and notes** | right-click | secondary-click | hold still for half a second |
+
+Dragging a room, a marker, a group or a corner **latches to an axis** once it
+has travelled far enough to have a direction, and a dashed hairline shows which
+one. A 45° drag latches to the diagonal instead, so "bigger, keeping the shape"
+is a gesture rather than a held key. Move well off the line to let go. `Shift`
+latches immediately and `Alt` switches it off — a tablet has neither, which is
+why the latch is automatic: extending a room upward means dragging a corner
+straight up, and the sideways slip otherwise lands as a real change to the
+other dimension, under the hand that is hiding it.
 
 Zoom holds whatever you were pointing at — the pointer, the middle of a pinch,
 or the middle of the view for the `−`/`+` buttons — so zooming in does not send
@@ -101,6 +117,13 @@ Three ways, because a bearing is not something you can read off a drawing:
 
 0° points **up the screen** and it turns clockwise. That is screen-relative like
 everything else; the compass mapping lives in the Sun dialog.
+
+The rule is that a type offers **Facing** when its drawing can be turned. A
+bollard light, a wall-mounted heater and a projector all have a front and now
+say so; a ceiling downlight, a smoke detector and the round face of a socket are
+discs with no deducible front, and look identical at every angle whether or not
+the control is there. The suite asserts the direction that matters: a marker
+family that *can* be turned, used by a type offering no way to turn it, is a bug.
 
 For anything with a **field of view** — cameras, motion and mmWave sensors,
 doorbells, speakers, sirens, ACs, TVs, routers — the plan draws the actual
@@ -165,8 +188,11 @@ Deeper changes (new types, extra properties, per-state glyphs) are a small edit
 to `library.json`. A type needs `label`, `category`, `kind`
 (`fixture` / `device` / `furniture`) and a `render.shape`.
 
-Available shapes: `disc`, `label`, `line`, `fan`, `channelBox`, `camera`, `perimeter`,
-`rect`, `bed`, `stairs`, `water`, `solar`, `glazing`, `hatch`, `plant`.
+Marker shapes are `disc`, `label`, `line`, `fan`, `channelBox`, `camera` and
+`perimeter`; furniture has one drawer per object it can be. The full list, with
+every type drawn as itself, is the generated
+[library catalogue](https://bitloomai.github.io/floorplan-studio/library.html) —
+it comes off the registry, so it cannot disagree with what the app ships.
 
 ## Sun & daylight
 
@@ -200,6 +226,17 @@ balcony edge to glass railing brightens the room with no other setting.
 To restyle only *part* of an edge, add `from` and `to` to the boundary entry in
 `project.json`; the edge splits into runs and each draws its own type.
 
+An enclosing treatment also offers **Wall top width (ft)** and **Wall top
+finish** — the band you see from above is a horizontal surface like any other,
+so it takes the same 178 floor materials and the same generator options. Clear
+the width to follow the treatment's own default, which the type editor's
+Advanced **Thickness (ft)** sets for every use of that type. In a project file
+these are `props.thicknessFt`, `props.topFinish` and `props.topFinishOptions` on
+the boundary run. An open edge or a threshold has no wall top and offers
+neither. A material is generated once over the floor extent and clipped to the
+bands, so its physical scale is continuous across the house and a wall two rooms
+both name is painted once rather than twice.
+
 ## Openings and doors
 
 The Opening tool (`A`) places one on the nearest wall. Select it to change type,
@@ -210,6 +247,16 @@ size, position, and its two daylight numbers:
 
 The panel shows the effective product, which is the single number the sun model
 uses.
+
+**State on the plan** — Shut, Part open, Open, or Follow the type — is stored on
+the opening rather than being a preview, so a front door you want drawn closed
+is closed in the editor, in the exported plate and on the generated dashboard
+alike. Part open reveals a slider for how far. Binding a contact sensor or a
+cover replaces the setting with the live reading rather than blending with it.
+The control only appears when the type has a state to be in: one that draws a
+moving leaf, or one that declares `openTransmission` and so passes different
+amounts of light as it travels. A fixed pane, an arch and a cased opening say so
+instead of offering a control that would change nothing.
 
 ### Blinds, drapes and shutters
 
@@ -236,6 +283,17 @@ alternatives:
 The result is one number, and **both light models read it**: how much sun gets
 in, and how far a lamp inside spills out through the same window. Pull a
 blackout blind down and the room stops leaking light onto the balcony.
+
+**A covering also draws.** This is a top-down plan, not an elevation, so what
+you see is the footprint a covering actually occupies: drapes gather into
+stacks at the ends and close across the opening, a roller's head cassette stays
+put while the fabric darkens as it comes down, venetian and vertical slats turn
+on their own axis, mesh reads as a fine screen, and an **awning** is the one
+that projects — it reaches out from the wall by its own `projectFt` and the
+plan's bounds make room for it. Vertical travel becomes ink density rather than
+a picture of a blind seen from the front, because from above there is nothing
+else it could honestly be. A covering with no plan look draws nothing and only
+changes the light.
 
 ### Curved walls
 
@@ -301,6 +359,24 @@ The house-wide constants are under **◐ Light** in the toolbar:
 A light that is on but reports no brightness counts as **full**, not dim — it is
 a lamp that cannot report, not a dimmed one.
 
+### Cove and perimeter runs
+
+A perimeter fitting is a **run around the room's outline**, inset by its own
+`inset`, rather than a dot in the middle of it — an L-shaped room, a room with a
+curved wall and a plain rectangle are one polygon problem, so all three work. It
+draws six ways: `cove` (the default), a bare `strip` with its spill either side,
+a `channel` extrusion drawn as its profile and diffuser, a plaster-in
+`perimeter_slot` broken by its own fixings, a dashed `rope`, and a `wall_wash`
+whose spill sits on the wall side of the run. `pitch` and `beam` are in feet, so
+a slot's ticks and a rope's dashes stay the same physical size as you zoom.
+
+Selecting one means clicking **the line you can see**. Its hit target traces the
+run itself, ranked by the length of the run rather than the area it encloses, so
+a cove around a large room still loses to a lamp standing inside it. A marker
+that names a room with `item.room` lights *and* draws that room's outline even
+when the marker itself sits outside the slab — a pillar-mounted run, a strip
+parked in a corridor.
+
 ## Generating the dashboard
 
 **Current status:** the app development UI can build and preview the generated
@@ -362,6 +438,17 @@ not reopened.
 | A door | more-info on its contact sensor | — |
 | A room | opens its control surface | all on, if the room is configured that way |
 
+Both halves of that first row are settable per house, under **Room controls →
+edit the house defaults…**. **Holding a marker** opens the entity's dialog,
+opens the room's popup, or does nothing — that last one is for a wall tablet,
+where a resting hand must not open dialogs. **Tapping a marker** defaults to
+`auto`, which runs the domain action but opens the dialog when holding is set to
+do nothing, because with no hold there would otherwise be no way into an entity
+at all. `action`, `moreInfo`, `controls` and `none` name the behaviour outright.
+A library type declaring `render.tapAction: "moreInfo"` still beats both, which
+is what stops a text label bound to a light switching the light when you only
+wanted to read it.
+
 The control surface is whichever design that room resolves to, with its
 brightness slider, per-type group buttons (`Spots 2/6`), individual lights with
 live colour swatches, and its devices.
@@ -379,6 +466,33 @@ the counts and deleting one takes it out. There is no list to maintain.
   text on purpose — Home Assistant strips every attribute from a markdown card,
   so nothing in that line could be made tappable even if it looked it. That is
   why the things worth opening are in the glance above it.
+
+## Review notes
+
+Feedback on a plan is worth nothing if you cannot say *where*. **Notes** (`N`)
+lists this floor's open and completed notes; the canvas context menu adds one
+against whatever you right-clicked, and the inspector has **Add note** for
+whatever is selected. A note can be attached to the floor, a room, an item, an
+opening, a wall — including a default wall that has no override of its own — or
+to a bare point on the plan.
+
+Notes draw as numbered pins, a constant size on screen at any zoom. Click one to
+edit it, drag it or use the arrow keys to move the pin without changing what it
+is attached to. Moving an object carries its notes with it at their own offset;
+deleting an object leaves its notes where they were as point notes, so feedback
+is never silently discarded — the context menu's **Delete object and its notes**
+is the explicit way to discard both at once. Renaming a room rewrites the
+attachments. Undo and redo cover all of it.
+
+**Notes never reach Home Assistant.** They are stripped from the dashboard
+card's data *and* from the editable project copy embedded in the deployment's
+ownership stamp, and the exported SVG never draws pins. An exported project file
+keeps them, because that is the copy you would hand to somebody to review.
+
+An assistant reads them with `list_annotations`, which expands each target into
+the object it names, and manages them through `edit_collection` with
+`collection: "annotations"`. Mark a note **done** once its request is addressed;
+done notes stay in the list under their own filter rather than disappearing.
 
 ## Driving the editor with an AI (MCP)
 
@@ -432,9 +546,11 @@ property options and are to be read rather than guessed.
 
 The rest: ones to **read** the current plan and
 what can be placed on it (`get_project`, `get_registry`,
-`list_library`), tools to **change** it (`edit_collection` for rooms/items/
-openings/boundaries/floors, `edit_settings` for everything else — dashboard
-settings, lighting, sun, coverage, a room's own controls),
+`list_library`, and `list_annotations` for your review notes with their targets
+expanded), tools to **change** it (`edit_collection` for rooms/items/
+openings/boundaries/floors and the notes themselves, `edit_settings` for
+everything else — dashboard settings, lighting, sun, coverage, a room's own
+controls),
 `edit_registry` to author shared library types, flooring, themes, boundaries
 and controls using arrays of literal path keys,
 `validate_project` to check the result
@@ -617,6 +733,23 @@ the type unset is fine — nothing depends on it.
 Adding one is a JSON entry in `library.json`'s `roomTypes`. Nothing in the
 renderer knows the word "kitchen".
 
+### Room ids
+
+A room you have just drawn takes its **id from its name** — "Formal Living"
+becomes `formal_living` — and keeps following the name until either you edit the
+id yourself or the project is deployed. A collision gets `_2`, `_3`, and a name
+in another script keeps that script rather than being transliterated away.
+
+After a deployment the id stops moving on its own, because a dashboard link is
+an address somebody may already have bookmarked. Edit **id** directly, or choose
+**Match the name**, to change it deliberately; items, openings, wall overrides,
+merged-room references and review notes on that floor all follow in one undo
+step. Home Assistant entity ids are data rather than references and are left
+exactly as they are, so regenerate the dashboard after an explicit change. The
+deployment record lives outside the project document and survives undo — undoing
+a dashboard setting cannot re-arm automatic renaming for a room that is already
+published.
+
 ## The house and floor cards
 
 Two cards flank the plan on every tab. Both have a **fixed shape and
@@ -739,8 +872,8 @@ stay sharp however far in you go. A drag only starts panning once it has moved
 Select a device and the properties panel opens with **Look** — a grid of the
 ways that kind of thing can be drawn, each swatch drawn as itself rather than
 named. A ceiling fan offers 3, 4 and 5 blades, a slim DC fan and a caged
-extractor; a camera offers bullet, dome, turret, PTZ and cube. There are 84
-looks over 22 families, and every device belongs to one.
+extractor; a camera offers bullet, dome, turret, PTZ and cube. There are 129
+looks over 30 families, and every device belongs to one.
 
 The choice is per item, so two cameras in the same house can be the two cameras
 you actually own. Leave it alone and you get the family's default, which means a
@@ -759,6 +892,16 @@ What that changes depends on what the thing is:
 - Everything else resizes **how big it is drawn**, in pixels, because a smoke
   detector at true scale is a four-inch dot nobody can tap.
 
+Most markers are round, and one number is the whole answer for them. A few have
+a footprint that is not square — a signage board is long and slim — and those
+get **two axes**: the handles sit on the object's own axes rather than the
+screen's, and each pair drags its own dimension, so a board turned ninety
+degrees still has its width dragged by the handle that visibly moves its width.
+Hold `Shift` to keep the proportions. `-` and `+` always scale both, so the
+bigger button cannot quietly reshape a slim object. A two-axis marker is also
+selected by a box that turns with it, rather than by a circle that claimed
+several times its own depth.
+
 The panel still shows the number, so you can type it when you know it.
 
 ### What colour it is
@@ -770,8 +913,9 @@ Every item starts on **plain** — the theme's own grey — so nothing you have
 already drawn changes until you say so.
 
 Each swatch is the item itself, at its own look and size, painted in that
-scheme. Twenty-eight ship with the app, grouped Finish, Wood, Upholstery and
-Stone, and their values come off real fittings rather than a colour wheel.
+scheme. Eighty ship with the app, grouped Finish, Wood, Upholstery, Stone,
+Paint, Natural fibre and Garden, and their values come off real fittings rather
+than a colour wheel.
 
 A scheme is four colours: the **body**, its **trim**, the **detail** strokes
 inside a marker at rest, and what it turns **when it is live** — a BLDC fan's
@@ -846,6 +990,22 @@ is a property rather than something derived from the footprint:
 | Pergola | beam spacing, cross battens |
 | Counter / island | sink on/off and its position |
 | Piano, bench, plant | key divisions, slats, canopy lobes |
+| Glazing / skylight | cut (plain, grid, diagonal, chevron, hexagon, arabesque, floral, starburst) and its pitch in feet |
+
+A **glazed panel** is one whole aperture — a single pane with a frame, nothing
+across the middle that could read as a light fitting. Its **cut** is what the
+panel is made of, and the pattern's pitch is in *feet*, so enlarging the panel
+gives more of the pattern rather than a magnified copy of it. The cut is drawn,
+not modelled: a dense jaali and an open grid light the room identically unless
+you also set the panel's transmission, because guessing that from a drawing
+would be a guess wearing a fact's clothes.
+
+**Stair treads** take any floor finish — `Tread finish` in the inspector, and
+`props.treadFinish` in a project file, with `props.treadFinishOptions` for the
+generator overrides. It paints the horizontal surfaces the stair actually has:
+treads, landings and winders, rotated with the stair, leaving the well and the
+centre of a spiral bare and staying faint beyond a floor cut. Riser lines,
+direction arrows and step lights stay above the material.
 
 The solar array **defaults to a single panel**. Set *Panels across* 2 and
 *Panels down* 1 for a 2×1; 1 × 4 gives a single file of four. The panels are laid
@@ -880,6 +1040,11 @@ system a Statuario or Calacatta tile has — a grey structural one and a sparser
 finer gold — and `veinWidth` / `veinOpacity` set how heavily it is veined,
 because a tile printed with a pattern is not as faint as the slab it imitates.
 
+The same 178 finishes paint **every horizontal surface**, not only room floors:
+stair treads and landings, and the tops of walls. One registry, one editor and
+one set of generator options, because a granite tread and a granite floor are
+the same material seen from the same angle.
+
 Custom flooring is a script in `flooring.json`.
 
 ## Editor theme
@@ -896,6 +1061,21 @@ here rather than remembering it — a wall's `n`/`e`/`s`/`w` is always
 **screen**-relative, and confusing the two is the classic way to put a window
 on the wrong side of a house.
 
+## Saving
+
+Normally you do not press Save: the editor writes a moment after you stop
+making changes. The button says which of four things is true — **Save** (changes
+not yet written), **Saving…**, **Saved** greyed out because there is nothing to
+do, and **Retry save** when the last write failed and your changes are still
+only in this tab — with the time of the last successful write beside it. So a
+greyed-out button is the answer to "do I need to save?".
+
+`Ctrl`/`Cmd`+`S` writes immediately whenever you want it to. Turning **Autosave**
+off in the top bar makes the button the only way to write; that setting belongs
+to the house rather than to your browser, so everyone editing the same plan
+agrees about whether it is on. Either way, closing the tab with unsaved changes
+warns you first.
+
 ## Where things are stored
 
 Inside the app, `/data`:
@@ -904,6 +1084,10 @@ Inside the app, `/data`:
 - `library.json` — device library
 - `themes.json` — themes
 - `flooring.json`, `boundaries.json`, `controls.json` — the other registries
+- `project-deployments.json` — when each project id was first deployed. Kept
+  out of the project document deliberately: it is a fact about the world rather
+  than part of your design, so undo cannot roll it back and make a published
+  room look safe to rename automatically again
 - `backups/` — the last 10 project versions, and the last 10 configs of any
   dashboard this app has replaced
 

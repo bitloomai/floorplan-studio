@@ -48,13 +48,14 @@ floor based on the house the test suite runs against.</sub>
 | 🏠 **Multi-floor plans** | Rectangular and polygonal rooms, doors, windows, openings, walls, railings and boundary segments. |
 | 🏷️ **Place the room names yourself** | Drag a room badge inside or beside its room. Resize it with corner handles; the name and live count scale together. Undo, keyboard controls and automatic placement are included. |
 | 🛋️ **A library that looks like the thing** | 261 devices, fixtures and furniture, each drawn as the object it is — a bed has pillows, a hob has burners, a 3-gang wall switch has three rockers — rather than a labelled dot. |
-| 🪵 **Floors with character** | 178 stock finishes across 14 material groups: grained timber, herringbone, mitred chevron, basket parquet, marble, terrazzo, hexagonal and patterned cement tiles, woven fibres, concrete, resilient flooring and outdoor paving. Edit the pattern, palette, scale and reflectance. |
+| 🪵 **Floors with character** | 178 stock finishes across 14 material groups: grained timber, herringbone, mitred chevron, basket parquet, marble, terrazzo, hexagonal and patterned cement tiles, woven fibres, concrete, resilient flooring and outdoor paving. Edit the pattern, palette, scale and reflectance. The same finishes paint every horizontal surface — room floors, stair treads and landings, and the tops of walls. |
 | 🎨 **Materials for every item** | 80 colour schemes for metal finishes, timber, upholstery, stone, paint, natural fibres and foliage. Apply colours independently of shape, or create project-owned schemes that travel with your exported plan. |
 | 🔌 **Bound to your entities** | Pick an entity per marker, or type one offline. Live state is drawn on the plan: lamps pool light, a fan spins, a camera shows its cone, each gang of a switch reads its own entity. |
 | ☀️ **Daylight and lamps modelled** | Real solar position per your coordinates, light through openings, artificial-light levels in foot-candles, and a night scrim that thins as the sun comes up. |
 | 📊 **One press to a dashboard** | Generates a Lovelace dashboard, one view per floor, from the same renderer — installed as a resource by the app itself. No HACS, nothing copied into `config/www/`. |
 | 🤖 **Drivable by an AI** | An MCP endpoint, so a model can draw and edit the plan while your editor updates live. |
-| 🖐️ **Mouse, trackpad or tablet** | Pinch and two-finger pan on touch, trackpad pinch, `Space` or middle-drag on a mouse — and zoom that holds the point you are pointing at. On a narrow screen the rail and inspector become drawers so the plan gets the whole window, and an **S** button opens the keyboard's commands as buttons for a tablet that has no keyboard. |
+| 📌 **Say where you mean** | Pin a review note to a floor, a room, an item, an opening, a wall or a bare point. Notes follow what they are attached to, survive its deletion as point notes, and are read back by an assistant with their targets expanded. They never reach Home Assistant. |
+| 🖐️ **Mouse, trackpad or tablet** | Pinch and two-finger pan on touch, trackpad pinch, `Space` or middle-drag on a mouse — and zoom that holds the point you are pointing at. A drag latches to the axis it started along, so stretching a room upward on a tablet does not quietly widen it. Right-click, or hold a finger still, for the object under the pointer. On a narrow screen the rail and inspector become drawers so the plan gets the whole window, and an **S** button opens the keyboard's commands as buttons for a tablet that has no keyboard. |
 | 📖 **Help that follows the data** | Contextual help and generated catalogues describe the same registries the editor uses. Advanced settings are marked, and the shared dialog frame keeps them reachable. |
 | 📦 **No runtime dependencies** | No third-party runtime packages or lockfile. The production image is distroless, with no shell or package manager. |
 
@@ -193,7 +194,17 @@ Implemented and covered by the local suite:
 - multi-floor projects with rectangular and polygonal rooms;
 - doors, windows, openings, coverings, walls, railings, and boundary segments;
 - configurable flooring, furniture, fixtures, devices, entity-value labels, marker variants,
-  resizing, rotation, and coverage cones;
+  one- and two-axis resizing, rotation, and coverage cones;
+- flooring materials on every horizontal surface — room floors, stair treads and
+  landings, and wall tops with their own widths;
+- covering footprints drawn top-down, and openings whose drawn state is stored
+  rather than previewed;
+- room ids derived from room names, with every floor-local reference rewritten in
+  one undo step and automatic renaming disabled once a plan has been deployed;
+- targeted review notes with lifecycle, undo, MCP read/edit, and exclusion from
+  everything written to Home Assistant;
+- one shared hit-test for the editor and the card, a canvas context menu, and an
+  automatic axis lock for straight drags;
 - entity binding with an offline manual-entry path;
 - live-state rendering, daylight, artificial-light modelling, light zones,
   themes, motion, and responsive interaction;

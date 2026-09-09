@@ -15,10 +15,15 @@ renderer that drew the plan.
   windows, openings, walls and railings.
 - A 261-entry library of devices, fixtures and furniture, each drawn as the
   object it is rather than as a labelled dot.
+- 178 floor finishes on every horizontal surface — room floors, stair treads and
+  landings, and the tops of walls.
 - Entity binding, with live state drawn on the plan — including templated value
   labels, per-gang wall switches, daylight and artificial-light modelling.
 - One-press generation of a Lovelace dashboard, one view per floor.
 - An MCP endpoint, so an AI can draw the plan instead of you dragging shapes.
+- Review notes pinned to a floor, room, item, opening, wall or point, readable by
+  that AI with their targets expanded — and stripped from everything the app
+  writes to Home Assistant.
 
 ## Installing
 
