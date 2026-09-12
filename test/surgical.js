@@ -111,6 +111,34 @@ module.exports = function (ok) {
         assert.equal(capped.truncated, true);
       });
 
+      /* Discoverability. The guide tells an agent to check whether a type is
+       * bindable and whether it takes a surface finish; until it was asked to,
+       * list_library answered neither, and a free-text prop arrived with no
+       * statement of what the value had to be. */
+      await t('list_library says what a type can do, not only how it is configured', async () => {
+        const stairs = (await call('list_library', { query: 'stairs' })).types.find((x) => x.key === 'furniture.stairs');
+        assert.equal(stairs.render.bindable, true);
+        assert.equal(stairs.render.surface, 'treads');
+      });
+      await t('and which prop resizes it, on which axis', async () => {
+        const tv = (await call('list_library', { query: 'tv' })).types.find((x) => x.key === 'device.tv');
+        assert.equal(tv.render.resize.prop, 'size');
+        assert.equal(tv.render.resize2.prop, 'd');
+        assert.equal(tv.render.cone, true);
+      });
+      await t('a free-text prop carries the hint that says what the value must be', async () => {
+        const stairs = (await call('list_library', { query: 'stairs' })).types.find((x) => x.key === 'furniture.stairs');
+        const finish = stairs.props.find((x) => x.key === 'treadFinish');
+        assert.equal(finish.type, 'text');
+        assert.match(finish.hint, /[Ff]looring key/);
+      });
+      await t('but drawing internals stay out of it, so nothing copies them onto an item', async () => {
+        const tv = (await call('list_library', { query: 'tv' })).types.find((x) => x.key === 'device.tv');
+        for (const k of ['icon', 'iconScale', 'fill', 'line', 'glow', 'size', 'tap']) {
+          assert.ok(!(k in tv.render), k + ' should not be advertised as a capability');
+        }
+      });
+
       await t('one update can address several ids, merging props on each', async () => {
         await call('edit_collection', { collection: 'items', op: 'update', floorId: 'g', ids: ['f1', 'f2'], value: { props: { watt: 9 } } });
         const after = await store.readProject();

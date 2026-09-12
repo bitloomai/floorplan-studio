@@ -46,6 +46,19 @@ keys, without breaking what it is attached to.
   notes stay in the Done filter, so a review you did last month is still
   readable.
 
+## Clearing them out
+
+The Notes list has a **Clear** button, and it deletes exactly what the list is
+showing — so it follows the filter. With **Done notes** selected it clears the
+finished ones and leaves the rest; with **All notes** it clears the floor. The
+button says which and how many before you press it, and it asks once more after
+that.
+
+Opened from an object's inspector, the same list is that object's notes only,
+and **Clear** is scoped to them.
+
+It is one undo. Ctrl/Cmd+Z brings the whole lot back.
+
 ## What an assistant sees
 
 Not just your words. Asked for the open notes, it gets each one with the floor,

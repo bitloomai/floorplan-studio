@@ -3,6 +3,9 @@ window.NotesUI = (() => {
   'use strict';
   const S = Store.S, h = (...args) => Panels.h(...args);
   let surface = null, editing = false, restoreFocus = null, run = () => {}, clipboard = null;
+  /* What the open Notes list is showing, so "clear these" is answerable from
+   * the command catalogue rather than only from the button inside the dialog. */
+  let listing = null;
   const collection = { room: 'rooms', item: 'items', opening: 'openings', annotation: 'annotations' };
   const same = (a, b) => Annotations.sameTarget(a, b);
   const label = target => {
@@ -12,7 +15,7 @@ window.NotesUI = (() => {
   };
   function close() {
     if (!surface) return false;
-    surface.remove(); surface = null; editing = false;
+    surface.remove(); surface = null; editing = false; listing = null;
     if (restoreFocus?.isConnected) restoreFocus.focus();
     else document.getElementById('btnNotes')?.focus();
     return true;
@@ -45,6 +48,29 @@ window.NotesUI = (() => {
     if (!(f?.annotations || []).some(n => n.id === id)) return;
     close(); Store.mutate(() => { f.annotations = f.annotations.filter(n => n.id !== id); }, 'delete note');
     if (S.selection?.kind === 'annotation' && S.selection.id === id) Store.select(null);
+  }
+  /* Every note the open list is showing — its filter, and the object it was
+   * opened against when it came from an inspector. */
+  function listed() {
+    const notes = Store.floor()?.annotations || [];
+    if (!listing) return [];
+    return notes.filter(n => (!listing.target || same(n.target, listing.target))
+      && (listing.filter === 'all' || n.status === listing.filter));
+  }
+  /* Clear what you can see. Any other rule needs explaining, and this one makes
+   * "get rid of the done ones" a filter away instead of a second command. One
+   * mutation, so one Ctrl+Z brings the whole lot back — which is why the
+   * confirmation says so rather than warning about something permanent. */
+  function clearListed() {
+    const notes = listed();
+    if (!notes.length) return;
+    const what = listing.filter === 'all' ? '' : listing.filter + ' ';
+    const where = listing.target ? ' on ' + label(listing.target) : ' on this floor';
+    if (!confirm(`Delete ${notes.length} ${what}note${notes.length === 1 ? '' : 's'}${where}? Undo brings them back.`)) return;
+    const f = Store.floor(), ids = new Set(notes.map(n => n.id));
+    close();
+    Store.mutate(() => { f.annotations = (f.annotations || []).filter(n => !ids.has(n.id)); }, 'clear notes');
+    if (S.selection?.kind === 'annotation' && ids.has(S.selection.id)) Store.select(null);
   }
   function fitSurface() {
     if (!surface || !surface.style.top) return;
@@ -96,14 +122,20 @@ window.NotesUI = (() => {
     dialog.setAttribute('aria-label', 'Floor notes');
     const filter = h('select', { 'aria-label': 'Filter notes' }, ...['open','done','all'].map(v => h('option', { value: v }, v === 'all' ? 'All notes' : v === 'open' ? 'Open notes' : 'Done notes')));
     const rows = h('div', { class: 'notes-list' });
+    const clear = h('button', { class: 'btn danger', onclick: () => run('note-clear') }, 'Clear');
     function render() {
+      listing = { target, filter: filter.value };
       rows.replaceChildren();
-      const notes = (Store.floor().annotations || []).filter(n => (!target || same(n.target, target)) && (filter.value === 'all' || n.status === filter.value));
+      const notes = listed();
       for (const note of notes) rows.append(h('button', { class: 'btn note-row', onclick: () => { close(); Store.select('annotation', note.id); Canvas.locate(note.at); edit(note.id); } }, `${note.status === 'done' ? '✓ ' : ''}${note.text}`, h('small', {}, label(note.target))));
       if (!notes.length) rows.append(h('p', { class: 'hint' }, 'No notes here.'));
+      /* The button says what it will delete, because "Clear" beside a filter
+       * that says "Done notes" is otherwise a guess about which of the two wins. */
+      clear.textContent = notes.length ? `Clear ${filter.value === 'all' ? 'all' : filter.value} (${notes.length})` : 'Clear';
+      clear.disabled = !notes.length;
     }
     filter.addEventListener('change', render);
-    dialog.append(h('h2', {}, 'Floor notes'), filter, rows, h('div', { class: 'notes-actions' }, h('button', { class: 'btn', onclick: () => edit(null, { target: target || { kind: 'floor' } }) }, 'Add note'), h('button', { class: 'btn', onclick: close }, 'Close')));
+    dialog.append(h('h2', {}, 'Floor notes'), filter, rows, h('div', { class: 'notes-actions' }, h('button', { class: 'btn', onclick: () => edit(null, { target: target || { kind: 'floor' } }) }, 'Add note'), clear, h('button', { class: 'btn', onclick: close }, 'Close')));
     render(); filter.focus();
   }
   function notesRow(box, target) {
@@ -206,5 +238,5 @@ window.NotesUI = (() => {
     entry('paste-item', 'Paste', context, !clipboard); entry('zoom-fit', 'Zoom to fit');
     fitSurface(); dialog.querySelector('button')?.focus();
   }
-  return { init: dispatcher => { run = dispatcher; }, close, edit, remove, done, list, menu, notesRow, renderInspector, select, reorder, copy, paste, openingPosition, wall, isEditing: () => editing, active: () => !!surface };
+  return { init: dispatcher => { run = dispatcher; }, close, edit, remove, done, clearListed, list, menu, notesRow, renderInspector, select, reorder, copy, paste, openingPosition, wall, isEditing: () => editing, active: () => !!surface };
 })();

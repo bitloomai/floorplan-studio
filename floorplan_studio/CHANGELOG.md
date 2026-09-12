@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Clearing a review, and telling an agent what a type can do
+
+- **The Notes list has a Clear button**, and it deletes exactly what the list is
+  showing. It follows the filter — Done notes → "Clear done (4)" finishes a
+  review off and leaves the open ones; All notes clears the floor — and when the
+  list was opened from an object's inspector it is scoped to that object. The
+  label says which and how many, it confirms, and the whole lot comes back with
+  one undo. `note-clear` is in the command catalogue, so the generated shortcut
+  list and the help site document it without being told twice.
+- An assistant does the same with `edit_collection` → `remove` and `ids`.
+- **`list_library` now reports what a type can DO.** Its `render` summary
+  carries `bindable` (takes an entity and shows state, which some furniture
+  does), `surface` (accepts a finish on its horizontal faces), `cone` (can draw
+  a coverage wedge at all) and `resize`/`resize2` naming the prop that sizes it
+  on each axis. The guide has told agents to check `render.bindable` for a
+  while; nothing in the tool had ever returned it. Drawing internals — icons,
+  fills, blade counts — are deliberately left out, so nothing copies one onto an
+  item.
+- **A prop's `hint` now ships with it.** For a free-text prop it is the only
+  statement of what the value has to be: `treadFinish`'s hint says "flooring
+  key", and without it an agent saw an empty text box and no way to find out.
+  `advanced` and `step` ship too.
+- **The three horizontal surfaces are written down in one place** — a room's
+  floor, a stair's treads, the top of a wall — in the contract, the guide and
+  `DOCS.md`, with the reminder that only a room's floor is credited with
+  bouncing light back.
+
 ### An assistant works on the plan without downloading the house
 
 - **`find_objects` returns only what a job touches.** Filter across every floor

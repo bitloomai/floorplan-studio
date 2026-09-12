@@ -487,6 +487,12 @@ is never silently discarded — the context menu's **Delete object and its notes
 is the explicit way to discard both at once. Renaming a room rewrites the
 attachments. Undo and redo cover all of it.
 
+**Clear** in the Notes list deletes exactly what the list is showing. It follows
+the filter, so **Done notes** → **Clear done** finishes off a review and leaves
+the open ones; **All notes** clears the floor. Opened from an object's inspector
+the list is that object's notes, and Clear is scoped to them. It asks first, and
+it is a single undo.
+
 **Notes never reach Home Assistant.** They are stripped from the dashboard
 card's data *and* from the editable project copy embedded in the deployment's
 ownership stamp, and the exported SVG never draws pins. An exported project file
@@ -591,6 +597,10 @@ carries a stable id, and both halves of the server are built on addressing them:
   row. Every result carries the `floorId` and `id` an edit takes.
 - an `edit_collection` update is a **patch**, shallow-merged, with `item.props`
   merged a level deeper — so changing one property changes one property.
+- `list_library` says what a type can DO as well as how it is configured: its
+  `render` reports `bindable`, `surface`, `cone` and which prop resizes it on
+  which axis, and each prop carries its `hint` — which for a free-text prop like
+  `treadFinish` is the only statement that the value must be a flooring key.
 - `ids` applies one update to several objects, and `edit_batch` applies up to
   200 edits as a single validation, a single write and a single editor refresh.
   A rejected entry names its index and writes nothing at all, so the plan is

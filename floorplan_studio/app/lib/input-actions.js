@@ -56,6 +56,7 @@
     { id: 'note-edit', group: 'Review and context menu', label: 'Edit note', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
     { id: 'note-done', group: 'Review and context menu', label: 'Mark note done / reopen', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
     { id: 'note-delete', group: 'Review and context menu', label: 'Delete note', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
+    { id: 'note-clear', group: 'Review and context menu', label: 'Clear the notes being listed', glyph: '•', keys: [], match: [], hint: 'In the Notes list: deletes exactly what the filter is showing — open, done, or all — after confirming. One undo restores them.' },
     { id: 'properties', group: 'Review and context menu', label: 'Properties', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
     { id: 'select-behind', group: 'Review and context menu', label: 'Select behind', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },
     { id: 'layer-forward', group: 'Review and context menu', label: 'Bring forward', glyph: '•', keys: [], match: [], hint: 'Available from the canvas context menu or Notes controls.' },

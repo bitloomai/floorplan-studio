@@ -131,6 +131,7 @@
     'note-edit': context => NotesUI.edit(context.id),
     'note-done': context => NotesUI.done(context.id),
     'note-delete': context => NotesUI.remove(context.id),
+    'note-clear': () => NotesUI.clearListed(),
     'delete-with-notes': () => Canvas.deleteSelected({ withNotes: true }),
     properties: () => Canvas.inspect(),
     'select-behind': target => NotesUI.select(target),

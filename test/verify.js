@@ -6009,6 +6009,24 @@ console.log('\n== input devices ==');
   ok('and every handler is a command', [...handlers].every((id) => ids.includes(id)),
     [...handlers].filter((id) => !ids.includes(id)).join(', '));
 
+  /* A command with no key is reachable only from the surface that offers it,
+   * so the catalogue↔handler check above cannot tell "documented and wired" from
+   * "documented, wired, and offered nowhere". These three are in that position. */
+  {
+    const notesSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'notes-ui.js'), 'utf8');
+    const keyless = Input.ACTIONS.filter((a) => !(a.keys || []).length && a.id.startsWith('note'));
+    const unoffered = keyless.filter((a) => !notesSrc.includes(`'${a.id}'`));
+    ok('every keyless note command is offered by a surface that can run it',
+      !unoffered.length, unoffered.map((a) => a.id).join(', ') || keyless.map((a) => a.id).join(', '));
+    /* Clearing follows the list, and the list is one definition both the rows
+     * and the button read — two filters would drift the first time one changed. */
+    ok('and Clear deletes exactly what the Notes list is showing',
+      /function listed\(\)/.test(notesSrc)
+      && (notesSrc.match(/listed\(\)/g) || []).length >= 3
+      && /confirm\(/.test(notesSrc)
+      && /'clear notes'/.test(notesSrc));
+  }
+
   const hit = (ev) => (Input.matchKey(ev) || {}).id;
   ok('the keyboard resolves the cases that are one keystroke apart',
     hit({ key: 'z', ctrlKey: true }) === 'undo'

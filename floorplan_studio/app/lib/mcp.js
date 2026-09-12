@@ -429,7 +429,7 @@ tool({
 
 tool({
   name: 'list_library',
-  description: 'Browse or search what can be placed on the plan (fixtures, devices, furniture, logic markers) or the 47 named room presets. Always check here before place_item/add_room with an unfamiliar type key — item.type must resolve to an entry here or edit_collection refuses it.',
+  description: 'Browse or search what can be placed on the plan (fixtures, devices, furniture, logic markers) or the 47 named room presets. Always check here before placing an unfamiliar type key — item.type must resolve to an entry here or edit_collection refuses it. Each entry carries its defaults, its full prop schema INCLUDING each prop\'s hint (which is where a free-text prop says what kind of value it wants — "a flooring key", "an entity id"), and a `render` capability summary: whether the type is bindable to an entity, whether it takes a finish on its horizontal surfaces, whether it can draw a coverage cone, and which props resize it on which axis. Read those rather than guessing what a type supports.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -463,11 +463,45 @@ tool({
       .map(([key, t]) => ({
         key, label: t.label, kind: t.kind, category: t.category, domains: t.domains || [],
         defaults: t.defaults || {},
-        props: (t.props || []).map((p) => ({ key: p.key, label: p.label, type: p.type, min: p.min, max: p.max, options: p.options })),
+        render: capabilities(t),
+        /* `hint` is not decoration: for a prop the schema can only describe as
+         * "text" it is the ONLY statement of what the value has to be — a
+         * flooring key, an entity id, a template. Dropping it left an agent
+         * with a free-text box and no way to find out. `advanced` says the
+         * editor hides the control, which is worth knowing before telling
+         * somebody where to click. */
+        props: (t.props || []).map((p) => ({
+          key: p.key, label: p.label, type: p.type, min: p.min, max: p.max, step: p.step,
+          options: p.options, hint: p.hint, advanced: p.advanced, spec: p.spec,
+        })),
       }));
     return { count: entries.length, total: Object.keys(library.types || {}).length, types: entries };
   },
 });
+
+/* What a type can DO, as opposed to how it is drawn.
+ *
+ * `render` is the renderer's own record and most of it is drawing detail an
+ * agent must not copy onto an item — an icon name, a fill, a blade count. But
+ * four facts in it are the answer to questions the guide tells an agent to ask,
+ * and they were reachable from nowhere: whether a type takes an entity, whether
+ * it accepts a finish on its horizontal faces, whether it can draw a coverage
+ * wedge at all, and which prop changes its size on which axis. Curated rather
+ * than passed through whole, so the answer stays about capability. */
+function capabilities(t) {
+  const r = (t && t.render) || {};
+  const axis = (rz) => (rz && rz.prop ? { prop: rz.prop, unit: rz.unit || 'px', min: rz.min, max: rz.max } : undefined);
+  const out = {
+    shape: r.shape, family: r.family,
+    bindable: r.bindable || undefined,
+    surface: r.surface || undefined,
+    cone: r.cone ? true : undefined,
+    resize: axis(r.resize),
+    resize2: axis(r.resize2),
+  };
+  for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
+  return out;
+}
 
 tool({
   name: 'validate_project',
@@ -1172,7 +1206,23 @@ add): floors and rooms get a slug from their name ("Formal Living" ->
 number ("f1" for the first fixture, "d1" for the first device); openings get
 "op1", "op2", ...
 
-SURFACE MATERIALS: furniture types declaring render.surface accept props.treadFinish (a flooring key) and props.treadFinishOptions. Boundary runs accept props.thicknessFt, props.topFinish and props.topFinishOptions; these paint the horizontal wall top in plan view. Clear an override to follow the type again.
+SURFACE MATERIALS: the flooring registry paints EVERY horizontal surface, and
+there are three. A room's floor is room.flooring + room.flooringOptions. Stair
+treads and landings are props.treadFinish + props.treadFinishOptions on an item
+whose type declares render.surface. The top of a wall in plan view is
+props.topFinish + props.topFinishOptions on a boundary run, with
+props.thicknessFt for its width. All three take a key from
+get_registry({name:"flooring"}) and the same generatorOptions overrides; set one
+to null to follow the type's own default again. Only a room's floor is credited
+with bouncing light back.
+
+WHAT A TYPE CAN DO: list_library returns each type's "render" — bindable (takes
+an entity and shows state, true of some furniture), surface (accepts a finish on
+its horizontal faces), cone (can draw a coverage wedge at all; props.cone then
+turns one on per item), and resize/resize2 naming the prop that sizes it on each
+axis. Its "props" carry each control's "hint", which for a free-text prop is the
+only statement of what the value must be. Read those instead of guessing, and
+get_help({for:"type:<key>"}) for what the thing is FOR.
 
 ANNOTATIONS (editor review feedback): floor.annotations is an optional array of
 {id, text, target, at:[x,y], createdAt:ISO timestamp, status:"open"|"done"}.

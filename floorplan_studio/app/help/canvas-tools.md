@@ -63,7 +63,8 @@ for a long press. Right-click still finishes a polygon while you are drawing one
 **Notes** (N) lists this floor's feedback, open or done. Add one from that list,
 from **Add note** in the inspector, or with **Add note here** in the menu above.
 Notes appear as numbered pins above the plan; click one to edit it, drag it or
-use the arrow keys to move the pin.
+use the arrow keys to move the pin. **Clear** in the same list deletes exactly
+what the filter is showing, in one undo.
 
 What they attach to, what happens when you move or delete that, and what an AI
 assistant sees when it reads them, is in *Review notes* under **Working with an
