@@ -244,7 +244,9 @@ bands, so its physical scale is continuous across the house and a wall two rooms
 both name is painted once rather than twice.
 
 Exterior wall width fills inward from the room edge, which remains the outer
-face; shared walls between two indoor rooms remain centred on their common edge.
+face. An explicitly selected **Exterior wall** does the same even when the
+building or site edge is inset from the floor's rectangular extent. Shared walls
+between two indoor rooms remain centred on their common edge.
 
 ## Openings and doors
 

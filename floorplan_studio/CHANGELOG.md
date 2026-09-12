@@ -30,6 +30,12 @@
   Shared walls between two indoor rooms keep their existing centred geometry.
 - The inward direction comes from the room outline's winding rather than a
   hard-coded compass letter, so clockwise and reversed polygon outlines agree.
+- Follow-up: an explicitly selected **Exterior wall** now fills inward even when
+  the edge is inset from the floor's rectangular extent and has no modeled room
+  outside it. The earlier fix only recognized geometrically inferred perimeter
+  edges, so detached site/gate runs could still grow from their centre and gain
+  short mitre protrusions. A wall genuinely shared by two indoor rooms remains
+  centred.
 
 ### An assistant can see your devices, and the app says it is ready to use
 

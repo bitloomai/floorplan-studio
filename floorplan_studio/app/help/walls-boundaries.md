@@ -79,5 +79,7 @@ is generated over the floor extent and clipped to the wall bands, preserving its
 physical scale. Overlapping bands using the same material share one paint pass.
 
 On an exterior edge, width grows inward: the room edge remains the wall's outer
-face, including at corners. A wall shared by two indoor rooms remains centred on
-their common edge.
+face, including at corners. This also applies when you explicitly choose
+**Exterior wall** for a building or site edge inside a larger floor canvas — it
+does not have to coincide with the floor's rectangular extent. A wall genuinely
+shared by two indoor rooms remains centred on their common edge.

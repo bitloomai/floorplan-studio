@@ -1899,6 +1899,17 @@
     return !!(neighbour && neighbour.outdoor);
   }
 
+  /* The room immediately beyond an edge, along its true geometric outward
+   * normal. Kept separate from `edgeIsExterior`: perimeter detection decides
+   * which DEFAULT type an unconfigured edge receives, while this answers the
+   * narrower question of whether an explicitly exterior wall is nevertheless
+   * shared with another indoor room and must retain the centred convention. */
+  function roomBeyondEdge(floor, edge) {
+    if (!edge || !edge.inward) return null;
+    const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
+    return roomAt(floor, mid[0] - edge.inward[0] * 0.12, mid[1] - edge.inward[1] * 0.12);
+  }
+
   function build(project, floor, library, theme, opts) {
     opts = opts || {};
     let P = makeProjector(project);
@@ -2132,7 +2143,17 @@
 
         const isExterior = edgeIsExteriorHere(edge);
         for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
-          for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface, isExterior)) {
+          /* `isExterior` classifies GEOMETRY so an unset edge can choose its
+           * default type. It cannot overrule an explicit "Exterior wall"
+           * selection: detached building/site edges often sit short of the
+           * floor extent and model no outdoor room beyond them. Those used to
+           * remain centred and grow outside their boundary. The only exception
+           * is a wall genuinely shared with another indoor room, where the
+           * long-standing centre-line convention still applies. */
+          const beyond = roomBeyondEdge(floor, edge);
+          const fillInward = isExterior || (run.type === defaults.exterior
+            && !(beyond && !beyond.outdoor));
+          for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface, fillInward)) {
             n.roomId = room.id; n.wall = edge.wall;
             layers.boundaries.push(n);
           }

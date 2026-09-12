@@ -66,8 +66,17 @@ module.exports = function (ok) {
   const wide = draw({}, { boundaries: [wall({ thicknessFt: 1.5, topFinish: 'granite_black' })] });
   const wallClip = wide.layers.defs.find(n => String(n.attrs?.id).startsWith('fpsWallSurface-'));
   const xy = wallClip.children[0].attrs.d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const xsWide = xy.filter((_,i) => !(i % 2));
   const ys = xy.filter((_,i) => i % 2);
   ok('wall top width is physical feet', Math.max(...ys) - Math.min(...ys) === 30);
+  /* This room is deliberately inset from the floor extent and has no outdoor
+   * room beyond it — the exact shape the private ground-floor report exposed.
+   * Its explicit exterior wall must still use the room edge as its outer face,
+   * and must stop at the two endpoints instead of growing mitre tabs. */
+  ok('an explicit exterior wall inside a larger site still fills inward',
+    Math.min(...ys) === 40 && Math.max(...ys) === 70);
+  ok('and that detached exterior run cannot protrude past its endpoints',
+    Math.min(...xsWide) === 40 && Math.max(...xsWide) === 280);
   const perimeterRoom = { ...room, rect: [0, 0, 12, 12] };
   const perimeterBoundaries = [
     wall({ thicknessFt: 2, topFinish: 'granite_black' }, 'n', 'bn'),
