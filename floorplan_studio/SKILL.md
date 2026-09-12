@@ -10,7 +10,8 @@ saves immediately and their canvas updates live. There is no separate "apply"
 step and no draft copy.
 
 This file is the *how to work*. The MCP server is the *what is true right now*:
-it holds the project, the registries and the live entity names. Never guess a
+it holds the project, the registries, and — through `list_entities` — the real
+entities this house has. Never guess a
 type key, a wall treatment or a property name — ask for it. Everything is
 discoverable, and the tool that refuses an unknown key will tell you which call
 lists the valid ones.
@@ -40,6 +41,8 @@ a schema when there is a paragraph about it.
 | Where is the thing I need to change? | `find_objects` — by type, kind, room, entity, text or proximity |
 | How do I change forty things at once? | `edit_batch`, or `edit_collection` with `ids` |
 | What can I place? What are its settings? | `list_library` |
+| **What entities can this plan bind to?** | `list_entities` — by domain, device_class, text, or `bound:"no"` |
+| Which entity should this marker be on? | `list_library` → the type's `domains` → `list_entities({domain})` |
 | What can this type DO — bind, take a finish, draw a cone, resize? | `list_library` → the type's `render` |
 | What does this free-text property want? | `list_library` → that prop's `hint` |
 | What **looks** does this lamp/camera/fan have? | `list_library` → the type's `props` → the `variant` entry's `options` |
@@ -284,6 +287,52 @@ type, and between them they answer everything:
 
 And when a key name still is not self-explanatory, `get_help({for:"type:<key>"})`
 is prose about what it is for and what people get wrong about it.
+
+## Binding a marker to a real device
+
+A marker with no entity still draws — it just cannot report anything — so a plan
+can be built now and bound later. But you do not have to guess an entity id, and
+you should not: **`list_entities` is the house's real catalogue.**
+
+The loop is three calls, and it starts from the type:
+
+```
+list_library({ query: "fan" })              // device.fan declares domains: ["fan"]
+list_entities({ domain: "fan", bound: "no" })   // what is not on the plan yet
+edit_collection({ collection: "items", op: "update", floorId: "ground",
+                  id: "d4", value: { entity: "fan.demo_study" } })
+```
+
+- **`domains` on a library type** says which Home Assistant domains it binds to.
+  That is the join between "what I am placing" and "what exists".
+- **`bound: "no"`** is everything not already used anywhere the generated
+  dashboard would name it — the list of what is left to place. `bound: "yes"`
+  is the reverse, and `find_objects({collection:"items", entity:"light.x"})`
+  then says *which* marker is on it.
+- **`q`** searches the entity id and the friendly name together, so
+  `q: "kitchen"` finds `light.ceiling_2` if somebody named it "Kitchen ceiling".
+- **`state: "unavailable"`** audits what is broken before you blame the drawing.
+- **`nextOffset`** means more entities matched than fit in this bounded page.
+  Call again with `offset: nextOffset` until it is absent.
+- `find_objects({ collection: "items", entity: "none" })` is the mirror image:
+  markers on the plan that are still unbound.
+
+Three things this list is NOT. It is not Home Assistant's physical-device
+registry; it is the entity catalogue dashboards bind to. It is privacy-filtered:
+entity ids, friendly names and current states are visible to the authorized
+assistant, but `person`, `device_tracker` and `zone` are dropped wholesale and
+only an allowlist of attributes leaves the app, so coordinates and
+location-tracking entities are excluded. And it is not proof a binding is right:
+matching names is a guess about somebody's house. When several entities could
+plausibly be the one, ask rather than pick.
+
+If the app has no Home Assistant credentials, `list_entities` answers
+`mode: "offline"` with an empty list instead of failing. That is not a fault —
+ask the human for the ids, or leave the markers unbound.
+
+`preview_dashboard` reports every bound entity that does not exist. Run it
+before installing: a typo'd sensor should fail the generate, not turn up as a
+silent zero on a wall tablet.
 
 ## Where a finish can go
 

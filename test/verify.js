@@ -7623,6 +7623,7 @@ require('./room-identity')(ok);
 require('./surfaces')(ok);
 require('./annotations')(ok);
 require('./surgical')(ok);
+require('./entities')(ok);
 console.log(`\n${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);
 })();

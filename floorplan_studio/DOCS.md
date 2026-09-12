@@ -6,9 +6,12 @@ This manual describes the Floorplan Studio editor and its intended deployment
 workflow. It does not document or version the separate hand-generated floor-plan
 dashboard in the parent workspace.
 
-The editor, local persistence, generated card and local preview work in
-development, and the app is **currently being tested in detail in Home
-Assistant** — Supervisor, Ingress and dashboard installation included. It runs
+**This is an alpha you can use.** The editor, local persistence, generated card
+and local preview work, and the app is **currently being tested in detail in
+Home Assistant** — Supervisor, Ingress and dashboard installation included.
+Install it, draw your house, generate a dashboard; just point that dashboard at
+a new path rather than over one you depend on, and expect the odd rough edge.
+It runs
 on Node.js 24 distroless, which provides the stable WebSocket client its
 Lovelace writer needs. Ownership-enforced writes, per-project card resources,
 app discovery and reopen of its own deployments (see below), and the MCP server
@@ -565,7 +568,8 @@ the guide tells it that a lamp's available looks live in that type's `variant`
 property options and are to be read rather than guessed.
 
 The rest: ones to **read** the current plan and what can be placed on it
-(`get_project`, `find_objects`, `get_registry`, `list_library`, `get_help`, and
+(`get_project`, `find_objects`, `get_registry`, `list_library`, `get_help`,
+`list_entities` for the real Home Assistant entities this house has, and
 `list_annotations` for your review notes with their targets and surroundings
 expanded), tools to **change** it (`edit_collection` for rooms/items/openings/
 boundaries/floors and the notes themselves, `edit_batch` for many of those in
@@ -578,6 +582,27 @@ actually writes to Home Assistant, which is **not offered at all** unless you
 turn on the app option `mcp_allow_dashboard_install`. Until you do, an AI can
 build and rework the whole plan freely but cannot put anything on your actual
 dashboard.
+
+### Binding to real devices
+
+`list_entities` returns the entity catalogue Home Assistant dashboards bind to,
+not its physical-device registry. It is the same privacy-filtered catalogue the
+editor's entity picker uses. Entity ids, friendly names and current states are
+visible to the authorized assistant; `person`, `device_tracker` and `zone` are
+dropped wholesale and only an allowlist of attributes leaves the app, so
+coordinates and location-tracking entities are excluded. Filter it by `domain`,
+`deviceClass`, free text over the id and friendly name, current `state`, or
+`bound`. Every library type declares the `domains` it binds to, so the loop is
+`list_library` → `list_entities({domain})` → `edit_collection`. Results are
+bounded to 500 per page; follow `nextOffset` to read a large catalogue in full.
+
+`bound: "no"` is the useful one: everything not already used anywhere the
+generated dashboard would name it — markers, house card, shortcuts and logic —
+which is the list of what is left to place. Its mirror is
+`find_objects({collection:"items", entity:"none"})`, the markers still unbound.
+
+With no credentials it answers `mode: "offline"` and an empty list rather than
+failing, because an unbound marker still draws and a plan can be bound later.
 
 ### Why it does not download your house
 

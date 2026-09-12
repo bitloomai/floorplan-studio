@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+### An assistant can see your devices, and the app says it is ready to use
+
+- **`list_entities`.** The app has always held a redacted Home Assistant entity
+  catalogue — the editor's picker is built on it — and nothing on the MCP side
+  ever returned it, so an assistant had to invent entity ids or ask for every
+  one. It can now filter that catalogue by domain, `device_class`, free text
+  over the id and the friendly name, current state, and `bound` — where
+  `bound: "no"` is everything not already used anywhere the generated dashboard
+  would name it, which is the list of what is left to place. Bounded paging lets
+  an assistant read an installation with more than 500 matching entities without
+  allowing one unbounded response.
+- Every library type already declared the `domains` it binds to, so the binding
+  loop is `list_library` → `list_entities({domain})` → `edit_collection`, and
+  `find_objects({entity:"light.x"})` says which marker is on a given entity.
+- **The privacy filter is now a test, not a comment.** `/api/states` carries
+  latitude and longitude for `person` and `device_tracker`; the suite stands up
+  a real stand-in Home Assistant serving deliberately impossible coordinates
+  and asserts no location-tracking domain, coordinate value or coordinate
+  attribute survives into the answer. Entity ids, friendly names and current
+  states remain visible to the authorized assistant because those are what the
+  binding workflow searches and checks.
+- With no Home Assistant credentials the tool answers `mode: "offline"` and an
+  empty list rather than failing, the way the editor degrades — an unbound
+  marker still draws, so a plan can be built now and bound later.
+- The guide has claimed since it was written that this server "holds the live
+  entity names". It does now.
+
+### It is an alpha, and it is meant to be used
+
+- The status wording across `README.md`, the app README, `DOCS.md` and the help
+  site now says so: the editor, the library, the light models and the generated
+  dashboard work, and people are welcome to install it and draw their house.
+  `experimental` describes the packaging and the release process, and Home
+  Assistant's own `stage:` field has no "alpha" — `experimental` is the closest
+  of the three values it offers, which the README now spells out so the badge
+  and `config.yaml` do not look like they disagree.
+- Two precautions are stated wherever that is: generate to a new dashboard path
+  rather than over one you rely on, and keep an exported copy of the project.
+- The help site had no statement of status anywhere — the one surface somebody
+  reads *before* installing. **Getting started** now has one.
+
 ### Clearing a review, and telling an agent what a type can do
 
 - **The Notes list has a Clear button**, and it deletes exactly what the list is

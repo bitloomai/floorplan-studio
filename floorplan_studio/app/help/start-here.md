@@ -24,6 +24,17 @@ The drawing is not decoration. Everything you place feeds a model:
 So a plan that is roughly right looks roughly right, and one that is measured
 looks like your house.
 
+## Where this app is up to
+
+It is an **alpha**, and it is meant to be used. The editor, the library, the
+light models and the dashboard it generates all work; what is still in progress
+is the packaging and the testing that goes with a public release, which is why
+Home Assistant lists it as `experimental`.
+
+So: draw your house. Two sensible precautions while it is at this stage —
+generate to a **new** dashboard path rather than over one you rely on, and keep
+an exported copy of your project, which is one button in the top bar.
+
 ## The shape of the work
 
 1. **Draw the floors.** One floor at a time, rooms first.

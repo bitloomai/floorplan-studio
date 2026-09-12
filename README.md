@@ -12,7 +12,7 @@ same renderer — not a design tool that exports to something else.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![App version](https://img.shields.io/badge/app-0.0.1-informational.svg)](floorplan_studio/CHANGELOG.md)
-[![Stage](https://img.shields.io/badge/stage-experimental-orange.svg)](#status)
+[![Stage](https://img.shields.io/badge/stage-alpha-orange.svg)](#status)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)](THIRD_PARTY_NOTICES.md)
 [![Runtime](https://img.shields.io/badge/runtime-Node%2024%20distroless-5FA04E.svg)](floorplan_studio/Dockerfile)
 [![Architectures](https://img.shields.io/badge/arch-amd64%20%7C%20aarch64-lightgrey.svg)](floorplan_studio/config.yaml)
@@ -34,13 +34,20 @@ floor based on the house the test suite runs against.</sub>
 
 ## Status
 
-> **Development snapshot, app version 0.0.1.** The stage is `experimental` on
-> purpose: the app is **currently being tested in detail in Home Assistant**,
-> against a real Supervisor and Ingress, and that testing is what stands
-> between it and a release. The editor and the dashboard-card engine are well
-> developed. Do not present it as a stable public app yet — see
-> [Home Assistant app](#home-assistant-app) for exactly where that testing has
+> **Alpha, app version 0.0.1 — and ready to try.** The app is **currently being
+> tested in detail in Home Assistant**, against a real Supervisor and Ingress.
+> The stage is `experimental` on purpose, but that word describes the packaging
+> and the release process, not the thing itself: the editor, the library, the
+> light models and the dashboard-card engine are well developed and usable
+> today. **Install it and draw your house.** Expect rough edges, expect the
+> occasional workflow to change before 1.0, and generate to a new dashboard
+> path rather than over one you rely on. See
+> [Home Assistant app](#home-assistant-app) for exactly where the testing has
 > and has not reached.
+>
+> (Home Assistant's own `stage:` field offers `stable`, `experimental` or
+> `deprecated` — no "alpha" — so `config.yaml` declares `experimental`, which is
+> the closest of the three. The two words describe the same thing.)
 
 ## What it does
 
@@ -292,7 +299,8 @@ Node.js 24 LTS line on a Debian 13 distroless runtime: it has no shell, package
 manager or third-party npm modules. The local development server can render the
 generated five-floor card preview successfully.
 
-This mode is **not release-ready** because:
+This mode is **usable but not release-ready**: install it, draw with it, and
+generate a dashboard — while knowing that
 
 - it is still being exercised in detail under real Home Assistant
   Supervisor/Ingress, and that testing is not finished;
@@ -303,9 +311,10 @@ and `aarch64`, including Raspberry Pi 3/4/5 and Zero 2 W installations running
 64-bit Home Assistant OS. Legacy 32-bit `armv7` is not supported by the Node 24
 distroless runtime.
 
-Do not present the current package as a stable public app. While that testing
-is under way, install it as an experimental local app and generate to a new
-dashboard path rather than over one you rely on.
+Do not present the current package as a stable public app — but do use it.
+Install it as an experimental local app, and generate to a new dashboard path
+rather than over one you depend on, so an alpha never stands between you and
+your own house.
 
 ## Driving the editor with an AI (MCP)
 
@@ -345,8 +354,8 @@ guide is then available three more ways — as the resource
 filesystem-aware client can also load directly as a skill.
 
 **Tools:** `get_contract` (read this first — the project schema and which tool
-reaches what), `get_project`, `find_objects`, `get_registry`, `list_library`
-and `get_help` to read; `edit_collection` (floors/rooms/items/openings/
+reaches what), `get_project`, `find_objects`, `get_registry`, `list_library`,
+`list_entities` and `get_help` to read; `edit_collection` (floors/rooms/items/openings/
 boundaries/annotations — add/update/remove), `edit_batch` (many of those in one
 write), `edit_settings` (other project settings, by dot path) and
 `edit_registry` (shared library, flooring, theme, boundary and control fields,
@@ -358,6 +367,19 @@ Assistant and is **only advertised when the app option
 `mcp_allow_dashboard_install` is turned on** (off by default) — an AI can draw
 and edit freely from the moment it connects, but cannot touch a live dashboard
 until a human opts in.
+
+**Binding is not guesswork.** `list_entities` hands a model the house's real
+entity catalogue — the identifiers Home Assistant dashboards bind to, rather
+than its physical-device registry. It is the same privacy-filtered list the
+editor's picker uses. Entity ids, friendly names and current states are visible
+to the authorized assistant; `person`, `device_tracker` and `zone` are dropped
+wholesale and only an allowlist of attributes leaves the app, so coordinates and
+location-tracking entities are excluded. Filter by domain, device class, free
+text, current state, or `bound: "no"` for everything not yet placed; each
+library type declares the domains it binds to, so the loop is `list_library` →
+`list_entities` → `edit_collection`. Results are bounded and paged, so even a
+large installation can be read completely. With no Home Assistant credentials
+it answers `offline` and an empty list rather than failing.
 
 **A plan is a big document, and nothing has to read all of it.** Every floor,
 room, item, opening, wall and note carries a stable id, and the server is built

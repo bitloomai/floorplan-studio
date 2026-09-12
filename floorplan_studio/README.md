@@ -4,9 +4,14 @@ Draw your home's floor plan in the browser, bind rooms and devices to Home
 Assistant entities, and generate a live Lovelace dashboard from the same
 renderer that drew the plan.
 
-> **Development snapshot, version 0.0.1.** This app is currently being tested
-> in detail in Home Assistant. Its stage is `experimental` on purpose. See the
-> repository root for what that testing has and has not reached.
+> **Alpha, version 0.0.1 — and ready to try.** This app is currently being
+> tested in detail in Home Assistant, and its stage is `experimental` on
+> purpose. That describes the packaging and the release process rather than the
+> app: the editor, the library and the dashboard it generates work, and you are
+> very welcome to install it and draw your house today.
+>
+> Expect rough edges, and generate to a **new** dashboard path rather than over
+> one you rely on. See the repository root for where the testing has reached.
 
 ## What it does
 

@@ -52,13 +52,46 @@ your assistant how to use this app.
 
 Read and write **its own project and shared registries**: floors, rooms, walls
 and railings, doors and windows, every placeable type, floor finishes, colour
-schemes, room control surfaces, the daylight model, and your review notes.
+schemes, room control surfaces, the daylight model, and your review notes. It
+can also **read** your Home Assistant entity list, so it can bind what it places
+to real devices — see below.
 
 It works on the plan the way you do — by picking things out and changing them,
 not by rewriting the file. Every room, item, opening and wall has a stable id,
 so an assistant can change one lamp's colour temperature without touching, or
 even reading, the rest of the house. On a large plan that is the difference
 between a quick answer and a slow one.
+
+## How it binds things to your devices
+
+A marker with no entity still draws — it just cannot report anything — so an
+assistant can lay out a floor before anything is bound.
+
+To bind, it asks for your entity list — the identifiers Home Assistant
+dashboards bind to, not the physical-device registry. Every type in the library declares which
+Home Assistant domains it can bind to, so placing a fan narrows the question to
+your `fan.*` entities, and it can filter those by name, by device class, by what
+is currently unavailable, or by **what is not already on the plan** — which is
+how it works through a house without binding the same lamp twice. Results are
+bounded to 500 at a time and can be paged, so a large entity catalogue can still
+be read in full.
+
+The list it gets is the same one the editor's own entity picker shows, and it is
+privacy-filtered the same way. Entity ids, friendly names and current states are
+visible to the authorized assistant; `person`, `device_tracker` and `zone` are
+dropped wholesale, and only a short allowlist of attributes ever leaves the
+app. Coordinates and location-tracking entities are excluded.
+
+Two things worth knowing. Matching your entity names is a *guess* about your
+house — `light.ceiling_2` may or may not be the one over the island — so a good
+assistant asks when more than one would fit, and it is worth skimming what it
+bound. And before installing a dashboard it can check every binding at once:
+anything pointing at an entity you do not have is reported, which is the moment
+to catch a typo rather than after it appears as a dead tile on a wall tablet.
+
+If the app has no Home Assistant credentials, the entity list comes back empty
+and says so, rather than failing. Give it the ids yourself, or leave things
+unbound and come back to them.
 
 ## What it cannot do
 

@@ -504,6 +504,74 @@ function capabilities(t) {
 }
 
 tool({
+  name: 'list_entities',
+  description: 'The Home Assistant entities this house actually has, so a marker can be bound to a real device instead of a guessed id. This is the entity catalogue dashboards bind to, not Home Assistant\'s physical-device registry. Filter by domain (light, fan, cover, camera, climate, media_player, lock, sensor, binary_sensor, switch, scene, script, automation), by device_class, by free text over the id and the friendly name, and by whether the entity is ALREADY bound somewhere in this plan — bound:"no" is the list of things you have not placed yet. Pair it with list_library, whose every type declares the `domains` it binds to: read the type, list that domain, bind. Page with limit and offset when the filtered total is over 500. Returns the same privacy-filtered catalogue the editor\'s own entity picker shows: entity ids, friendly names and current states are visible to the authorized assistant, but person, device_tracker and zone are dropped wholesale and only an allowlist of attributes ever leaves the app, so coordinates and location-tracking entities are excluded. When the app has no Home Assistant credentials it reports mode:"offline" with an empty list rather than failing: ask the human for the entity ids in that case, and an unbound marker still draws.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      domain: { type: 'string', description: 'One domain, e.g. "light". A library type\'s own `domains` tells you which to ask for.' },
+      q: { type: 'string', description: 'Case-insensitive substring over the entity id and the friendly name — "kitchen", "balcony".' },
+      deviceClass: { type: 'string', description: 'Home Assistant device_class, e.g. "motion", "door", "temperature".' },
+      bound: { type: 'string', enum: ['yes', 'no', 'any'], description: '"no" = not yet used anywhere in this plan (what is left to place). "yes" = already bound. Default any.' },
+      state: { type: 'string', description: 'Only entities currently in this state, e.g. "unavailable" to audit what is broken.' },
+      limit: { type: 'integer', minimum: 1, maximum: 500, description: 'Page size. Default 100, maximum 500.' },
+      offset: { type: 'integer', minimum: 0, description: 'Skip this many matching entities. Use nextOffset from the previous answer to read the next page.' },
+    },
+    additionalProperties: false,
+  },
+  async run(args) {
+    const a = args || {};
+    /* Offline is an ANSWER, not an error. The editor degrades this way too: an
+     * unbound marker still draws, so a plan can be built now and bound later. */
+    if (!ha.isConfigured()) {
+      return { mode: 'offline', count: 0, total: 0, offset: 0, truncated: false, entities: [],
+        _note: 'This app has no Home Assistant credentials, so it cannot list entities. Ask the human for the ids, or leave markers unbound — an unbound marker still draws and can be bound later.' };
+    }
+    let list;
+    try {
+      list = await ha.entities(60000, false);
+    } catch (e) {
+      throw new ToolError(`could not read the entity catalogue from Home Assistant: ${e.message}`);
+    }
+    /* Schemas guide clients but this server deliberately has no JSON Schema
+     * dependency, so enforce the bounds here too. An invalid value must never
+     * turn the comparison below into `length >= NaN` and remove the cap. */
+    const integer = (value, fallback, min, max) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.floor(n))) : fallback;
+    };
+    const limit = integer(a.limit, 100, 1, 500);
+    const offset = integer(a.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+    const q = a.q ? String(a.q).toLowerCase() : null;
+    /* "Already bound" means bound ANYWHERE the generated dashboard would name
+     * it — markers, house card, shortcuts, logic — not only item.entity, so
+     * bound:"no" does not offer up something already doing a job. */
+    const bound = a.bound && a.bound !== 'any'
+      ? new Set(dashboard.boundEntities(await store.readProject())) : null;
+    const out = [];
+    let total = 0;
+    for (const e of list) {
+      if (a.domain && e.domain !== a.domain) continue;
+      if (a.deviceClass && (e.attributes || {}).device_class !== a.deviceClass) continue;
+      if (a.state && e.state !== a.state) continue;
+      if (q && !e.entity_id.toLowerCase().includes(q) && !String(e.name || '').toLowerCase().includes(q)) continue;
+      if (bound && (a.bound === 'yes') !== bound.has(e.entity_id)) continue;
+      total++;
+      if (total <= offset || out.length >= limit) continue;
+      out.push({
+        entity_id: e.entity_id, domain: e.domain, name: e.name, state: e.state,
+        device_class: (e.attributes || {}).device_class,
+        unit: (e.attributes || {}).unit_of_measurement,
+        bound: bound ? a.bound === 'yes' : undefined,
+      });
+    }
+    const nextOffset = offset + out.length < total ? offset + out.length : undefined;
+    return { mode: ha.mode(), count: out.length, total, offset,
+      truncated: nextOffset !== undefined, nextOffset, entities: out };
+  },
+});
+
+tool({
   name: 'validate_project',
   description: 'Run the same structural check edit_collection/edit_settings run before saving, against whatever is currently on disk. Call this after a run of edits, or if a change was refused and you want the full error list.',
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
@@ -1269,6 +1337,22 @@ malformed field rewrites the house. Instead:
 Only reach for get_project({floorId}) when you need a floor's full geometry,
 and for the whole project when you genuinely need the whole project.
 
+BINDING TO REAL DEVICES: an item's "entity" is a Home Assistant entity id, and
+list_entities is the house's actual entity catalogue, not HA's physical-device
+registry — filter by domain, device_class, free text over id and friendly name,
+current state, or bound:"no" for what is
+not yet placed anywhere the dashboard would name it. Each library type declares
+the "domains" it binds to, so the loop is list_library -> list_entities({domain})
+-> edit_collection. The catalogue is PRIVACY-FILTERED: entity ids, friendly
+names and current states are visible to the authorized assistant, but person,
+device_tracker and zone are dropped wholesale and only an allowlist of
+attributes ever leaves the app, so coordinates and location-tracking entities
+are excluded. Follow nextOffset when an answer is truncated. With no credentials
+it answers mode:"offline" and an empty list rather than failing; an unbound marker still draws, so ask the
+human for ids and carry on. Matching names is a GUESS about somebody's house —
+when more than one entity would fit, ask. preview_dashboard names every bound
+entity that does not exist.
+
 WHICH TOOL FOR WHAT:
   - get_project       the document. outline:true for the index, floorId for
                       one floor, neither for everything (rarely what you want)
@@ -1288,7 +1372,10 @@ WHICH TOOL FOR WHAT:
   - list_annotations  the human's review notes, with targets and surrounding
                       context expanded
   - validate_project  run the structural check on demand
-  - list_library      valid item type keys and the 47 room presets
+  - list_library      valid item type keys and the 47 room presets, each with
+                      its capabilities and the domains it binds to
+  - list_entities     the real Home Assistant entities, filtered; bound:"no"
+                      is what is not on the plan yet
   - get_registry      library / themes / flooring / boundaries / controls / schemes
   - edit_registry     shared registry fields, by array of literal keys;
                       read first, replaces that value, preserves other fields
