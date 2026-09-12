@@ -317,9 +317,13 @@ function auditFloor(floor, out) {
    *
    * The tuning that keeps this honest is the exterior case: a camera on an
    * outside wall aimed at the street or the drive is doing its job, and every
-   * house has some. So aiming OUT of the building is a warning for a vision
-   * device and an error for anything else, while aiming through a wall into
-   * the next room is always wrong. */
+   * house has some. So aiming OUT of the building is a warning, while aiming
+   * through a wall into the next INDOOR room is always wrong — and an extract
+   * fan aimed out is not reported at all, because that is what it is for.
+   *
+   * "Out of the building" has to be decided by the outdoor flag rather than by
+   * whether a room is there, or a plan that models its own garden reports
+   * every outward-facing device as an error. See the note at the test below. */
   for (const item of items) {
     const type = scene.resolveType(lib, item);
     if (!type || !(type.render && type.render.cone)) continue;
@@ -353,9 +357,34 @@ function auditFloor(floor, out) {
       && room.part_of !== r.id && scene.pointInRoom(r, beyond[0], beyond[1]));
     const what = `${item.id} (${item.kind}.${item.type}${item.entity ? ', ' + item.entity : ''})`
       + ` faces ${rot}° on the ${wall.e.wall} wall of ${room.id}`;
-    if (next) {
+
+    /* A plan that models its garden, drive and yard as outdoor rooms — which
+     * this tool encourages, since `outdoor: true` is how daylight and ground
+     * finishes are decided — used to fail this check for every device doing
+     * its job. The room beyond an exterior wall was simply "the next room", so
+     * a street camera, an extract fan and a porch light all reported as aimed
+     * THROUGH a wall, at error level. The distinction the comment above always
+     * claimed to make needs the outdoor flag to actually make it. */
+    const leavesBuilding = next ? (!!next.outdoor && !room.outdoor) : true;
+
+    /* Two outdoor rooms have no wall between them. A lawn meeting a drive is a
+     * change of ground finish, so "aimed through a wall" is not a statement
+     * about anything, and a sprinkler on the boundary of its own bed tripped
+     * it constantly. */
+    if (next && next.outdoor && room.outdoor) continue;
+
+    /* Moving air out of the building is the whole function of these, so
+     * aiming out is right and reporting it is noise. Anything else pointed
+     * outdoors is at most a judgement call. */
+    const EXTRACT = new Set(['fan_exhaust', 'hood']);
+    if (leavesBuilding && EXTRACT.has(item.type)) continue;
+
+    if (next && !leavesBuilding) {
       out.push({ level: 'error', floor: where, kind: 'device aimed through a wall',
         detail: `${what} — its ${style} cone lands in ${next.id}, ${reach.toFixed(1)} ft of ${range} ft used` });
+    } else if (next) {
+      out.push({ level: 'warn', floor: where, kind: 'device aimed out of the building',
+        detail: `${what} — its ${style} cone crosses into ${next.id}; deliberate outdoors, a mistake for anything indoors` });
     } else if (style === 'vision') {
       out.push({ level: 'warn', floor: where, kind: 'device aimed out of the building',
         detail: `${what} — deliberate for a street camera, a mistake for anything indoors` });

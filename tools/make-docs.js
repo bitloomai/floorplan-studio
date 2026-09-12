@@ -40,8 +40,11 @@
  *   help.js           theme toggle and search
  *   search.json       the search index
  *
- * `docs/hero-plan.svg` belongs to make-readme-image.js and is left alone. This
- * file only references it.
+ * `docs/hero-plan.svg` belongs to make-readme-image.js, and
+ * `docs/showcase-plan.svg`, `docs/showcase.gif` and `docs/frames/` belong to
+ * make-showcase.js and make-gif.js. This file is left alone by them and only
+ * references what they write, so regenerating the site never regenerates a
+ * picture and a stale picture is always somebody running one command.
  */
 
 'use strict';
@@ -682,7 +685,12 @@ for (const c of help.categories()) {
       ${stat('sparkle', 'no build step, no dependencies')}
     </div>
     <figure class="shot glass">
-      <img src="hero-plan.svg" alt="A floor plan drawn in Floorplan Studio: rooms with different floor finishes, furniture, lamps and sensors in place, and a staircase.">
+      <img src="showcase-plan.svg" alt="A single-storey house drawn in Floorplan Studio at golden hour: three bedrooms, an open-plan living and dining room in oak chevron parquet, a marble hallway, a kitchen, and a teak terrace with a pergola and solar panels. Lamps that are on pool warm light onto the floor, ceiling fans are turning, and the front door reads as open.">
+      <figcaption>Aria House &mdash; the renderer's own output, at 17:20 on the equinox. Nothing here is a mockup.</figcaption>
+    </figure>
+    <figure class="shot glass">
+      <img src="showcase.gif" alt="The same house animated through one day: dawn, morning, midday, afternoon, somebody arriving home, evening, dusk and night. Daylight sweeps across the floor, lamps come on room by room, blinds change position and the fans start turning.">
+      <figcaption>One day in the same house. Eight frames, same renderer, same project file.</figcaption>
     </figure>
   </section>
 

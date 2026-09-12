@@ -13,6 +13,11 @@
 # private system in the parent workspace.
 /repo-memory/
 
+# Intermediate render frames. `make-gif.js` writes these on the way to
+# docs/showcase.gif and the committed GIF is the deliverable — 6.6 MB of
+# per-frame SVG is build output, and one command regenerates it.
+/docs/frames/
+
 # Dependencies and test output
 node_modules/
 coverage/
