@@ -45,3 +45,10 @@ reads — only the air goes into the wall.
 For a tubelight or a cove strip, `rot` is the **axis it runs along**, not a
 direction it points. The same field means two different things depending on the
 type.
+
+And because a line fixture has a **length** as well as an axis, it has a
+footprint where a marker normally has only a point: the run is drawn centred on
+the item, so half of it falls either side. A 8 ft strip placed 3 ft from the
+wall reaches a foot into the next room, and the item's own position is still
+correctly inside the room it belongs to — which is why nothing flags it. Set
+the length to the cabinet, cove or mirror the fitting actually follows.

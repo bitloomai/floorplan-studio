@@ -58,5 +58,15 @@ keep the noise down:
   into anything else.
 - A device standing free in the middle of a room may point anywhere. Only ones
   mounted on a wall are judged on their facing.
-- Aiming **out** of the building is a warning for a camera and an error for
-  everything else, because every house has a camera watching the street.
+- Aiming through a wall into the next **indoor** room is always an error. There
+  is no reading of that which is correct.
+- Aiming **out** of the building is only ever a warning, because every house
+  has a camera watching the street and a flood light pointed at the drive.
+  Whether a device leaves the building is decided by the `outdoor` flag on the
+  room beyond it, so this works on a plan that models its garden, its drive and
+  its service yard as rooms — which is how ground finishes and daylight are
+  decided anyway. An extract fan or a cooker hood aimed out is not reported at
+  all: moving air out of the building is its entire function.
+- Two **outdoor** rooms have no wall between them. A lawn meeting a drive is a
+  change of ground finish, so a sprinkler on the edge of its own bed is not
+  aiming through anything.

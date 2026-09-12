@@ -147,7 +147,8 @@
 <p>Nothing about that looks wrong. The unit draws, the entity binds, the state reads — only the air goes into the wall.</p>
 <blockquote>The plan audit (<code>node tools/audit-plan.js</code>) checks this by measuring how far each cone's centreline gets into its room before leaving it. A camera on an outside wall watching the street is doing its job; one buried in brickwork is not, and the difference is a measurement rather than an opinion.</blockquote>
 <h2>Line fixtures are different</h2>
-<p>For a tubelight or a cove strip, <code>rot</code> is the <strong>axis it runs along</strong>, not a direction it points. The same field means two different things depending on the type.</p></div>
+<p>For a tubelight or a cove strip, <code>rot</code> is the <strong>axis it runs along</strong>, not a direction it points. The same field means two different things depending on the type.</p>
+<p>And because a line fixture has a <strong>length</strong> as well as an axis, it has a footprint where a marker normally has only a point: the run is drawn centred on the item, so half of it falls either side. A 8 ft strip placed 3 ft from the wall reaches a foot into the next room, and the item's own position is still correctly inside the room it belongs to — which is why nothing flags it. Set the length to the cabinet, cove or mirror the fitting actually follows.</p></div>
 <div class="related">Read next: <a href="reference.html#concept-units">Feet, and which way is north</a> · <a href="library-guide.html#panel-item">The item panel</a></div>
 </article>
 <article class="topic glass" id="item-stairs">

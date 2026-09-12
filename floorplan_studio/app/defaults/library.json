@@ -1086,7 +1086,8 @@
           "type": "number",
           "min": 0.5,
           "max": 40,
-          "step": 0.25
+          "step": 0.25,
+          "hint": "The run is drawn CENTRED on the marker, so half its length falls either side of the point you placed. A run longer than the wall it sits on therefore crosses into the next room — set the length to the cabinet, cove or mirror it actually follows, not to the room."
         },
         {
           "key": "rot",
@@ -1186,7 +1187,8 @@
           "type": "number",
           "min": 0.5,
           "max": 40,
-          "step": 0.25
+          "step": 0.25,
+          "hint": "The run is drawn CENTRED on the marker, so half its length falls either side of the point you placed. A run longer than the wall it sits on therefore crosses into the next room — set the length to the cabinet, cove or mirror it actually follows, not to the room."
         },
         {
           "key": "rot",
@@ -1286,7 +1288,8 @@
           "type": "number",
           "min": 0.5,
           "max": 40,
-          "step": 0.25
+          "step": 0.25,
+          "hint": "The run is drawn CENTRED on the marker, so half its length falls either side of the point you placed. A run longer than the wall it sits on therefore crosses into the next room — set the length to the cabinet, cove or mirror it actually follows, not to the room."
         },
         {
           "key": "rot",
@@ -6581,7 +6584,8 @@
           "type": "number",
           "min": 0.25,
           "max": 200,
-          "step": 0.25
+          "step": 0.25,
+          "hint": "Feet, and the marker is drawn AT that size — this type draws the gate itself, not a sensor dot beside it, so an 8 ft leaf is an 8 ft symbol on the plan. Set it to the real leaf width and place it across the opening. For a gate whose position you only want to read, a plain device.contact beside the gate is the smaller drawing."
         }
       ],
       "defaults": {
@@ -16026,7 +16030,8 @@
           "type": "number",
           "min": 0.25,
           "max": 40,
-          "step": 0.25
+          "step": 0.25,
+          "hint": "The run is drawn CENTRED on the marker, so half its length falls either side of the point you placed. A run longer than the wall it sits on therefore crosses into the next room — set the length to the cabinet, cove or mirror it actually follows, not to the room."
         }
       ],
       "defaults": {
@@ -16360,7 +16365,8 @@
           "type": "number",
           "min": 0.25,
           "max": 40,
-          "step": 0.25
+          "step": 0.25,
+          "hint": "The run is drawn CENTRED on the marker, so half its length falls either side of the point you placed. A run longer than the wall it sits on therefore crosses into the next room — set the length to the cabinet, cove or mirror it actually follows, not to the room."
         }
       ],
       "defaults": {

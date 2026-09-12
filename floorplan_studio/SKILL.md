@@ -508,6 +508,22 @@ If you need something switched on to test it, ask the human to do it.
   `list_library` first.
 - Inventing a variant name instead of reading `props.variant.options`.
 - Treating `n`/`e`/`s`/`w` as compass directions.
+- Assuming a marker's position is the whole of it. Most markers are a point,
+  but a **line fixture** (`strip`, `tube`, `linear`, `wall_washer`,
+  `mirror_light`) is drawn as a run of `len` feet CENTRED on `at` — so half of
+  it falls either side, and an 8 ft strip placed 3 ft from a wall reaches a
+  foot into the next room while its own `at` stays correctly inside this one.
+  Nothing refuses it. Set `len` to the cabinet or cove the fitting follows.
+- Placing furniture where a door opens. A hinged leaf sweeps a quarter circle
+  of its own width into the room, the arc is drawn straight over whatever is
+  there, and no validation objects. Leave the door's own width of clear floor
+  across the full opening, or move the opening — a door 6 in along a wall is
+  invisible, a bath 6 in off its plumbing is not.
+- Reading a size prop without its unit. `list_library` gives every prop's
+  `label` and `hint`; some sizes are **feet** and some are **drawn pixels**,
+  and a few types draw the whole object at that size rather than a badge — set
+  `device.gate_motor`'s `w` to 8 and you get an 8 ft gate symbol, because that
+  type *is* the gate. Its hint says so.
 - Using `edit_settings` for anything under `floors` — it refuses those paths on
   purpose. Rooms, items, openings and boundaries are collection members; patch
   them with `edit_collection` → `update`.

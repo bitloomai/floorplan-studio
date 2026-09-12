@@ -68,6 +68,11 @@
 <p>  well before the zenith on purpose: a plan cares how much light gets <em>through</em>   a window, and a high sun enters a vertical opening at a poor angle.</p>
 <ul><li><strong>sun patches</strong> — the geometry of the beam a window throws on the floor.</li></ul>
 <p>They are behind <strong>Advanced</strong> because &quot;never needs to&quot; is not &quot;cannot&quot;.</p>
+<h2>The hour you pick changes the drawing more than any setting</h2>
+<p>Worth knowing before you conclude that daylight is not working. The beams are longest when the sun is <strong>just above</strong> the minimum elevation the model draws at, and they shorten fast as it climbs:</p>
+<table><thead><tr><th>Sun elevation</th><th>What the floor looks like</th></tr></thead><tbody><tr><td>below ~4°</td><td>no beams; the sun is too low to model a patch honestly</td></tr><tr><td>5–10°</td><td>long raking beams reaching well into the room — the best light</td></tr><tr><td>25–35°</td><td>a short stub of light inside each window</td></tr><tr><td>near the zenith</td><td>almost nothing; a vertical window is a poor aperture for it</td></tr></tbody></table>
+<p>So a plan that looks flat and evenly lit is usually a plan set at the wrong hour, not a plan with the model switched off. Scrub the time to an hour or so before sunset and the same house reads completely differently. This is the single biggest lever on whether a plan looks like a drawing or a photograph, and it is why the generated showcase picture is taken at 17:20 rather than midday.</p>
+<p>The <strong>night scrim</strong> is the other half of it, and it only applies once the sun is down — so raising it darkens the evening without touching any daytime view.</p>
 <h2>What the weather does to the sky (Advanced)</h2>
 <p>With a weather entity set, each condition it can report carries a multiplier: 1 is a clear sky at full strength, and a third of that is heavy overcast. They are listed in the Sun dialog under Advanced, one row per condition the model knows, and only a changed one is stored — so the rest keep tracking the shipped values as those improve.</p>
 <p>With no weather entity, none of them apply and the single fallback beside the entity picker is used for everything.</p></div>

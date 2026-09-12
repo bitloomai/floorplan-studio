@@ -64,6 +64,28 @@ The constants the model runs on, none of which a house needs to touch:
 
 They are behind **Advanced** because "never needs to" is not "cannot".
 
+## The hour you pick changes the drawing more than any setting
+
+Worth knowing before you conclude that daylight is not working. The beams are
+longest when the sun is **just above** the minimum elevation the model draws at,
+and they shorten fast as it climbs:
+
+| Sun elevation | What the floor looks like |
+|---|---|
+| below ~4° | no beams; the sun is too low to model a patch honestly |
+| 5–10° | long raking beams reaching well into the room — the best light |
+| 25–35° | a short stub of light inside each window |
+| near the zenith | almost nothing; a vertical window is a poor aperture for it |
+
+So a plan that looks flat and evenly lit is usually a plan set at the wrong
+hour, not a plan with the model switched off. Scrub the time to an hour or so
+before sunset and the same house reads completely differently. This is the
+single biggest lever on whether a plan looks like a drawing or a photograph, and
+it is why the generated showcase picture is taken at 17:20 rather than midday.
+
+The **night scrim** is the other half of it, and it only applies once the sun is
+down — so raising it darkens the evening without touching any daytime view.
+
 ## What the weather does to the sky (Advanced)
 
 With a weather entity set, each condition it can report carries a multiplier:

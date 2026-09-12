@@ -54,6 +54,25 @@ both leaves then share one state. Folding gates support inside/outside folding
 and one or two stacking banks. Leave physical room for the leaf, stack or
 sliding run-back. The drawing does not check clearance against parked cars.
 
+## Leave the swing clear — nothing checks it for you
+
+A hinged leaf sweeps a quarter circle of its own width into the room it opens
+into, and **nothing refuses to draw furniture in that quarter circle.** The arc
+is drawn over the top of whatever is there, neatly, so the plan does not look
+broken — it looks like a bathroom whose door opens onto the side of the bath,
+which is the kind of wrong a reader feels without being able to name.
+
+The rule of thumb is the door's own width: a 2 ft 6 in door needs 2 ft 6 in of
+clear floor across the full width of the opening. When something has to go
+there, move the opening rather than the furniture — a door 6 in further along a
+wall is invisible, and a bath pushed 6 in off its plumbing is not.
+
+`tools/audit-plan.js` reports furniture sitting **in** an opening, which is the
+more obvious mistake. It does not report the arc. If you are generating plans
+rather than drawing them, `tools/make-showcase.js --test` has a worked check
+for this you can lift: the swept box is the opening's run by its own width,
+deep into the room, which is the arc's bounding box whichever jamb it turns on.
+
 ## Sensors, motors and a drawing without sensors
 
 Select the opening → **Opening mechanism**. Contact sensor is optional:

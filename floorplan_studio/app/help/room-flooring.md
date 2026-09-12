@@ -39,6 +39,38 @@ The India group exists because red oxide, athangudi, kota, cuddapah and the
 marble-look vitrified tile most new bedrooms are floored in are ordinary floors
 in a great many houses and absent from every stock library.
 
+## Two kinds of pattern, and why one of them looks subtle
+
+How a finish is drawn decides how it behaves across a plan, and the difference
+is worth knowing because one of them is easy to mistake for a finish that is
+not working.
+
+**Tiled** finishes — plank, herringbone, chevron, hexagon, brick, basketweave,
+checker, encaustic — are a repeating unit laid out from the room's own origin.
+They read immediately, and two rooms sharing a tiled finish set out
+identically, so an open-plan living and dining room drawn in one chevron reads
+as one floor rather than two.
+
+**Field** finishes — marble, travertine, terrazzo, grass, gravel, soil — are
+drawn **across the whole floor and clipped to each room**, not tiled. That is
+what makes a marble vein run on through a doorway instead of stopping dead at
+the threshold, and it is the right model for anything whose figure is
+continuous in life.
+
+The consequence: marble veining is **deliberately faint**, because real veining
+is, and at the scale a whole house is drawn at a slab reads as a pale field
+with a few lines through it rather than the dramatic figure of a close-up
+sample. That is not a missing pattern. If you want it to carry from across the
+room — a printed marble-look tile does, because the pattern is inked onto every
+tile and reads from the doorway — raise **Vein strength (×)** and **Vein weight
+(×)** on the finish, and set **Tile width (ft)** above 0 so it is laid out as a
+tile as well as veined. *Marble-look tile 4×2* in the India group is exactly
+that combination if you want to copy one that works.
+
+Sharing one field finish between adjoining rooms is the cheapest way to make a
+plan look like one house: an entrance and the hallway it runs into should
+almost always be the same stone.
+
 ## Making your own
 
 Select a room, open **Flooring**, and change **Colour** to tint just that room.
