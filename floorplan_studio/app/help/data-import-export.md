@@ -25,17 +25,24 @@ held across an undo is stale, and writing through it changes nothing visible.
 
 ## Import
 
-You can bring in a plan drawn in the older hand-written format. Import is
-tolerant on purpose — a good floor still loads alongside a broken one, and you
-are told which was skipped and why. Two floors claiming the same id is an error
-rather than a merge, because the alternative is a dashboard with two tabs showing
-the same plan.
+Importing a project previously exported by this editor restores the **whole
+project**: floors, sun location and direction, entity bindings, lighting,
+compass, themes and dashboard preferences. It is a backup, not just a bag of
+floor drawings.
+
+You can also bring in a plan drawn in the older hand-written format. That path
+replaces only the floors and is tolerant on purpose — a good floor still loads
+alongside a broken one, and you are told which was skipped and why. Two floors
+claiming the same id is an error rather than a merge, because the alternative is
+a dashboard with two tabs showing the same plan.
 
 ## Export
 
 Export gives you the project document and an **SVG of each floor**. The SVG is
 the same drawing the editor shows, produced by the same renderer, so it is a fair
-thing to print or drop into a document.
+thing to print or drop into a document. Keep `project.json` as the restorable
+backup; it includes the house-level settings that cannot fit in a floor SVG or
+legacy floor spec.
 
 ## What is never in your project file
 

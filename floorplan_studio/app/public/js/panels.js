@@ -1559,6 +1559,7 @@ window.Panels = (function () {
     }
 
     function showResult(res) {
+      const wholeProject = res.project && typeof res.project === 'object';
       const table = h('table', { class: 'grid' },
         h('tr', {}, h('th', {}, 'Floor'), h('th', {}, 'Level'), h('th', {}, 'Rooms'), h('th', {}, 'Openings'), h('th', {}, 'Markers')));
       for (const s of res.stats) {
@@ -1587,16 +1588,22 @@ window.Panels = (function () {
         h('button', {
           class: 'btn primary', style: 'margin-top:10px',
           onclick: () => {
-            if (!confirm(`Replace every floor in the current project with these ${res.floors.length}?`)) return;
+            const question = wholeProject
+              ? `Replace the current project with this exported project and its ${res.floors.length} floor${res.floors.length === 1 ? '' : 's'}?`
+              : `Replace every floor in the current project with these ${res.floors.length}?`;
+            if (!confirm(question)) return;
             Store.mutate(() => {
-              S.project.floors = res.floors;
-              if (schemes.length) S.project.schemes = schemes;
+              if (wholeProject) S.project = Store.clone(res.project);
+              else {
+                S.project.floors = res.floors;
+                if (schemes.length) S.project.schemes = schemes;
+              }
             }, 'import');
             S.activeFloorId = res.floors[0] && res.floors[0].id;
             closeModal(); Store.emit('floor');
             toast(`Imported ${res.floors.length} floor${res.floors.length === 1 ? '' : 's'}`);
           },
-        }, `Replace all floors with these ${res.floors.length}`));
+        }, wholeProject ? 'Restore this project' : `Replace all floors with these ${res.floors.length}`));
     }
 
     const go = h('button', { class: 'btn primary', style: 'margin-top:8px', disabled: true }, 'Import files');
@@ -1661,7 +1668,7 @@ window.Panels = (function () {
 
     const body = h('div', {}, fromHa, samples,
       h('div', { class: 'subhead' }, 'Import an exported plan'),
-      h('p', { class: 'hint' }, `Upload a plan exported from this editor, or hand-written floor specs in the older format, and they are converted on the way in. Up to ${IMPORT_MAX_MB} MB. Anything this editor does not model is preserved verbatim and re-emitted on export, so the import is not lossy. Importing REPLACES every floor in the current project.`),
+      h('p', { class: 'hint' }, `Upload a project exported from this editor to restore the whole project, including its sun, lighting and dashboard settings. Hand-written floor specs in the older format replace only the floors. Up to ${IMPORT_MAX_MB} MB. Anything this editor does not model is preserved verbatim and re-emitted on export.`),
       h('div', { class: 'field' }, h('label', {}, 'Plan files (.json)'), input),
       drop, picked, go, out);
     modal('Import existing floor plans', body, { help: 'dialog:import', rebuild: importDialog });

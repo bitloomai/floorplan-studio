@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Sun settings survive export and stay live on the dashboard
+
+- The generated floor-plan card now resolves sun settings with the same deep,
+  default-aware house → floor cascade as the renderer. A partial floor override
+  can no longer erase the house weather or solar binding, and choosing Home
+  Assistant as the position source now subscribes to the default `sun.sun`
+  entity even when that default was never explicitly re-selected.
+- Dashboard preview/install checks include the sun, weather and solar entities
+  the card itself needs, so a missing binding is reported before deployment.
+- Importing this editor's own `project.json` now restores the complete project,
+  including sun location, direction, compass, lighting, entity bindings and
+  dashboard preferences. It previously kept only floors and custom colour
+  schemes despite the export containing every setting. Older floor-only specs
+  still replace only the floors.
+- Explicitly empty weather and solar entity fields remain `null` through the
+  sun configuration merge instead of becoming truthy empty objects.
+
 ### Wide exterior walls stay inside the plan
 
 - Increasing **Wall top width** no longer grows an exterior wall equally inside

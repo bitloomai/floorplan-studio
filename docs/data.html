@@ -53,9 +53,10 @@
 <h2>Undo</h2>
 <p>Undo replaces the whole project with a previous snapshot rather than reversing individual edits. It is reliable for that reason, and it has one consequence worth knowing if you script against this app: a reference to a room or an item held across an undo is stale, and writing through it changes nothing visible.</p>
 <h2>Import</h2>
-<p>You can bring in a plan drawn in the older hand-written format. Import is tolerant on purpose — a good floor still loads alongside a broken one, and you are told which was skipped and why. Two floors claiming the same id is an error rather than a merge, because the alternative is a dashboard with two tabs showing the same plan.</p>
+<p>Importing a project previously exported by this editor restores the <strong>whole project</strong>: floors, sun location and direction, entity bindings, lighting, compass, themes and dashboard preferences. It is a backup, not just a bag of floor drawings.</p>
+<p>You can also bring in a plan drawn in the older hand-written format. That path replaces only the floors and is tolerant on purpose — a good floor still loads alongside a broken one, and you are told which was skipped and why. Two floors claiming the same id is an error rather than a merge, because the alternative is a dashboard with two tabs showing the same plan.</p>
 <h2>Export</h2>
-<p>Export gives you the project document and an <strong>SVG of each floor</strong>. The SVG is the same drawing the editor shows, produced by the same renderer, so it is a fair thing to print or drop into a document.</p>
+<p>Export gives you the project document and an <strong>SVG of each floor</strong>. The SVG is the same drawing the editor shows, produced by the same renderer, so it is a fair thing to print or drop into a document. Keep <code>project.json</code> as the restorable backup; it includes the house-level settings that cannot fit in a floor SVG or legacy floor spec.</p>
 <h2>What is never in your project file</h2>
 <p>Help text, documentation and the registries' shipped defaults are all part of the app rather than part of your house. Your project holds your building and your entity bindings, and nothing else.</p></div>
 <div class="related">Read next: <a href="start.html#start-here">What this app is</a> · <a href="dashboard.html#dashboard-install">Generating the dashboard</a></div>

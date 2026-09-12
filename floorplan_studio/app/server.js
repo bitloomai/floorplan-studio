@@ -465,10 +465,13 @@ async function handleApi(req, res, pathname, query) {
      * polygon or an item with an unknown kind, and finding that out when the
      * editor tries to draw it is far too late — the project has already been
      * replaced by then. Errors refuse the import; warnings travel with it and
-     * are shown. Sun checks do not apply to a bare set of floors, so the
-     * document handed to the validator says so explicitly. */
+     * are shown. A whole exported project is validated whole, including its
+     * sun settings. Sun checks do not apply to a bare set of floors, so only
+     * that path receives an explicitly disabled model. */
     const library = await store.readLibrary();
-    const check = validateProject.validate({ floors: result.floors, sun: { enabled: false } }, library);
+    const check = validateProject.validate(result.project || {
+      floors: result.floors, sun: { enabled: false },
+    }, library);
     if (!check.ok) {
       return sendJson(res, 422, Object.assign({}, result, {
         error: `The plan converted, but it is not structurally valid (${check.errors.length} problem${check.errors.length === 1 ? '' : 's'}).`,

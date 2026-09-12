@@ -129,9 +129,18 @@ class FpsFloorplanCard extends HTMLElement {
       }
       if (room.master) ids.add(room.master);
     }
-    const sun = Object.assign({}, FPS_DATA.project.sun, this._floor.sun);
-    for (const id of [sun.sunEntity, sun.weather && sun.weather.entity, sun.solarSensor && sun.solarSensor.entity]) {
-      if (id) ids.add(id);
+    /* Use the exact same default-aware, nested merge as the renderer. The old
+     * shallow merge made a floor override such as `{ ambient: {...} }` erase
+     * house-level nested settings from this subscription list. It also missed
+     * the default `sun.sun` id when the position source was HA but the user had
+     * not explicitly re-selected that default in the editor. In either case
+     * the renderer asked for state that this card had deliberately omitted. */
+    const sun = SunModel.mergeConfig(FPS_DATA.project.sun, this._floor.sun);
+    if (sun.enabled) {
+      const sunEntity = sun.source === 'entity' ? sun.sunEntity : null;
+      for (const id of [sunEntity, sun.weather && sun.weather.entity, sun.solarSensor && sun.solarSensor.entity]) {
+        if (id) ids.add(id);
+      }
     }
     this._bound = [...ids];
     return this._bound;

@@ -279,13 +279,15 @@ function fromFiles(files) {
    * and quietly fall back to the theme. A bare set of legacy floor specs has no
    * schemes, and gets none. */
   let schemes = null;
+  let project = null;
   if (projects.length) {
-    const raw = projects[0].spec.floors;
+    project = projects[0].spec;
+    const raw = project.floors;
     floors = raw.filter((f) => f && typeof f === 'object' && !Array.isArray(f));
     if (floors.length !== raw.length) {
       skipped.push({ file: projects[0].name, reason: `${raw.length - floors.length} entr${raw.length - floors.length === 1 ? 'y' : 'ies'} in floors[] was not an object` });
     }
-    const rawSchemes = projects[0].spec.schemes;
+    const rawSchemes = project.schemes;
     if (Array.isArray(rawSchemes)) {
       schemes = rawSchemes.filter((s) => s && typeof s === 'object' && !Array.isArray(s) && typeof s.id === 'string' && s.id);
     }
@@ -319,7 +321,17 @@ function fromFiles(files) {
   }
 
   floors.sort((a, b) => (a.level_ft ?? 0) - (b.level_ft ?? 0));
-  return { floors, stats: statsFor(floors), skipped, renamed, schemes };
+  /* A project exported by this editor is a backup of the PROJECT, not merely a
+   * convenient bag of floors. Return the original document alongside the
+   * summary so the UI can restore house-level settings (sun orientation and
+   * sensors, compass, lighting, themes, dashboard preferences, and future
+   * fields) without maintaining another lossy allowlist here. The normalised
+   * floors/schemes above remain the copies installed into it. */
+  if (project) {
+    project.floors = floors;
+    if (schemes) project.schemes = schemes;
+  }
+  return { project, floors, stats: statsFor(floors), skipped, renamed, schemes };
 }
 
 /* Read every *.json in a directory and hand the bytes to `fromFiles`, so the

@@ -900,6 +900,8 @@ for (const fam of ['bollard', 'floor_lamp', 'pendant', 'chandelier']) {
   const back = imp.fromFiles([{ name: 'project.json', text: doc.content }]);
   ok('importing it brings those schemes back',
     (back.schemes || []).length === 1 && back.schemes[0].id === 'my_grey');
+  ok('the project export round-trips every sun setting, including direction',
+    JSON.stringify(back.project.sun) === JSON.stringify(p.sun));
   ok('and a plain set of legacy floors brings none',
     imp.fromFiles([{ name: 'ground.json', text: JSON.stringify({ rooms: [], extent: { w: 10, h: 10 } }) }]).schemes === null);
 }
@@ -1546,6 +1548,10 @@ ok('sunrise and sunset both resolve', !!ev.sunrise && !!ev.sunset,
 ok('the sun is up between them', Sun.position(lat, lon, new Date(new Date(ev.sunrise).getTime() + 3600000)).elevation > 0);
 ok('and down an hour after sunset', Sun.position(lat, lon, new Date(new Date(ev.sunset).getTime() + 3600000)).elevation < 0);
 const cfg = Sun.mergeConfig(project.sun);
+ok('empty sun entity bindings remain null rather than becoming truthy objects', (() => {
+  const merged = Sun.mergeConfig({ weather: { entity: null }, solarSensor: { entity: null } });
+  return merged.weather.entity === null && merged.solarSensor.entity === null;
+})());
 ok('floor override can disable the house setting',
   Sun.scene(Sun.mergeConfig(cfg, { enabled: false }), {}, atSolarHour(12)) === null);
 ok('house setting applies without an override', Sun.scene(cfg, {}, atSolarHour(12)) !== null);
@@ -1919,7 +1925,7 @@ ok('editor entity redaction keeps cover position but still removes location attr
 ok('the live card watches gate motors, describes partial states and opens more-info without operating them', (() => {
   let Card;
   require('vm').runInNewContext(fs.readFileSync(path.join(APP,'lib','card-runtime.js'),'utf8'), {
-    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,
+    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,SunModel:Sun,
     FPS_DATA:{project:{},boundaries},
   });
   const card=Object.create(Card.prototype);
@@ -1929,6 +1935,25 @@ ok('the live card watches gate motors, describes partial states and opens more-i
   card.moreInfoForOpening('g');
   return card.boundEntities().includes('cover.test_gate') && card.describeOpening('g').includes('35% open')
     && card.describeOpening('g').includes('opening') && tapped==='cover.test_gate';
+})());
+ok('the live card binds default and nested sun inputs through a partial floor override', (() => {
+  let Card;
+  require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8'), {
+    HTMLElement: class {}, customElements: { define: (_, c) => { Card = c; } }, window: {},
+    PlanScene: scene, SunModel: Sun,
+    FPS_DATA: {
+      project: { sun: {
+        enabled: true, source: 'entity',
+        weather: { entity: 'weather.sun_test' },
+        solarSensor: { entity: 'sensor.sun_test' },
+      } },
+      boundaries, controls: {},
+    },
+  });
+  const card = Object.create(Card.prototype);
+  card._floor = { items: [], rooms: [], openings: [], sun: { ambient: { outdoor: 0.5 } } };
+  const ids = card.boundEntities();
+  return ['sun.sun', 'weather.sun_test', 'sensor.sun_test'].every((id) => ids.includes(id));
 })());
 if (realDoor) {
   realDoor.sensor = 'binary_sensor.probe';
@@ -3819,7 +3844,7 @@ ok('a tap circle is bigger than the disc it covers', (() => {
   let Card;
   require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8'), {
     HTMLElement: class {}, customElements: { define: (_, c) => { Card = c; } }, window: {},
-    PlanScene: scene, Controls, document: doc,
+    PlanScene: scene, SunModel: Sun, Controls, document: doc,
     setInterval: () => null, clearInterval: () => null,
     FPS_DATA: { project: {}, boundaries, library: lib, controls: controlsDoc },
   });
@@ -4055,12 +4080,36 @@ ok('every entity the dashboard names comes from the plan', (() => {
   for (const s of dashboard.shortcutsOf(dashProj, dashProj.floors || [])) placed.add(s.entity);
   return dashboard.boundEntities(dashProj).every((e) => placed.has(e));
 })(), dashboard.boundEntities(dashProj).length + ' entities');
+ok('dashboard checks the same merged sun inputs that its live card binds', (() => {
+  const p = JSON.parse(JSON.stringify(dashProj));
+  p.sun = {
+    enabled: true, source: 'entity', screenUpBearing: 270,
+    weather: { entity: 'weather.sun_test' },
+    solarSensor: { entity: 'sensor.sun_test' },
+  };
+  p.floors[0].sun = { ambient: { outdoor: 0.5 } };
+  const ids = dashboard.boundEntities(p);
+  return ['sun.sun', 'weather.sun_test', 'sensor.sun_test'].every((id) => ids.includes(id));
+})());
 
 const cardDocs = {
   project: dashProj, library: lib, themes, boundaries, flooring, controls: controlsDoc,
 };
 const built = cardBuild.build(cardDocs, { version: 'test' });
 ok('the card bundle carries every floor', built.floors.length === dashProj.floors.length);
+ok('the card bundle preserves every sun setting, including direction', (() => {
+  const p = JSON.parse(JSON.stringify(dashProj));
+  p.sun = {
+    enabled: true, source: 'entity', screenUpBearing: 270,
+    weather: { entity: 'weather.sun_test' },
+    solarSensor: { entity: 'sensor.sun_test', peakW: 1000 },
+  };
+  const trimmed = cardBuild.trimProject(p);
+  const card = cardBuild.build(Object.assign({}, cardDocs, { project: p }), { version: 'test' });
+  return JSON.stringify(trimmed.sun) === JSON.stringify(p.sun)
+    && card.content.includes('"screenUpBearing":270')
+    && card.content.includes('"weather.sun_test"');
+})());
 ok('the bundle defines the custom element', /customElements\.define\('fps-floorplan-card'/.test(built.content));
 ok('the bundle inlines the shared renderer rather than a copy of it',
   cardBuild.SHARED.every((n) => built.content.includes(`/* ===== ${n} ===== */`)));
@@ -4791,7 +4840,11 @@ await okAsync('a bad token is reported as a bad token', async () => {
 });
 
 /* ---- the round trip that is the whole product promise ---- */
-const demoProject = { id: 'p1', name: 'Demo', floors: [{ id: 'g', rooms: [], items: [] }] };
+const demoProject = {
+  id: 'p1', name: 'Demo',
+  sun: { enabled: true, source: 'entity', screenUpBearing: 270, sunEntity: 'sun.sun' },
+  floors: [{ id: 'g', rooms: [], items: [] }],
+};
 
 await okAsync('a deployed dashboard is stamped so it can be found again', async () => {
   const Sock = FakeHA({});
@@ -5362,8 +5415,11 @@ ok('an exported project is passed through, not re-converted', (() => {
    * `openings` and `boundaries` into `_legacy` and hand back a flattened
    * floor that still looks plausible in the stats table. */
   const floor = { id: 'f1', name: 'One', extent: { w: 10, h: 10 }, rooms: [], items: [], openings: [], boundaries: [] };
-  const r = imp.fromFiles([upload('mine.project.json', { floors: [floor] })]);
-  return r.floors.length === 1 && !r.floors[0]._legacy && Array.isArray(r.floors[0].items);
+  const r = imp.fromFiles([upload('mine.project.json', {
+    name: 'Whole project', sun: { enabled: true, source: 'entity', screenUpBearing: 270 }, floors: [floor],
+  })]);
+  return r.floors.length === 1 && !r.floors[0]._legacy && Array.isArray(r.floors[0].items)
+    && r.project.name === 'Whole project' && r.project.sun.screenUpBearing === 270;
 })());
 
 ok('one of this editor’s own floor documents is passed through too', (() => {

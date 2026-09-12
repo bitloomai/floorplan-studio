@@ -31,6 +31,8 @@
 
 'use strict';
 
+const Sun = require('./sun');
+
 /* The logic layer on the dashboard.
  *
  * Two rows, split the way a person thinks about them: the things you TRIGGER
@@ -286,6 +288,18 @@ function boundEntities(project) {
    * a wall tablet. */
   for (const e of logicEntities(project, project.floors || [], true)) ids.add(e);
   for (const e of logicEntities(project, project.floors || [], false)) ids.add(e);
+  /* The preview/install check must name the state inputs used inside the plan
+   * card too. Resolve each visible floor through the same deep/default-aware
+   * cascade as PlanScene and the card runtime; a partial floor override must
+   * not hide house-level weather/solar bindings, and selecting HA as the sun
+   * source must include the implicit default `sun.sun`. */
+  for (const floor of (project.floors || []).filter((f) => !f.hidden)) {
+    const sun = Sun.mergeConfig(project.sun, floor.sun);
+    if (!sun.enabled) continue;
+    if (sun.source === 'entity' && sun.sunEntity) ids.add(sun.sunEntity);
+    if (sun.weather && sun.weather.entity) ids.add(sun.weather.entity);
+    if (sun.solarSensor && sun.solarSensor.entity) ids.add(sun.solarSensor.entity);
+  }
   return [...ids].sort();
 }
 

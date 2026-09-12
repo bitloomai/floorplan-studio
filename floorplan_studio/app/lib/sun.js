@@ -186,7 +186,11 @@
           out[k] = Object.assign({}, out[k], v);
           // one more level, for weather.factors
           for (const [k2, v2] of Object.entries(v)) {
-            if (typeof v2 === 'object' && !Array.isArray(v2) && typeof out[k][k2] === 'object') {
+            /* `typeof null` is "object". Treating a deliberately empty entity
+             * id as a nested object turned it into `{}`, which is truthy and
+             * then looked like a real binding to the dashboard. */
+            if (v2 !== null && typeof v2 === 'object' && !Array.isArray(v2)
+              && out[k][k2] !== null && typeof out[k][k2] === 'object') {
               out[k][k2] = Object.assign({}, out[k][k2], v2);
             }
           }
