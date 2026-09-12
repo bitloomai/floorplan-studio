@@ -6,7 +6,7 @@ category: library
 tags: stairs, lift, circulation, steps, cut
 applies: type:furniture.stairs, type:furniture.lift, shape:stairs, section:item.stairs, field:item.treadFinish
 see: item-aim, concept-units
-order: 52
+order: 54
 ---
 
 Stairs and lifts are **architecture rather than kit**, so they take building

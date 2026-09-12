@@ -97,6 +97,7 @@ const CATEGORIES = [
   ['light', 'Light and daylight'],
   ['controls', 'Controls and popups'],
   ['dashboard', 'The dashboard'],
+  ['agent', 'Working with an AI'],
   ['data', 'Projects, import and export'],
   ['reference', 'Reference'],
 ];
@@ -553,6 +554,12 @@ function corpus(library, opts) {
     const keys = t.applies.filter((s) => s.startsWith('type:')).map((s) => s.slice(5));
     if (keys.length && library?.types) t.navigation = keys.filter((k) => library.types[k]).map((k) => navigation.forType(k, library.types[k], library));
     if (t.applies.includes('concept:audit')) t.navigation = [{ id: 'audit-command', steps: [{ label: 'Repository terminal' }, { label: 'node tools/audit-plan.js path.project.json' }], instruction: 'This diagnostic is a command-line tool; it is not an editor button.' }];
+    /* The MCP server is reached from an AI client, not from a control in this
+     * app, so its access path is the connection rather than a button. Stated
+     * here for the same reason as the audit command: every topic promises the
+     * reader a way to get to what it describes, and "there isn't one" is a
+     * worse answer than "it is not in this window, it is over there". */
+    if (t.applies.includes('concept:mcp')) t.navigation = [{ id: 'mcp-endpoint', steps: [{ label: 'Your AI client' }, { label: 'Add an MCP server' }, { label: 'http://<home-assistant>:8099/mcp' }], instruction: 'MCP is reached from an AI assistant, not from a control in this editor. Home Assistant app options mcp_enabled and mcp_allow_dashboard_install govern what it can do.' }];
   }
   const byId = new Map(all.map((t) => [t.id, t]));
   if (byId.size !== all.length) errors.push('Help topic ids must be unique, including generated type ids.');

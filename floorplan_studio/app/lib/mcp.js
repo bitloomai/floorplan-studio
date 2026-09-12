@@ -281,18 +281,57 @@ tool({
 
 tool({
   name: 'get_project',
-  description: 'Read the current project. Includes floor.annotations, the user’s targeted review notes. Use list_annotations for expanded targets. Pass floorId to get just one floor (much smaller) instead of the whole house.',
-  inputSchema: { type: 'object', properties: { floorId: { type: 'string', description: 'Return only this floor plus the project\'s top-level fields.' } }, additionalProperties: false },
+  description: 'Read the current project. Includes floor.annotations, the user’s targeted review notes — use list_annotations for expanded targets. A real house is a big document, so READ NARROWLY: outline:true for the index (floors, counts and room names, no geometry), floorId for one floor, and find_objects for the handful of objects a job actually touches. Only ask for the whole project when you genuinely need all of it.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      floorId: { type: 'string', description: 'Return only this floor plus the project\'s top-level fields.' },
+      outline: { type: 'boolean', description: 'Return the index instead of the contents: every floor with its extent, its counts, and its rooms as id/name/type. Small enough to read first on any plan.' },
+    },
+    additionalProperties: false,
+  },
   async run(args) {
+    const a = args || {};
     const project = await store.readProject();
-    if (args && args.floorId) {
-      const floor = findFloor(project, args.floorId);
+    if (a.outline) return outline(project, a.floorId);
+    if (a.floorId) {
+      const floor = findFloor(project, a.floorId);
       const { floors, ...rest } = project;
       return Object.assign({}, rest, { floor });
     }
     return project;
   },
 });
+
+/* The index of a plan: what floors exist, how much is on each of them, and
+ * what the rooms are called. Everything an agent needs to decide WHERE to look
+ * and nothing it needs to look AT, which is the point — a five-floor house is
+ * a few hundred kilobytes of geometry and this is a couple of kilobytes. */
+function outline(project, floorId) {
+  const floors = (project.floors || []).filter((f) => !floorId || f.id === floorId);
+  if (floorId && !floors.length) findFloor(project, floorId);
+  return {
+    name: project.name,
+    units: 'feet',
+    floors: floors.map((f) => ({
+      id: f.id, name: f.name, level_ft: f.level_ft, extent: f.extent,
+      counts: {
+        rooms: (f.rooms || []).length, items: (f.items || []).length,
+        openings: (f.openings || []).length, boundaries: (f.boundaries || []).length,
+        annotations: (f.annotations || []).length,
+        openNotes: (f.annotations || []).filter((n) => n && n.status !== 'done').length,
+      },
+      rooms: (f.rooms || []).map((r) => ({ id: r.id, name: r.name, shape: r.shape, outdoor: !!r.outdoor, part_of: r.part_of || undefined })),
+      /* A type census rather than a list: "this floor has 18 spots and 4 fans"
+       * tells you whether to fetch them without fetching them. */
+      itemTypes: Object.entries((f.items || []).reduce((n, i) => {
+        const key = `${i.kind}.${i.type}`;
+        n[key] = (n[key] || 0) + 1;
+        return n;
+      }, {})).sort((x, y) => y[1] - x[1]).map(([key, count]) => ({ key, count })),
+    })),
+  };
+}
 
 tool({
   name: 'get_help',
@@ -450,6 +489,7 @@ tool({
       op: { type: 'string', enum: ['add', 'update', 'remove'] },
       floorId: { type: 'string', description: 'Required for rooms/items/openings/boundaries/annotations. Ignored for floors.' },
       id: { type: 'string', description: 'Required for update/remove. Optional for add (auto-generated using this editor\'s own id conventions if omitted).' },
+      ids: { type: 'array', items: { type: 'string' }, description: 'Instead of id: apply the same update or remove to several members at once, in one save. Not valid for add.' },
       value: {
         type: 'object',
         description: 'add: the new object\'s fields (unset fields get the same defaults the editor itself would use). update: a shallow patch merged onto the existing object (item.props is merged one level deeper, so a partial props update does not erase other properties).',
@@ -460,24 +500,183 @@ tool({
   },
   async run(args) {
     const a = args || {};
-    if (!['floors', 'rooms', 'items', 'openings', 'boundaries', 'annotations'].includes(a.collection)) throw new ToolError('collection must be floors/rooms/items/openings/boundaries/annotations');
-    if (!['add', 'update', 'remove'].includes(a.op)) throw new ToolError('op must be add/update/remove');
     const [project, library, boundaries] = await Promise.all([store.readProject(), store.readLibrary(), store.readBoundaries()]);
+    return withSave(project, library, applyEdit(project, library, boundaries, a));
+  },
+});
 
-    if (a.collection === 'floors') return editFloors(project, library, a);
-    if (!a.floorId) throw new ToolError(`floorId is required for collection "${a.collection}"`);
-    const floor = findFloor(project, a.floorId);
-    if (a.collection === 'annotations') return editAnnotations(project, library, floor, a);
-    if (a.collection === 'rooms') return editRooms(project, library, floor, a);
-    if (a.collection === 'items') return editItems(project, library, floor, a);
-    if (a.collection === 'boundaries') return editBoundaries(project, library, boundaries, floor, a);
-    return editOpenings(project, library, boundaries, floor, a);
+/* One edit, applied to an in-memory project and NOT saved.
+ *
+ * The save is the expensive half — it validates the whole document, rewrites it
+ * and wakes every open editor — so it belongs to the caller. `edit_collection`
+ * does one edit and one save; `edit_batch` does many edits and one save, which
+ * is what makes "restyle these forty downlights" a single round trip rather
+ * than forty reads of a house-sized document. */
+function applyEdit(project, library, boundaries, a) {
+  if (!['floors', 'rooms', 'items', 'openings', 'boundaries', 'annotations'].includes(a.collection)) throw new ToolError('collection must be floors/rooms/items/openings/boundaries/annotations');
+  if (!['add', 'update', 'remove'].includes(a.op)) throw new ToolError('op must be add/update/remove');
+  if (a.collection === 'floors') return editFloors(project, library, a);
+  if (!a.floorId) throw new ToolError(`floorId is required for collection "${a.collection}"`);
+  const floor = findFloor(project, a.floorId);
+  /* `ids` is the same edit applied to several members of one collection. It is
+   * only ever a fan-out of the single-id path, so nothing is true of a batch
+   * that is not true of doing them one at a time. */
+  if (Array.isArray(a.ids)) {
+    if (a.op === 'add') throw new ToolError('ids is for update/remove — add one object at a time, so each gets its own id');
+    if (!a.ids.length) throw new ToolError('ids is empty');
+    const results = a.ids.map((id) => applyOne(project, library, boundaries, floor, Object.assign({}, a, { id })));
+    return { [a.op === 'remove' ? 'removed' : 'updated']: a.ids.slice(), count: results.length, results };
+  }
+  return applyOne(project, library, boundaries, floor, a);
+}
+
+function applyOne(project, library, boundaries, floor, a) {
+  if (a.collection === 'annotations') return editAnnotations(project, library, floor, a);
+  if (a.collection === 'rooms') return editRooms(project, library, floor, a);
+  if (a.collection === 'items') return editItems(project, library, floor, a);
+  if (a.collection === 'boundaries') return editBoundaries(project, library, boundaries, floor, a);
+  return editOpenings(project, library, boundaries, floor, a);
+}
+
+tool({
+  name: 'edit_batch',
+  description: 'Apply many edits in ONE call: one read, one validation, one write, one editor refresh. Each entry is exactly an edit_collection call (collection/op/floorId/id/ids/value) and behaves identically. Use this whenever a change touches more than a couple of objects — recolouring every downlight on a floor, moving a room and the furniture in it, closing a run of review notes. Edits apply in order and share one document, so an object added by one entry can be updated by a later one. If any entry is rejected NOTHING is written: the project on disk is never left half-edited.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      edits: {
+        type: 'array',
+        description: 'Up to 200 edit_collection calls, applied in order.',
+        items: {
+          type: 'object',
+          properties: {
+            collection: { type: 'string', enum: ['floors', 'rooms', 'items', 'openings', 'boundaries', 'annotations'] },
+            op: { type: 'string', enum: ['add', 'update', 'remove'] },
+            floorId: { type: 'string' },
+            id: { type: 'string' },
+            ids: { type: 'array', items: { type: 'string' }, description: 'Apply this same update/remove to several members of the collection.' },
+            value: { type: 'object' },
+          },
+          required: ['collection', 'op'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['edits'],
+    additionalProperties: false,
+  },
+  async run(args) {
+    const edits = (args || {}).edits;
+    if (!Array.isArray(edits) || !edits.length) throw new ToolError('edits must be a non-empty array of edit_collection calls');
+    if (edits.length > 200) throw new ToolError(`edits has ${edits.length} entries; 200 is the limit for one batch`);
+    const [project, library, boundaries] = await Promise.all([store.readProject(), store.readLibrary(), store.readBoundaries()]);
+    const results = [];
+    edits.forEach((edit, i) => {
+      /* Which entry failed, out of two hundred, is the whole message. */
+      try { results.push(applyEdit(project, library, boundaries, edit || {})); }
+      catch (e) { throw new ToolError(`edits[${i}] (${(edit || {}).op} ${(edit || {}).collection}): ${e.message} — nothing was written`); }
+    });
+    return withSave(project, library, { applied: results.length, results });
   },
 });
 
 tool({
+  name: 'find_objects',
+  description: 'Fetch just the objects a job touches, instead of downloading a floor to look for them. Filters across every floor or one: by id, by library type or kind, by the room something is in, by bound entity, by free text, or by distance from a point. Returns whole objects by default; pass fields to project a few keys, or summary:true for an id/type/room/entity index. Every result carries its floorId and id, which is exactly what edit_collection and edit_batch take — so find, then patch, and the big document is never read or rewritten by you at all.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      collection: { type: 'string', enum: ['rooms', 'items', 'openings', 'boundaries', 'annotations'] },
+      floorId: { type: 'string', description: 'One floor. Omit to search the whole house.' },
+      ids: { type: 'array', items: { type: 'string' }, description: 'Exactly these ids.' },
+      type: { type: 'string', description: 'Library type for items ("spot" or "fixture.spot"), the opening type ("window"), the boundary type ("glass_railing").' },
+      kind: { type: 'string', enum: KINDS, description: 'Items only: fixture/device/furniture/logic.' },
+      room: { type: 'string', description: 'Room id. For items this is item.room, the LABEL — an item may sit outside the room it names.' },
+      entity: { type: 'string', description: 'Bound entity id, or a substring of one. Use "none" to find everything still unbound.' },
+      q: { type: 'string', description: 'Case-insensitive substring across id, name, type, entity and (for notes) text.' },
+      near: { type: 'array', items: { type: 'number' }, description: '[x, y] in feet. With withinFt, only objects whose centre is inside that radius.' },
+      withinFt: { type: 'number', description: 'Radius for near. Default 6.' },
+      fields: { type: 'array', items: { type: 'string' }, description: 'Dot paths to return instead of whole objects, e.g. ["id","entity","props.watt"]. floorId and id are always included.' },
+      summary: { type: 'boolean', description: 'Return id/type/room/entity/position only — the cheapest way to see what matched.' },
+      limit: { type: 'number', description: 'Default 100, maximum 500.' },
+    },
+    required: ['collection'],
+    additionalProperties: false,
+  },
+  async run(args) {
+    const a = args || {};
+    const [project, library] = await Promise.all([store.readProject(), store.readLibrary()]);
+    if (a.floorId) findFloor(project, a.floorId);
+    if (a.near && !(Array.isArray(a.near) && a.near.length === 2 && a.near.every(Number.isFinite))) throw new ToolError('near must be [x, y] in feet');
+    const key = { rooms: 'rooms', items: 'items', openings: 'openings', boundaries: 'boundaries', annotations: 'annotations' }[a.collection];
+    const kinds = { items: 'item', openings: 'opening', boundaries: 'boundary', rooms: 'room' };
+    const limit = Math.max(1, Math.min(500, a.limit || 100));
+    const q = a.q ? String(a.q).toLowerCase() : null;
+    const within = Number.isFinite(a.withinFt) ? a.withinFt : 6;
+    const bare = a.type && a.type.includes('.') ? a.type.split('.').pop() : a.type;
+    const matched = [];
+    let total = 0;
+
+    for (const floor of project.floors || []) {
+      if (a.floorId && floor.id !== a.floorId) continue;
+      for (const obj of floor[key] || []) {
+        if (!obj) continue;
+        if (a.ids && !a.ids.includes(obj.id)) continue;
+        if (a.kind && obj.kind !== a.kind) continue;
+        if (a.type && obj.type !== bare && `${obj.kind}.${obj.type}` !== a.type) continue;
+        if (a.room && (a.collection === 'rooms' ? obj.id : obj.room) !== a.room) continue;
+        if (a.entity) {
+          const bound = obj.entity || '';
+          if (a.entity === 'none' ? bound : !bound.toLowerCase().includes(String(a.entity).toLowerCase())) continue;
+        }
+        if (q && !['id', 'name', 'type', 'kind', 'entity', 'text', 'room'].some((k) => String(obj[k] || '').toLowerCase().includes(q))) continue;
+        let distanceFt;
+        if (a.near) {
+          /* Distance uses the same anchor a review note pins to, so "within 6
+           * feet" means the same thing here as it does on the canvas. */
+          const at = a.collection === 'annotations' ? obj.at : Annotations.anchor(floor, { kind: kinds[a.collection], id: obj.id }, library);
+          if (!at) continue;
+          distanceFt = Math.round(Math.hypot(at[0] - a.near[0], at[1] - a.near[1]) * 10) / 10;
+          if (distanceFt > within) continue;
+        }
+        total++;
+        if (matched.length >= limit) continue;
+        matched.push(matchRow(floor, obj, a, library, distanceFt));
+      }
+    }
+    /* Asked "what is near here", answer nearest first: the first row is then
+     * the one the question was almost certainly about. */
+    if (a.near) matched.sort((x, y) => x.distanceFt - y.distanceFt);
+    return { count: matched.length, total, truncated: total > matched.length, objects: matched };
+  },
+});
+
+/* What one match is reported AS. Whole object, a projection, or the index row
+ * — always with the floorId and id that address it in an edit. */
+function matchRow(floor, obj, a, library, distanceFt) {
+  const head = { floorId: floor.id, id: obj.id, ...(distanceFt === undefined ? {} : { distanceFt }) };
+  if (Array.isArray(a.fields) && a.fields.length) {
+    for (const path of a.fields) if (path !== 'id' && path !== 'floorId') head[path] = deepGet(obj, path);
+    return head;
+  }
+  if (a.summary) {
+    const type = a.collection === 'items' ? planScene.resolveType(library, obj) : null;
+    return Object.assign(head, {
+      name: obj.name || (type && type.label) || undefined,
+      typeKey: a.collection === 'items' ? `${obj.kind}.${obj.type}` : obj.type,
+      room: a.collection === 'rooms' ? undefined : obj.room,
+      entity: obj.entity || undefined,
+      at: obj.at || obj.rect || undefined,
+      status: obj.status,
+      text: obj.text,
+    });
+  }
+  return Object.assign(head, obj);
+}
+
+tool({
   name: 'list_annotations',
-  description: 'Read review notes with current targets expanded, including floor, pin, status, item type/label/props and missing targets. Resolve notes with status done using edit_collection; preserve the user’s words.',
+  description: 'Read review notes with their targets expanded AND the data around them: the floor, the room the note is really about, what else is under its pin, and the items and openings within a few feet of it. That context is the difference between \"this corner is too dark\" and knowing which room and which lamps to change. Resolve notes with status done using edit_collection; preserve the user’s words.',
   inputSchema: { type: 'object', properties: { floorId: { type: 'string' }, status: { type: 'string', enum: ['open', 'done'] } }, additionalProperties: false },
   async run(args = {}) {
     if (args.status && !['open', 'done'].includes(args.status)) throw new ToolError('status must be open or done');
@@ -493,14 +692,14 @@ function editAnnotations(project, library, floor, a) {
     const note = Annotations.make(floor, { ...a.value, ...(a.id ? { id: a.id } : {}) }, library);
     if (notes.some(n => n.id === note.id)) throw new ToolError('annotation id already exists');
     notes.push(note);
-    return withSave(project, library, { added: note.id, annotation: note });
+    return { added: note.id, annotation: note };
   }
   const note = notes.find(n => n.id === a.id);
   if (!note) throw new ToolError('annotation not found');
-  if (a.op === 'remove') { floor.annotations = notes.filter(n => n.id !== a.id); return withSave(project, library, { removed: a.id }); }
+  if (a.op === 'remove') { floor.annotations = notes.filter(n => n.id !== a.id); return { removed: a.id }; }
   const v = a.value || {};
   for (const key of ['text', 'target', 'at', 'status']) if (Object.hasOwn(v, key)) note[key] = v[key];
-  return withSave(project, library, { updated: note.id, annotation: note });
+  return { updated: note.id, annotation: note };
 }
 
 function editFloors(project, library, a) {
@@ -516,15 +715,15 @@ function editFloors(project, library, a) {
       schemaVersion: (project.floors[0] && project.floors[0].schemaVersion) || 2,
     }, v, { id, rooms: [], openings: [], items: [] });
     project.floors.push(floor);
-    return withSave(project, library, { added: id, floor });
+    return { added: id, floor };
   }
   const floor = findFloor(project, a.id);
   if (a.op === 'update') {
     Object.assign(floor, a.value || {}, { id: floor.id });
-    return withSave(project, library, { updated: floor.id, floor });
+    return { updated: floor.id, floor };
   }
   project.floors = project.floors.filter((f) => f.id !== a.id);
-  return withSave(project, library, { removed: a.id });
+  return { removed: a.id };
 }
 
 function editRooms(project, library, floor, a) {
@@ -540,7 +739,7 @@ function editRooms(project, library, floor, a) {
       floor: 'default', outdoor: false, noLabel: false, chip_at: null, chip_rotate: 0, part_of: null,
     }, v, { id, _autoId: !a.id && !v.id });
     floor.rooms.push(room);
-    return withSave(project, library, { added: id, room });
+    return { added: id, room };
   }
   const room = floor.rooms.find((r) => r.id === a.id);
   if (!room) throw new ToolError(`no room "${a.id}" on floor "${floor.id}"`);
@@ -550,7 +749,7 @@ function editRooms(project, library, floor, a) {
       ? identity.rename(project, floor, room, name === undefined ? room.name : name, id === undefined ? {} : { id })
       : { oldId: room.id, id: room.id, changed: false };
     Object.assign(room, rest);
-    return withSave(project, library, { updated: room.id, room, ...(renamed.changed ? { renamed } : {}) });
+    return { updated: room.id, room, ...(renamed.changed ? { renamed } : {}) };
   }
   /* Mirrors canvas.js's deleteSelected: openings and boundary overrides on the
    * room go with it; items keep their (now stale) room label rather than
@@ -559,7 +758,7 @@ function editRooms(project, library, floor, a) {
   const removedOpenings = (floor.openings || []).filter((o) => o.room === a.id).length;
   floor.openings = (floor.openings || []).filter((o) => o.room !== a.id);
   floor.boundaries = (floor.boundaries || []).filter((b) => b.room !== a.id);
-  return withSave(project, library, { removed: a.id, cascadedOpenings: removedOpenings });
+  return { removed: a.id, cascadedOpenings: removedOpenings };
 }
 
 function editItems(project, library, floor, a) {
@@ -581,7 +780,7 @@ function editItems(project, library, floor, a) {
       props: JSON.parse(JSON.stringify(Object.assign({}, typeDef.defaults || {}, v.props || {}))),
     };
     floor.items.push(item);
-    return withSave(project, library, { added: id, item });
+    return { added: id, item };
   }
   const item = floor.items.find((i) => i.id === a.id);
   if (!item) throw new ToolError(`no item "${a.id}" on floor "${floor.id}"`);
@@ -590,10 +789,10 @@ function editItems(project, library, floor, a) {
     const { props, ...rest } = v;
     Object.assign(item, rest, { id: item.id });
     if (props) item.props = Object.assign({}, item.props, props);
-    return withSave(project, library, { updated: item.id, item });
+    return { updated: item.id, item };
   }
   floor.items = floor.items.filter((i) => i.id !== a.id);
-  return withSave(project, library, { removed: a.id });
+  return { removed: a.id };
 }
 
 function editOpenings(project, library, boundaries, floor, a) {
@@ -621,16 +820,16 @@ function editOpenings(project, library, boundaries, floor, a) {
       if (opening[k] === undefined && defaults[k] !== undefined) opening[k] = defaults[k];
     }
     floor.openings.push(opening);
-    return withSave(project, library, { added: id, opening });
+    return { added: id, opening };
   }
   const opening = floor.openings.find((o) => o.id === a.id);
   if (!opening) throw new ToolError(`no opening "${a.id}" on floor "${floor.id}"`);
   if (a.op === 'update') {
     Object.assign(opening, a.value || {}, { id: opening.id });
-    return withSave(project, library, { updated: opening.id, opening });
+    return { updated: opening.id, opening };
   }
   floor.openings = floor.openings.filter((o) => o.id !== a.id);
-  return withSave(project, library, { removed: a.id });
+  return { removed: a.id };
 }
 
 /* Boundaries — what a room's edges are MADE of.
@@ -667,17 +866,17 @@ function editBoundaries(project, library, boundaries, floor, a) {
     /* `from`/`to` are optional: omitted means the whole edge, which is what a
      * caller usually wants and what the renderer already defaults to. */
     floor.boundaries.push(Object.assign({}, v, { id, room: v.room, wall: v.wall, type: v.type }));
-    return withSave(project, library, { added: id, boundary: floor.boundaries[floor.boundaries.length - 1] });
+    return { added: id, boundary: floor.boundaries[floor.boundaries.length - 1] };
   }
   const b = floor.boundaries.find((x) => x.id === a.id);
   if (!b) throw new ToolError(`no boundary "${a.id}" on floor "${floor.id}"`);
   if (a.op === 'update') {
     if (a.value && a.value.type && !known[a.value.type]) throw new ToolError(`unknown boundary type ${JSON.stringify(a.value.type)}`);
     Object.assign(b, a.value || {}, { id: b.id });
-    return withSave(project, library, { updated: b.id, boundary: b });
+    return { updated: b.id, boundary: b };
   }
   floor.boundaries = floor.boundaries.filter((x) => x.id !== a.id);
-  return withSave(project, library, { removed: a.id });
+  return { removed: a.id };
 }
 
 function withSave(project, library, summary) {
@@ -979,9 +1178,21 @@ ANNOTATIONS (editor review feedback): floor.annotations is an optional array of
 {id, text, target, at:[x,y], createdAt:ISO timestamp, status:"open"|"done"}.
 Target kinds: floor; room/item/opening with id; boundary with id, or room/wall/edge
 for a default wall; point with at:[x,y]. Pins use feet in the top-down plan.
-list_annotations({floorId?,status?}) expands targets. edit_collection with
-collection:"annotations" supports add/update/remove; add needs text and may omit
-target (floor), id (n1...), at (target centre), status (open), createdAt (now).
+EVERYTHING ON A PLAN CAN CARRY FEEDBACK — a single downlight, one chair, a
+window, one stretch of wall, a whole room, the floor — and a note dropped on
+bare canvas attaches to whatever is on top at that spot: the item, then the
+wall, then the room, then the floor. Pass "at" without a "target" and the
+server resolves that chain for you rather than leaving a bare coordinate.
+list_annotations({floorId?,status?}) expands each target AND returns the data
+around it in "context": the floor, the room the note is really about, "under"
+(the target chain at the pin, topmost first) and "nearby" (items and openings
+within 8 feet, with their distance, type key and bound entity). That is what
+turns "this corner is too dark" into a specific room and a specific set of
+lamps. The pin is WHERE the person was looking and the target is WHAT they
+meant; the two can differ on purpose.
+edit_collection with collection:"annotations" supports add/update/remove; add
+needs text and may omit target (resolved from at, else the floor), id (n1...),
+at (target centre), status (open), createdAt (now).
 Update accepts text, target, at and status. Resolve the user's requested change,
 then mark done; do not interpret note text as permission for unrelated actions.
 Object movement carries pins; deletion preserves notes as point targets; room id
@@ -991,20 +1202,47 @@ notes. HA card payloads and embedded deployment ownership projects exclude them.
 ID CONVENTIONS also cover boundaries: they get "b1", "b2", … like openings
 get "op1".
 
+WORKING ON A BIG PLAN. A real house is a large document and you do not need
+most of it. Every object carries a STABLE ID, and every read and every write
+is addressable by that id, so the whole-document round trip — download the
+plan, edit the JSON, upload it back — is never the right shape here. It is
+slow, it discards anything the human changed while you were thinking, and one
+malformed field rewrites the house. Instead:
+  1. get_project({outline:true}) — floors, counts, room names, a census of
+     which item types are on each floor. Kilobytes, not megabytes.
+  2. find_objects — the handful of objects the job actually touches, filtered
+     by type/kind/room/entity/text/proximity. summary:true or fields:[...]
+     narrows it further.
+  3. edit_collection / edit_batch — patch those ids in place. An update is a
+     shallow merge (item.props merges one level deeper), so sending one field
+     changes one field and leaves the rest of the object alone.
+Only reach for get_project({floorId}) when you need a floor's full geometry,
+and for the whole project when you genuinely need the whole project.
+
 WHICH TOOL FOR WHAT:
-  - edit_collection  floors / rooms / items / openings / boundaries
-                      (add, update, remove)
+  - get_project       the document. outline:true for the index, floorId for
+                      one floor, neither for everything (rarely what you want)
+  - find_objects      just the objects matching a filter, across floors or on
+                      one, as whole objects, projected fields, or an index
+  - edit_collection  floors / rooms / items / openings / boundaries /
+                      annotations (add, update, remove; "ids" for several at
+                      once)
+  - edit_batch        many edit_collection calls, one validation and one save.
+                      All-or-nothing: a rejected entry writes nothing
   - edit_settings     everything else, by dot path (dashboard.*, lighting.*,
                       sun.*, chips.*, coverage.*, compass.*). It REFUSES any
                       path starting "floors" on purpose — everything under a
                       floor is a collection member, so patch it with
                       edit_collection's "update" instead, including a room's
                       own controls/keys/shortcuts/daylight.
+  - list_annotations  the human's review notes, with targets and surrounding
+                      context expanded
   - validate_project  run the structural check on demand
   - list_library      valid item type keys and the 47 room presets
   - get_registry      library / themes / flooring / boundaries / controls / schemes
   - edit_registry     shared registry fields, by array of literal keys;
                       read first, replaces that value, preserves other fields
+  - get_help          what a control MEANS, in prose
   - preview_dashboard what Generate would produce, no Home Assistant write
   - install_dashboard the one tool that writes to Home Assistant — only
                       present in this list if a human has turned it on

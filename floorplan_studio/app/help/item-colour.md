@@ -6,7 +6,7 @@ category: library
 tags: colour, color, scheme, finish, material, paint, wood, upholstery, export
 applies: section:item.colour, dialog:schemes, field:item.scheme, registry:schemes
 see: panel-item, data-import-export
-order: 51
+order: 48
 ---
 
 A plan drawn entirely in one grey says where everything is and nothing about

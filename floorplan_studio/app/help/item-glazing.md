@@ -5,6 +5,7 @@ summary: One whole aperture, cut plain or patterned — and why the cut is drawn
 category: library
 tags: skylight, glazing, roof light, jaali, cnc, pattern, glass
 applies: type:furniture.glazing, shape:glazing
+order: 56
 see: concept-daylight, item-colour, walls-openings
 ---
 

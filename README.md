@@ -34,12 +34,13 @@ floor based on the house the test suite runs against.</sub>
 
 ## Status
 
-> **Development snapshot, app version 0.0.1.** This has **not yet been
-> installed against a real Home Assistant Supervisor**, and its stage is
-> `experimental` on purpose. The editor and dashboard-card engine are well
-> developed; Supervisor acceptance testing remains release-blocking. Do not
-> present it as a stable public app yet — see [Home Assistant app](#home-assistant-app)
-> for exactly what is and is not ready.
+> **Development snapshot, app version 0.0.1.** The stage is `experimental` on
+> purpose: the app is **currently being tested in detail in Home Assistant**,
+> against a real Supervisor and Ingress, and that testing is what stands
+> between it and a release. The editor and the dashboard-card engine are well
+> developed. Do not present it as a stable public app yet — see
+> [Home Assistant app](#home-assistant-app) for exactly where that testing has
+> and has not reached.
 
 ## What it does
 
@@ -53,8 +54,8 @@ floor based on the house the test suite runs against.</sub>
 | 🔌 **Bound to your entities** | Pick an entity per marker, or type one offline. Live state is drawn on the plan: lamps pool light, a fan spins, a camera shows its cone, each gang of a switch reads its own entity. |
 | ☀️ **Daylight and lamps modelled** | Real solar position per your coordinates, light through openings, artificial-light levels in foot-candles, and a night scrim that thins as the sun comes up. |
 | 📊 **One press to a dashboard** | Generates a Lovelace dashboard, one view per floor, from the same renderer — installed as a resource by the app itself. No HACS, nothing copied into `config/www/`. |
-| 🤖 **Drivable by an AI** | An MCP endpoint, so a model can draw and edit the plan while your editor updates live. |
-| 📌 **Say where you mean** | Pin a review note to a floor, a room, an item, an opening, a wall or a bare point. Notes follow what they are attached to, survive its deletion as point notes, and are read back by an assistant with their targets expanded. They never reach Home Assistant. |
+| 🤖 **Drivable by an AI** | An MCP endpoint, so a model can draw and edit the plan while your editor updates live — working object by object through stable ids rather than rewriting the file. |
+| 📌 **Say where you mean** | Pin a review note to a floor, a room, an item, an opening, a wall or a bare point — drop one on empty canvas and it attaches to whatever is on top there. Notes follow what they are attached to and survive its deletion as point notes. An assistant reads them back with the target expanded *and* the data around it: the room the note is really about, what else is under the pin, and the items and openings within a few feet. They never reach Home Assistant. |
 | 🖐️ **Mouse, trackpad or tablet** | Pinch and two-finger pan on touch, trackpad pinch, `Space` or middle-drag on a mouse — and zoom that holds the point you are pointing at. A drag latches to the axis it started along, so stretching a room upward on a tablet does not quietly widen it. Right-click, or hold a finger still, for the object under the pointer. On a narrow screen the rail and inspector become drawers so the plan gets the whole window, and an **S** button opens the keyboard's commands as buttons for a tablet that has no keyboard. |
 | 📖 **Help that follows the data** | Contextual help and generated catalogues describe the same registries the editor uses. Advanced settings are marked, and the shared dialog frame keeps them reachable. |
 | 📦 **No runtime dependencies** | No third-party runtime packages or lockfile. The production image is distroless, with no shell or package manager. |
@@ -293,8 +294,8 @@ generated five-floor card preview successfully.
 
 This mode is **not release-ready** because:
 
-- it has never been installed or exercised under real Home Assistant
-  Supervisor/Ingress;
+- it is still being exercised in detail under real Home Assistant
+  Supervisor/Ingress, and that testing is not finished;
 
 Node.js 24 supplies the stable global `WebSocket` used by the Lovelace writer,
 so the former Node 20 runtime blocker is resolved. The image supports `amd64`
@@ -302,9 +303,9 @@ and `aarch64`, including Raspberry Pi 3/4/5 and Zero 2 W installations running
 64-bit Home Assistant OS. Legacy 32-bit `armv7` is not supported by the Node 24
 distroless runtime.
 
-Do not present the current package as a stable public app. When integration
-testing begins, install it as an experimental local app and generate to a
-new dashboard path.
+Do not present the current package as a stable public app. While that testing
+is under way, install it as an experimental local app and generate to a new
+dashboard path rather than over one you rely on.
 
 ## Driving the editor with an AI (MCP)
 
@@ -343,18 +344,30 @@ guide is then available three more ways — as the resource
 `get_guide` tool — all serving the same `SKILL.md` the add-on ships, which a
 filesystem-aware client can also load directly as a skill.
 
-**Tools:** `get_contract` (read this first — the project schema and which
-tool reaches what), `get_project`, `get_registry`, `list_library` to read;
-`edit_collection` (floors/rooms/items/openings — add/update/remove) and
-`edit_settings` (other project settings, by dot path) and `edit_registry`
-(shared library, flooring, theme, boundary and control fields, by literal key
-path) to write; `validate_project`
-on demand (every write already runs the same check and refuses to save on
-error); `preview_dashboard` to see what Generate would produce; and
-`install_dashboard`, which actually writes to Home Assistant and is **only
-advertised when the app option `mcp_allow_dashboard_install` is turned
-on** (off by default) — an AI can draw and edit freely from the moment it
-connects, but cannot touch a live dashboard until a human opts in.
+**Tools:** `get_contract` (read this first — the project schema and which tool
+reaches what), `get_project`, `find_objects`, `get_registry`, `list_library`
+and `get_help` to read; `edit_collection` (floors/rooms/items/openings/
+boundaries/annotations — add/update/remove), `edit_batch` (many of those in one
+write), `edit_settings` (other project settings, by dot path) and
+`edit_registry` (shared library, flooring, theme, boundary and control fields,
+by literal key path) to write; `list_annotations` for the review notes a human
+pinned to the plan; `validate_project` on demand (every write already runs the
+same check and refuses to save on error); `preview_dashboard` to see what
+Generate would produce; and `install_dashboard`, which actually writes to Home
+Assistant and is **only advertised when the app option
+`mcp_allow_dashboard_install` is turned on** (off by default) — an AI can draw
+and edit freely from the moment it connects, but cannot touch a live dashboard
+until a human opts in.
+
+**A plan is a big document, and nothing has to read all of it.** Every floor,
+room, item, opening, wall and note carries a stable id, and the server is built
+around addressing them rather than shipping the house back and forth:
+`get_project({outline:true})` is the index — floors, room names, a census of
+what is on each — and `find_objects` returns just the objects a job touches,
+filtered by type, kind, room, bound entity, free text or distance from a point.
+An `edit_collection` update is a patch, not a replacement, so changing one lamp
+never means reading or rewriting the other three hundred. `edit_batch` applies
+up to 200 of those as one validation and one save, all-or-nothing.
 
 **Live view:** the editor, if open, updates over one Server-Sent Events
 connection as soon as anything changes the project — from this MCP server or
@@ -532,21 +545,21 @@ intended.
 The app carries the required metadata, Node.js 24 image labels,
 Ingress lifecycle/watchdog settings, option translations, presentation assets,
 the Apache-2.0 `LICENSE`, `NOTICE` and `THIRD_PARTY_NOTICES.md`, and an
-AppArmor profile. It remains experimental. Before public publication it still
-needs:
+AppArmor profile. It remains experimental, and is being tested in detail in
+Home Assistant now. Before public publication it still needs:
 
 - multi-architecture build/release automation and image signing;
-- **verification of `apparmor.txt` against audit logs on Home Assistant OS.**
-  The profile is written and shipped, and is far tighter than the template in
-  the Home Assistant documentation — no `file,` blanket grant, no capabilities,
-  five named directories, and `/data` the only writable one, because a
-  distroless image has no shell or s6 to accommodate. But it was derived from
-  the image's contents and this app's source, not from a running instance. A
-  too-tight profile stops the app from starting, so the first install is also
-  this profile's first test. `DOCS.md` → "The AppArmor profile" has the
-  complain-mode procedure;
-- real Supervisor/Ingress, dashboard deployment, backup/restore and UI
-  acceptance testing on both `amd64` and `aarch64`.
+- **verification of `apparmor.txt` against audit logs on Home Assistant OS**,
+  which the current testing is working through. The profile is written and
+  shipped, and is far tighter than the template in the Home Assistant
+  documentation — no `file,` blanket grant, no capabilities, five named
+  directories, and `/data` the only writable one, because a distroless image
+  has no shell or s6 to accommodate. It was derived from the image's contents
+  and this app's source rather than from a running instance, and a too-tight
+  profile stops the app from starting, so an install is also this profile's
+  test. `DOCS.md` → "The AppArmor profile" has the complain-mode procedure;
+- that testing carried through on both `amd64` and `aarch64`: Supervisor and
+  Ingress, dashboard deployment, backup/restore, and the UI end to end.
 
 `CONTRIBUTING.md` covers contributions (Apache-2.0 §5, no CLA), the
 zero-dependency rule, house style, and the support policy. `SECURITY.md`
@@ -560,9 +573,9 @@ together.
 
 - `0.x` — development releases; storage migrations and workflow changes remain
   possible and must be documented.
-- `1.0.0` — only after app deployment, reopen/edit/redeploy, ownership
-  protection, and public packaging have all
-  passed real Home Assistant acceptance testing.
+- `1.0.0` — only once app deployment, reopen/edit/redeploy, ownership
+  protection and public packaging have all come through the Home Assistant
+  testing now in progress.
 - every release must keep `config.yaml`, the runtime-reported version, and
   `CHANGELOG.md` in sync.
 

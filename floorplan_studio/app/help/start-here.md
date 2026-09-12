@@ -5,7 +5,7 @@ summary: Draw your home once, and get a Home Assistant dashboard that looks like
 category: start
 tags: overview, orientation
 applies: topbar, concept:overview
-see: concept-units, canvas-tools, dashboard-install
+see: concept-units, canvas-tools, dashboard-install, agent-mcp
 order: 1
 ---
 
@@ -41,9 +41,10 @@ can come back to step 4 for years.
 **Nothing is saved to Home Assistant until you install the dashboard.** Editing
 here changes a project file, not your house.
 
-**The editor and this app's MCP server share one project.** If an assistant is
-editing alongside you, its changes appear on your canvas as they happen. There
-is no separate draft.
+**The editor and this app's MCP server share one project.** If an AI assistant
+is editing alongside you, its changes appear on your canvas as they happen.
+There is no separate draft, and no "apply" step. You can also hand it the work
+from the start — see *Letting an AI draw your plan*.
 
 ## Do you have to press Save?
 

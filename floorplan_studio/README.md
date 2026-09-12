@@ -4,10 +4,9 @@ Draw your home's floor plan in the browser, bind rooms and devices to Home
 Assistant entities, and generate a live Lovelace dashboard from the same
 renderer that drew the plan.
 
-> **Development snapshot, version 0.0.1.** This app has not yet been
-> installed against a real Home Assistant Supervisor. Its stage is
-> `experimental` on purpose. See the repository root for what is and is not
-> release-ready.
+> **Development snapshot, version 0.0.1.** This app is currently being tested
+> in detail in Home Assistant. Its stage is `experimental` on purpose. See the
+> repository root for what that testing has and has not reached.
 
 ## What it does
 
@@ -20,10 +19,12 @@ renderer that drew the plan.
 - Entity binding, with live state drawn on the plan — including templated value
   labels, per-gang wall switches, daylight and artificial-light modelling.
 - One-press generation of a Lovelace dashboard, one view per floor.
-- An MCP endpoint, so an AI can draw the plan instead of you dragging shapes.
-- Review notes pinned to a floor, room, item, opening, wall or point, readable by
-  that AI with their targets expanded — and stripped from everything the app
-  writes to Home Assistant.
+- An MCP endpoint, so an AI can draw the plan instead of you dragging shapes —
+  working object by object through stable ids rather than rewriting the file.
+- Review notes pinned to anything on the plan: a floor, a room, one lamp, a
+  window, a stretch of wall, or a bare point. An assistant reads them back with
+  the room they are about and what stands near them, and they are stripped from
+  everything the app writes to Home Assistant.
 
 ## Installing
 
@@ -49,6 +50,17 @@ no separate login and no port to open for the editor itself.
 
 Full documentation is in [DOCS.md](DOCS.md), which Home Assistant also shows in
 the app's **Documentation** tab.
+
+## Help
+
+Every panel and dialog in the editor has a **?** beside it that opens what
+applies *there*; the **?** button in the top bar opens the whole index, and the
+**⌨** button — or the `?` key — lists every key and gesture.
+
+The same text is published as a
+[help site](https://bitloomai.github.io/floorplan-studio/) and served to AI
+clients through `get_help`, so the editor, the site and your assistant cannot
+tell you three different things.
 
 ## What it can and cannot touch
 

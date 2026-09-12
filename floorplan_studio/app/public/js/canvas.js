@@ -1070,19 +1070,15 @@ window.Canvas = (function () {
       const id = d.annotation || d.item || d.opening || d.room || d.roomLabel;
       if (kind && !seen.has(kind + id)) { candidates.push({ kind, id }); seen.add(kind + id); }
     }
-    // Use the renderer's flattened edges, including curves and angled walls.
-    let nearest = null, distance = 12 / (S.view.zoom * scene.projector.S(1));
-    for (const room of Store.floor().rooms || []) for (const edge of PlanScene.roomEdges(room)) {
-      const dx = edge.b[0] - edge.a[0], dy = edge.b[1] - edge.a[1];
-      const t = Math.max(0, Math.min(1, ((ft.x-edge.a[0])*dx + (ft.y-edge.a[1])*dy)/(dx*dx+dy*dy || 1)));
-      const d = Math.hypot(ft.x-edge.a[0]-t*dx, ft.y-edge.a[1]-t*dy);
-      if (d < distance) { distance = d; nearest = { kind: 'boundary', room: room.id, wall: edge.wall, edge: edge.src ?? edge.index }; }
-    }
-    if (nearest) {
-      const match = (Store.floor().boundaries || []).find(b => b.room === nearest.room && b.wall === nearest.wall && (b.edge == null || b.edge === nearest.edge) && (b.from == null || (['n','s'].includes(b.wall) ? ft.x : ft.y) >= b.from) && (b.to == null || (['n','s'].includes(b.wall) ? ft.x : ft.y) <= b.to));
-      if (match?.id) nearest = { kind: 'boundary', id: match.id };
-      candidates.splice(candidates.findIndex(c => c.kind === 'room') < 0 ? candidates.length : candidates.findIndex(c => c.kind === 'room'), 0, nearest);
-    }
+    /* The wall under the pointer is not one of the DOM's shapes — it is a
+     * room's edge — so it is looked up geometrically and slotted in ahead of
+     * the room it belongs to. Annotations owns that lookup because a headless
+     * caller needs the same answer, and two implementations of "which wall is
+     * this" drift the first time a curve or an override changes. */
+    const nearest = Annotations.nearestEdge(Store.floor(), [ft.x, ft.y], 12 / (S.view.zoom * scene.projector.S(1)));
+    if (nearest) candidates.splice(candidates.findIndex(c => c.kind === 'room') < 0 ? candidates.length : candidates.findIndex(c => c.kind === 'room'), 0, nearest);
+    // Bare canvas is still somewhere: the floor, so feedback there has a scope.
+    candidates.push({ kind: 'floor' });
     NotesUI.menu({ candidates, at: [ft.x, ft.y], x: ev.clientX, y: ev.clientY });
   }
   function locate(at) {

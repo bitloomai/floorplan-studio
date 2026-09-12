@@ -2,6 +2,71 @@
 
 ## Unreleased
 
+### An assistant works on the plan without downloading the house
+
+- **`find_objects` returns only what a job touches.** Filter across every floor
+  or one, by id, library type (bare or `kind.type`), kind, the room an object is
+  tagged with, its bound entity (`"none"` finds the unbound), free text, or
+  distance from a point. `fields` projects dot paths, `summary` returns an index
+  row, and every result carries the `floorId` and `id` an edit takes.
+- **`get_project({outline:true})` is the index rather than the contents** —
+  every floor with its extent, its counts, its room names, and a census of the
+  item types on it. On the committed test house it is under a quarter of the
+  document it describes, and it does not grow with geometry or properties.
+- **`edit_batch` applies up to 200 edits as one validation and one write**, with
+  one editor refresh. A rejected entry names its index and writes nothing at
+  all, so a batch cannot leave a plan half-edited. `edit_collection` takes `ids`
+  for the common case of one update against several objects.
+- The per-collection edit helpers no longer save; the tool that called them
+  does. That is the whole of what made a batch possible, and it means nothing
+  can be true of a batch that is not true of doing the edits one at a time.
+- The MCP contract and the shipped guide now say this outright, because an
+  agent that reads the whole project and writes it back is not working from a
+  missing feature — it is working from a habit.
+
+### A review note attaches to what you were pointing at
+
+- **A note dropped on bare canvas is no longer a bare coordinate.** It attaches
+  to whatever is on top at that spot: the item, then the wall, then the room,
+  then the floor. `Annotations.locate` answers that from the renderer's own hit
+  shapes, so a headless caller gets the same chain the editor's canvas does, and
+  a note added through MCP with an `at` and no `target` resolves it too.
+- **The pin now sits where you right-clicked**, not at the target's centre. The
+  attachment says what the note is about and the pin says where you were
+  looking; a note about a damp corner belongs to the room and sits in the corner.
+- **`list_annotations` returns the data around each note**: the floor, the room
+  it is really about, the target chain under its pin, and the items and openings
+  within eight feet with their distance, type key and bound entity. "This corner
+  is too dark" now arrives with the room, its floor finish and the lamps in
+  reach of it.
+- `canvas.js` no longer carries its own copy of "which wall is under the
+  pointer" — `Annotations.nearestEdge` is shared by the editor menu and the
+  headless lookup, and the floor is always the last candidate so feedback
+  anywhere on the plan has a scope. The floor is excluded from **Select behind**,
+  where it would only mean "deselect".
+
+### The help system gained the half that was missing
+
+- **A "Working with an AI" section**, in the editor's help, on the published
+  site and through `get_help`: what the MCP server is, how to connect a client,
+  what it can and cannot touch, how to turn it off, and how to reach it over
+  HTTPS from outside the house. The app's most distinctive feature had no user
+  documentation at all.
+- **Review notes have their own topic** rather than a paragraph at the end of
+  the canvas tools, covering what a note attaches to, what happens when you move
+  or delete that, and what an assistant sees when it reads one.
+- The index card for **The library** described vegetation, because the category
+  card shows its lowest-ordered topic and the library's overview was not it.
+  The library topics are ordered deliberately now.
+- `README.md`, the app README and `DOCS.md` describe the new tools, and the app
+  README says where help is.
+
+### Testing status
+
+- The app is **currently being tested in detail in Home Assistant**, and every
+  surface that used to say it had never been installed now says that instead.
+  The stage remains `experimental` on purpose.
+
 ### Screens, soundbars and air conditioners are the shape they are
 
 - **A television now reads as a television from above.** `screen.flat` drew a

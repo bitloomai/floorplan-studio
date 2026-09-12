@@ -6,7 +6,7 @@ category: library
 tags: item, panel, inspector, entity, variant
 applies: panel:item, field:item.entity, field:item.variant, section:item.look, section:item.size, section:item.properties, section:item.entity, section:item.tap, section:item.hold, field:item.room, section:item.channels
 see: item-aim, library-palette, concept-artificial-light
-order: 48
+order: 46
 ---
 
 Select anything you have placed and this panel edits it. What appears depends

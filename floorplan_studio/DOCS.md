@@ -7,18 +7,15 @@ workflow. It does not document or version the separate hand-generated floor-plan
 dashboard in the parent workspace.
 
 The editor, local persistence, generated card and local preview work in
-development. Dashboard deployment has not yet been accepted against a real Home
-Assistant instance. The app now runs on Node.js 24 distroless, which provides
-the stable WebSocket client required by its writer; real Supervisor/Ingress and
-dashboard-install acceptance testing is still outstanding. Ownership-enforced
-writes, per-project card resources, app discovery/reopen of its own
-deployments (see below), and the MCP server that lets an AI drive the editor
-are implemented and locally verified, but likewise unconfirmed against a real
-instance — in particular, the MCP token check has never asked a real
-Supervisor-proxied Home Assistant whether a token is valid, only a fake one in
-tests and a real dev-mode instance manually. Sections that describe deployment
-below are therefore the target user experience, not a claim of release
-readiness.
+development, and the app is **currently being tested in detail in Home
+Assistant** — Supervisor, Ingress and dashboard installation included. It runs
+on Node.js 24 distroless, which provides the stable WebSocket client its
+Lovelace writer needs. Ownership-enforced writes, per-project card resources,
+app discovery and reopen of its own deployments (see below), and the MCP server
+that lets an AI drive the editor are all implemented and verified locally;
+confirming each of them against a real instance is what that testing is for.
+Sections describing deployment below are therefore the intended user
+experience, and not yet a claim of release readiness.
 
 ## Tools
 
@@ -495,10 +492,21 @@ card's data *and* from the editable project copy embedded in the deployment's
 ownership stamp, and the exported SVG never draws pins. An exported project file
 keeps them, because that is the copy you would hand to somebody to review.
 
+A note dropped on bare canvas is not left as a bare coordinate: it attaches to
+whatever is on top at that spot — the item, then the wall, then the room, then
+the floor — and **Select behind** in the same menu reaches what is underneath.
+The pin records where you were pointing, the attachment records what you meant,
+and the two are allowed to differ: a note about a damp corner belongs to the
+room and sits in the corner.
+
 An assistant reads them with `list_annotations`, which expands each target into
-the object it names, and manages them through `edit_collection` with
-`collection: "annotations"`. Mark a note **done** once its request is addressed;
-done notes stay in the list under their own filter rather than disappearing.
+the object it names *and* returns a `context` block: the floor, the room the
+note is really about, the target chain under the pin, and the items and openings
+within eight feet with their distances, type keys and bound entities. That is
+what lets "this corner is too dark" be answered rather than queried. Notes are
+managed through `edit_collection` with `collection: "annotations"`. Mark one
+**done** once its request is addressed; done notes stay in the list under their
+own filter rather than disappearing.
 
 ## Driving the editor with an AI (MCP)
 
@@ -550,21 +558,46 @@ That split matters in practice: the contract tells an AI what a fixture *is*,
 the guide tells it that a lamp's available looks live in that type's `variant`
 property options and are to be read rather than guessed.
 
-The rest: ones to **read** the current plan and
-what can be placed on it (`get_project`, `get_registry`,
-`list_library`, and `list_annotations` for your review notes with their targets
-expanded), tools to **change** it (`edit_collection` for rooms/items/
-openings/boundaries/floors and the notes themselves, `edit_settings` for
-everything else — dashboard settings, lighting, sun, coverage, a room's own
-controls),
-`edit_registry` to author shared library types, flooring, themes, boundaries
-and controls using arrays of literal path keys,
-`validate_project` to check the result
-on demand, `preview_dashboard` to see what Generate would produce, and
-`install_dashboard` — the one tool that actually writes to Home Assistant,
-which is **not offered at all** unless you turn on the app option
-`mcp_allow_dashboard_install`. Until you do, an AI can build and rework the
-whole plan freely but cannot put anything on your actual dashboard.
+The rest: ones to **read** the current plan and what can be placed on it
+(`get_project`, `find_objects`, `get_registry`, `list_library`, `get_help`, and
+`list_annotations` for your review notes with their targets and surroundings
+expanded), tools to **change** it (`edit_collection` for rooms/items/openings/
+boundaries/floors and the notes themselves, `edit_batch` for many of those in
+one write, `edit_settings` for everything else — dashboard settings, lighting,
+sun, coverage, a room's own controls), `edit_registry` to author shared library
+types, flooring, themes, boundaries and controls using arrays of literal path
+keys, `validate_project` to check the result on demand, `preview_dashboard` to
+see what Generate would produce, and `install_dashboard` — the one tool that
+actually writes to Home Assistant, which is **not offered at all** unless you
+turn on the app option `mcp_allow_dashboard_install`. Until you do, an AI can
+build and rework the whole plan freely but cannot put anything on your actual
+dashboard.
+
+### Why it does not download your house
+
+A plan of a real home is a large document, and an assistant that reads all of
+it to change one lamp is slow *and* dangerous: it works from a copy, so anything
+you changed while it was thinking is quietly overwritten when it writes back.
+
+Nothing here works that way. Every floor, room, item, opening, boundary and note
+carries a stable id, and both halves of the server are built on addressing them:
+
+- `get_project({outline:true})` is the index — every floor with its extent, its
+  counts, its room names and a census of the item types on it. Kilobytes, on any
+  plan.
+- `find_objects` returns only what matched a filter: by id, library type, kind,
+  the room something is tagged with, its bound entity, free text, or distance
+  from a point. `fields` projects a few dot paths; `summary` returns an index
+  row. Every result carries the `floorId` and `id` an edit takes.
+- an `edit_collection` update is a **patch**, shallow-merged, with `item.props`
+  merged a level deeper — so changing one property changes one property.
+- `ids` applies one update to several objects, and `edit_batch` applies up to
+  200 edits as a single validation, a single write and a single editor refresh.
+  A rejected entry names its index and writes nothing at all, so the plan is
+  never left half-edited.
+
+The practical effect is that an assistant restyling forty downlights makes one
+read and one write, and touches nothing else in the house.
 
 Shared registry edits refresh an idle editor. Finish any open settings dialog
 or unsaved local edit, then reload to use external registry changes.
@@ -1303,10 +1336,11 @@ this document — no writes outside `/data`, no `/config`, `/share`, `/addons`,
 
 ### Verifying it
 
-**The profile has not yet been run on Home Assistant OS.** It was derived from
-the image's contents and this app's source, not from audit logs on real
-hardware. A profile that is too tight stops the app from starting, so treat
-the first install as the test:
+**The profile is being verified on Home Assistant OS now.** It was derived from
+the image's contents and this app's source rather than from audit logs on real
+hardware, which is exactly what the current round of testing is checking. A
+profile that is too tight stops the app from starting, so treat an install as
+that test:
 
 1. Install the app and start it. If it starts and the editor loads through
    the sidebar, the enforced profile is already sufficient for the common path.

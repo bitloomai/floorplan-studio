@@ -30,9 +30,30 @@ module.exports = function(ok) {
   ok('deleting item retains note as point', equal(deleted.floors[0].annotations[2].target,{kind:'point',at:[4,3]}));
   const malformed=clone(p); malformed.floors[0].items[0].at=null;
   try { A.reconcile(p,malformed,library); ok('malformed target cannot crash reconciliation',true); } catch { ok('malformed target cannot crash reconciliation',false); }
+  /* What a note dropped on bare canvas attaches to. The chain is the editor's
+   * own z-order — the thing you can see on top, then the wall, then the room,
+   * then the floor — so feedback references an object rather than a bare
+   * coordinate a reader has to interpret. */
+  const chain = at => A.locate(f,at,library).map(t => t.kind + (t.id ? ':' + t.id : t.wall ? ':' + t.room + '/' + t.wall : ''));
+  ok('locate returns the topmost thing first, then what is under it', equal(chain([4,3]),['item:i','room:r','floor']));
+  ok('locate falls through to the room where nothing is placed', equal(chain([7,6]),['room:r','floor']));
+  ok('locate names an explicit boundary when one covers that stretch', equal(chain([4,9.9]),['boundary:b','room:r','floor']));
+  ok('and addresses a default wall without inventing a boundary for it', equal(chain([9,0.2]),['boundary:r/n','room:r','floor']));
+  ok('an opening beats the wall it sits in', equal(chain([3.5,0.1]),['opening:o','boundary:r/n','room:r','floor']));
+  ok('off the plan there is still the floor', equal(chain([15,15]),['floor']));
+  ok('a note given a position and no target attaches to what is there', A.make(f,{text:'x',at:[4,3]},library).target.kind==='item');
+  ok('and one raised with neither still belongs to the floor', A.make(f,{text:'x'},library).target.kind==='floor');
+
   const expanded=A.list(p,library,{floorId:'f',status:'open'});
   ok('list expands item type and current properties', expanded[2].resolvedTarget.typeKey==='furniture.table' && expanded[2].resolvedTarget.props.w===4);
   ok('list isolates floor and status', A.list(p,library,{floorId:'other'}).length===0 && A.list(p,library,{status:'done'}).length===0);
+  /* The context is what makes a note actionable: "this is wrong" plus the room
+   * it is in and what is standing next to it. */
+  const ctx = expanded[2].context;
+  ok('list reports the floor and the room a note is really about', ctx.floor.id==='f' && ctx.room.id==='r');
+  ok('and what else is under its pin', equal(ctx.under.map(t=>t.kind),['item','room','floor']));
+  ok('and what stands near it, nearest first, with distance and binding', ctx.nearby[0].id==='o' && ctx.nearby[0].kind==='opening' && ctx.nearby[0].distanceFt>0);
+  ok('a note on a wall still resolves the room that wall belongs to', A.list(p,library,{floorId:'f'})[4].context.room.id==='r');
   const context={window:{localStorage:{getItem(){}},Annotations:A},Annotations:A};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../floorplan_studio/app/public/js/store.js'),'utf8'),context);
   const Store=context.window.Store; Store.S.project=clone(p); Store.S.activeFloorId='f'; Store.S.library=library;

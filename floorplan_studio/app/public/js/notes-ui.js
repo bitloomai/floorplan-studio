@@ -57,7 +57,13 @@ window.NotesUI = (() => {
     const existing = (floor.annotations || []).find(n => n.id === id);
     if (id && !existing) return;
     const target = existing?.target || context.target || { kind: 'floor' };
-    const at = existing?.at || Annotations.anchor(floor, target, S.library) || context.at || [0,0];
+    /* Pin where the person pointed. The target says WHAT the note is about and
+     * the pin says WHERE they were looking, and those are not the same thing:
+     * "this corner is damp" is about the room but belongs in the corner. Only a
+     * note raised from the inspector, which has no position, falls back to the
+     * target's own centre. */
+    const clicked = Array.isArray(context.at) && context.at.length === 2 && context.at.every(Number.isFinite);
+    const at = existing?.at || (clicked ? context.at : null) || Annotations.anchor(floor, target, S.library) || [0,0];
     const pin = [...document.querySelectorAll('[data-annotation]')].find(e => e.dataset.annotation === id)?.getBoundingClientRect();
     const dialog = openSurface('dialog', pin?.right || context.x, pin?.top || context.y); editing = true;
     const title = h('h2', {}, existing ? 'Edit note' : 'Add note');
@@ -181,13 +187,21 @@ window.NotesUI = (() => {
         if (movable && !op.sensor && !op.cover) { entry('opening-shut', 'Drawn as: shut'); entry('opening-part', 'Drawn as: part open'); entry('opening-open', 'Drawn as: open'); }
       }
       if (target.kind === 'boundary') { entry('wall-width', 'Wall top width…', target); entry('wall-material', 'Wall top material…', target); }
-      for (const note of Store.floor().annotations || []) if (same(note.target, target)) {
+      /* The notes on the thing you pointed at, inline. Not for the floor: every
+       * floor note matches it, and a menu with twenty of them in is a list
+       * pretending to be a menu — that is what Notes (N) is. */
+      if (target.kind === 'floor') entry('notes', 'Floor notes…');
+      else for (const note of Store.floor().annotations || []) if (same(note.target, target)) {
         entry('note-edit', 'Edit note: ' + note.text.slice(0,45), note); entry('note-done', note.status === 'done' ? 'Reopen note' : 'Mark note done', note); entry('note-delete', 'Delete note', note);
       }
     }
-    if (context.candidates.length > 1) {
+    /* The floor is always the last candidate so a note on bare canvas has
+     * something to attach to, but selecting it means deselecting — not a thing
+     * to offer under "what is behind this". */
+    const behind = context.candidates.filter(c => c.kind !== 'floor');
+    if (behind.length > 1) {
       dialog.append(h('div', { class: 'hint' }, 'Select behind'));
-      for (const candidate of context.candidates) entry('select-behind', label(candidate) + (candidate.id ? ' · ' + candidate.id : ''), candidate);
+      for (const candidate of behind) entry('select-behind', label(candidate) + (candidate.id ? ' · ' + candidate.id : ''), candidate);
     }
     entry('paste-item', 'Paste', context, !clipboard); entry('zoom-fit', 'Zoom to fit');
     fitSurface(); dialog.querySelector('button')?.focus();

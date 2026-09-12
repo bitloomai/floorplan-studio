@@ -5,7 +5,7 @@ summary: Choose crown shapes, planting sizes, foliage colours, flowers and fruit
 category: library
 tags: garden, plant, tree, hedge, flowers, fruit, landscaping
 applies: type:furniture.plant, type:furniture.planter, type:furniture.tree, shape:plant, shape:tree
-order: 45
+order: 58
 ---
 
 Add a **Plant**, **Planter** or **Tree** from the furniture palette, then choose

@@ -6,7 +6,7 @@ category: library
 tags: library, palette, types, place, fixtures, devices, furniture
 applies: panel:library, tool:place, registry:library, dialog:library
 see: panel-item, item-aim
-order: 46
+order: 44
 ---
 
 The palette holds every **type** you can place, keyed `<kind>.<name>` — for

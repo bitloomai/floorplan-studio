@@ -7604,6 +7604,7 @@ require('./coverings')(ok);
 require('./room-identity')(ok);
 require('./surfaces')(ok);
 require('./annotations')(ok);
+require('./surgical')(ok);
 console.log(`\n${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);
 })();

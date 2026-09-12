@@ -127,7 +127,7 @@ function typeGlyph(type, look) {
 const CATEGORY_ICON = {
   start: 'sparkle', plan: 'press', rooms: 'toggle', walls: 'contact',
   library: 'list', light: 'bulb', controls: 'slider', dashboard: 'screen',
-  data: 'energy', reference: 'timer',
+  agent: 'robot', data: 'energy', reference: 'timer',
 };
 /* The furniture shape a type draws as, or null — only those carry per-look
  * footprints, and asking for one on a marker family returns nothing useful. */
