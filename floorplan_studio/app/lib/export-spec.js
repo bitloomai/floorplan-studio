@@ -14,6 +14,7 @@
  */
 
 const PlanScene = require('./plan-scene');
+const EntityBindings = require('./entity-bindings');
 
 function roomOut(room, warnings, floorId) {
   const out = { id: room.id, name: room.name };
@@ -241,9 +242,7 @@ function build(project, library, themesDoc, format, floorId, surfaces) {
           devices: (f.items || []).filter((i) => i.kind === 'device').length,
           furniture: (f.items || []).filter((i) => i.kind === 'furniture').length,
         })),
-        boundEntities: [...new Set(
-          floors.flatMap((f) => (f.items || []).map((i) => i.entity).filter(Boolean))
-        )].sort(),
+        boundEntities: EntityBindings.project(project, null, { floors }),
       }, null, 2),
     });
   }

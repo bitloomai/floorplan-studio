@@ -123,6 +123,14 @@ edit_collection calls as ONE read, one validation, one write and one editor
 refresh. A rejected entry names its index and writes nothing at all, so a
 batch never leaves the plan half-edited.
 
+**You are not racing the human.** Every write here reads the project inside
+the same lock it writes under, so a save that lands while your edit is in
+flight is something your edit is applied ON TOP of, never something it
+replaces. That holds for the human's autosave and for another assistant
+editing at the same time. What it does not do is make a stale id valid: if
+somebody deletes the marker you were about to patch, your edit is refused by
+id, which is the answer you want. Re-read narrowly and decide again.
+
 ```
 edit_batch({ edits: [
   { collection: "items", op: "update", floorId: "ground",

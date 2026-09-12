@@ -48,6 +48,7 @@ const ha = require('./ha');
 const auth = require('./external-auth');
 const validateProject = require('./validate-project');
 const cardBuild = require('./card-build');
+const EntityBindings = require('./entity-bindings');
 const Controls = require('./controls');
 
 const API_VERSION = 'v1';
@@ -194,22 +195,10 @@ function houseSummary(docs, revision) {
 }
 
 /* Every entity the client will need a live state for, to drive its own Home
- * Assistant subscriptions. The union of what the floor's markers bind and what
- * its resolved room controls reference — computed here because the merge
- * semantics live here, not in the client. */
+ * Assistant subscriptions. The shared catalogue resolves marker, opening,
+ * daylight and layered-control bindings so every consumer gets the same set. */
 function entityIdsFor(floor, docs) {
-  const out = new Set();
-  for (const it of floor.items || []) {
-    if (it.entity) out.add(it.entity);
-    if (it.props && it.props.holdEntity) out.add(it.props.holdEntity);
-    for (const ch of (it.props && it.props.channels) || []) if (ch && ch.entity) out.add(ch.entity);
-  }
-  for (const op of floor.openings || []) {
-    if (op.sensor) out.add(op.sensor);
-    if (op.covering && op.covering.entity) out.add(op.covering.entity);
-  }
-  for (const r of floor.rooms || []) if (r.master) out.add(r.master);
-  return [...out].sort();
+  return EntityBindings.floor((docs && docs.project) || {}, floor, docs && docs.controls);
 }
 
 /* The resolved control surface for every room on the floor, so that tapping a

@@ -410,8 +410,7 @@
 
   /* Cut an edge into runs. Overrides set a boundary type over a sub-range;
    * openings remove a range entirely (they are drawn by the opening layer). */
-  function edgeRuns(edge, room, floor, defaults, isExterior) {
-    const base = isExterior ? defaults.exterior : defaults.interior;
+  function edgeRuns(edge, room, floor, defaults, exteriorAt) {
     const marks = [{ at: edge.lo }, { at: edge.hi }];
     const overrides = (floor.boundaries || []).filter((b) =>
       b.room === room.id && (b.wall === edge.wall || b.edge === edge.index || b.edge === edge.src));
@@ -424,6 +423,18 @@
       marks.push({ at: clamp(num(o.at, edge.lo), edge.lo, edge.hi) });
       marks.push({ at: clamp(num(o.at, edge.lo) + num(o.w, 2.5), edge.lo, edge.hi) });
     }
+    /* A neighbour may share only PART of this edge. Its endpoints are real
+     * geometry cuts: the shared stretch stays centred, while the exposed
+     * stretches on either side fill inward. Without these marks one probe at
+     * the whole edge's midpoint decided all three stretches together. */
+    if (!edge.diagonal) for (const other of floor.rooms || []) {
+      if (other === room) continue;
+      for (const candidate of roomEdges(other)) {
+        if (candidate.diagonal || !edgesCoincide(edge, candidate)) continue;
+        marks.push({ at: Math.max(edge.lo, candidate.lo) });
+        marks.push({ at: Math.min(edge.hi, candidate.hi) });
+      }
+    }
     const cuts = [...new Set(marks.map((m) => Math.round(m.at * 10000) / 10000))].sort((a, b) => a - b);
 
     const runs = [];
@@ -433,7 +444,11 @@
       const mid = (from + to) / 2;
       if (holes.some((o) => mid > num(o.at, 0) && mid < num(o.at, 0) + num(o.w, 2.5))) continue;
       const ov = overrides.find((o) => mid >= num(o.from, edge.lo) && mid <= num(o.to, edge.hi));
-      runs.push({ from, to, type: (ov && ov.type) || base, props: (ov && ov.props) || null });
+      const probe = { from, to };
+      const exterior = typeof exteriorAt === 'function' ? !!exteriorAt(probe) : !!exteriorAt;
+      runs.push({ from, to, exterior,
+        type: (ov && ov.type) || (exterior ? defaults.exterior : defaults.interior),
+        props: (ov && ov.props) || null });
     }
     return runs;
   }
@@ -482,8 +497,8 @@
     const out = [];
     for (const edge of roomEdges(room)) {
       if (edge.diagonal) continue;
-      const isExterior = edgeIsExterior(edge);
-      for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
+      for (const run of edgeRuns(edge, room, floor, defaults,
+        candidate => edgeIsExterior(edge, candidate))) {
         const def = (bDoc.types || {})[run.type] || {};
         const t = clamp(num(def.transmission, 0), 0, 1);
         if (t <= 0.02) continue;
@@ -1870,7 +1885,7 @@
     return fl;
   }
 
-  function edgeIsExterior(floor, edge) {
+  function edgeIsExterior(floor, edge, run) {
     const ext = floor.extent || { w: 40, h: 40 };
     const onExtent = (x,y) => Math.abs(x) < 1e-6 || Math.abs(y) < 1e-6 || Math.abs(x-ext.w) < 1e-6 || Math.abs(y-ext.h) < 1e-6;
     if (edge.diagonal) return onExtent(edge.a[0], edge.a[1]) && onExtent(edge.b[0], edge.b[1]);
@@ -1892,10 +1907,10 @@
      * from the same real house. Only a room that says `outdoor: true`
      * upgrades the wall; empty space one edge does not name is not a
      * claim that a wall there is this room's exterior. */
-    const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
-    const nrm = WALL_NORMAL[edge.wall] * RAD;
-    const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
-    const neighbour = roomAt(floor, probe[0], probe[1]);
+    /* Use the polygon-derived normal, not the compass label. On concave room
+     * outlines an inner edge can share a compass letter with an outer edge;
+     * its actual inside/outside direction still comes from the winding. */
+    const neighbour = roomBeyondEdge(floor, edge, run);
     return !!(neighbour && neighbour.outdoor);
   }
 
@@ -1904,9 +1919,11 @@
    * which DEFAULT type an unconfigured edge receives, while this answers the
    * narrower question of whether an explicitly exterior wall is nevertheless
    * shared with another indoor room and must retain the centred convention. */
-  function roomBeyondEdge(floor, edge) {
+  function roomBeyondEdge(floor, edge, run) {
     if (!edge || !edge.inward) return null;
-    const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
+    const lo = run && Number.isFinite(run.from) ? run.from : edge.lo;
+    const hi = run && Number.isFinite(run.to) ? run.to : edge.hi;
+    const mid = pointOn(edge, (lo + hi) / 2);
     return roomAt(floor, mid[0] - edge.inward[0] * 0.12, mid[1] - edge.inward[1] * 0.12);
   }
 
@@ -2024,7 +2041,7 @@
      * wall in the middle of the plan, stacked on top of the room's own
      * (correctly thin) wall at the same seam. Diagonal edges have no single
      * fixed coordinate, so they keep the old two-point test. */
-    const edgeIsExteriorHere = edge => edgeIsExterior(floor, edge);
+    const edgeIsExteriorHere = (edge, run) => edgeIsExterior(floor, edge, run);
     const defaults = Object.assign({ exterior: 'wall_exterior', interior: 'wall_partition' }, bDoc.defaults || {});
 
     const zonePathOf = (room) => {
@@ -2130,28 +2147,23 @@
     /* ---- boundaries + openings ---- */
     for (const room of floor.rooms || []) {
       for (const edge of roomEdges(room)) {
-        /* A seam between two rects of the SAME logical room is not a wall.
-         * Skipped for a curve segment: the probe steps along the wall's own
-         * normal, and a bowed segment's normal is not the wall's. */
-        const mid = pointOn(edge, (edge.lo + edge.hi) / 2);
-        if (!edge.diagonal) {
-          const nrm = WALL_NORMAL[edge.wall] * RAD;
-          const probe = [mid[0] + Math.sin(nrm) * 0.12, mid[1] - Math.cos(nrm) * 0.12];
-          const neighbour = roomAt(floor, probe[0], probe[1]);
-          if (neighbour && primaryRoom(floor, neighbour) === primaryRoom(floor, room) && neighbour !== room) continue;
-        }
-
-        const isExterior = edgeIsExteriorHere(edge);
-        for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
-          /* `isExterior` classifies GEOMETRY so an unset edge can choose its
+        for (const run of edgeRuns(edge, room, floor, defaults,
+          candidate => edgeIsExteriorHere(edge, candidate))) {
+          const beyond = roomBeyondEdge(floor, edge, run);
+          /* A seam between two rects of the SAME logical room is not a wall.
+           * Decide this per run: another part may meet only the middle of a
+           * longer edge, leaving real exterior wall on either side. Skipped for
+           * a curve segment, whose flattened normal is not the bowed wall's. */
+          if (!edge.diagonal && beyond && beyond !== room
+            && primaryRoom(floor, beyond) === primaryRoom(floor, room)) continue;
+          /* `run.exterior` classifies GEOMETRY so an unset edge can choose its
            * default type. It cannot overrule an explicit "Exterior wall"
            * selection: detached building/site edges often sit short of the
            * floor extent and model no outdoor room beyond them. Those used to
            * remain centred and grow outside their boundary. The only exception
            * is a wall genuinely shared with another indoor room, where the
            * long-standing centre-line convention still applies. */
-          const beyond = roomBeyondEdge(floor, edge);
-          const fillInward = isExterior || (run.type === defaults.exterior
+          const fillInward = run.exterior || (run.type === defaults.exterior
             && !(beyond && !beyond.outdoor));
           for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface, fillInward)) {
             n.roomId = room.id; n.wall = edge.wall;

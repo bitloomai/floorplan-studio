@@ -176,6 +176,62 @@ module.exports = function (ok) {
         assert.equal(JSON.stringify(await store.readProject()), before);
       });
 
+      /* The claim these tools make is that an id-addressed edit leaves the rest
+       * of the house alone. Reading the document and then queueing a write of
+       * the whole thing cannot honour it: anything saved in between is replaced
+       * by the copy this call read before it, with no error and no trace. So
+       * the read has to happen inside the write's own queue slot, and that is
+       * only provable by making something land in the window. */
+      await t('a save landing mid-edit is not overwritten by the agent write', async () => {
+        let release;
+        const held = new Promise((r) => { release = r; });
+        /* Holds the project's slot, then renames the house from inside it —
+         * exactly where an editor autosave or a second assistant arrives. */
+        const human = store.editProject(async (doc) => { await held; doc.name = 'Renamed while the agent worked'; });
+        const agent = call('edit_collection', { collection: 'items', op: 'update', floorId: 'g', id: 'f1', value: { props: { watt: 11 } } });
+        await new Promise((r) => setTimeout(r, 50));
+        release();
+        await Promise.all([human, agent]);
+        const after = await store.readProject();
+        assert.equal(after.name, 'Renamed while the agent worked');
+        assert.equal(after.floors[0].items[0].props.watt, 11);
+      });
+
+      await t('two agents editing different markers at once keep both changes', async () => {
+        await Promise.all([
+          call('edit_collection', { collection: 'items', op: 'update', floorId: 'g', id: 'f1', value: { entity: 'light.agent_one' } }),
+          call('edit_collection', { collection: 'items', op: 'update', floorId: 'g', id: 'f2', value: { entity: 'light.agent_two' } }),
+        ]);
+        const after = await store.readProject();
+        assert.equal(after.floors[0].items[0].entity, 'light.agent_one');
+        assert.equal(after.floors[0].items[1].entity, 'light.agent_two');
+      });
+
+      await t('a settings write and a plan edit at the same moment do not erase each other', async () => {
+        await Promise.all([
+          call('edit_settings', { path: 'dashboard.house.title', value: 'Transacted' }),
+          call('edit_collection', { collection: 'rooms', op: 'update', floorId: 'g', id: 'hall', value: { flooring: 'stone' } }),
+        ]);
+        const after = await store.readProject();
+        assert.equal(after.dashboard.house.title, 'Transacted');
+        assert.equal(after.floors[0].rooms[1].flooring, 'stone');
+      });
+
+      await t('a rejected edit leaves a concurrent save in place', async () => {
+        let release;
+        const held = new Promise((r) => { release = r; });
+        const human = store.editProject(async (doc) => { await held; doc.name = 'Survived a refusal'; });
+        /* assert.rejects immediately, not after the wait below: this call is
+         * MEANT to fail, and a rejected promise sitting for 50ms with nothing
+         * attached to it is an unhandled rejection that takes the whole run
+         * down instead of failing one check. */
+        const agent = assert.rejects(() => call('edit_collection', { collection: 'items', op: 'update', floorId: 'g', id: 'no_such_item', value: { entity: 'x' } }));
+        await new Promise((r) => setTimeout(r, 50));
+        release();
+        await Promise.all([human, agent]);
+        assert.equal((await store.readProject()).name, 'Survived a refusal');
+      });
+
       /* The size claim is only meaningful against a plan of real size, so it is
        * made against the committed test house — five floors of actual geometry
        * — rather than the handful of rooms the rest of this file uses. */

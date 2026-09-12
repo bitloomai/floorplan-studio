@@ -48,7 +48,7 @@ function readSource(name) {
  * is first called, so they only have to exist by then, but keeping the
  * dependency order also keeps the bundle readable when something goes wrong in
  * a browser console at 11pm. */
-const SHARED = ['shapes.js', 'flooring.js', 'sun.js', 'controls.js', 'lighting.js', 'plan-scene.js'];
+const SHARED = ['shapes.js', 'flooring.js', 'sun.js', 'controls.js', 'entity-bindings.js', 'lighting.js', 'plan-scene.js'];
 
 /* Keys the card never reads. Editor bookkeeping (undo cursors, selections),
  * import residue (`_legacy`, kept for round-tripping an old spec, which the
@@ -256,7 +256,8 @@ function build(docs, opts) {
     '  const self = {};',
     readShared(),
     '  const Shapes = self.Shapes, Flooring = self.Flooring, SunModel = self.SunModel;',
-    '  const Controls = self.Controls, Lighting = self.Lighting, PlanScene = self.PlanScene;',
+    '  const Controls = self.Controls, EntityBindings = self.EntityBindings;',
+    '  const Lighting = self.Lighting, PlanScene = self.PlanScene;',
     '  const FPS_DATA = ' + JSON.stringify(data) + ';',
     /* The user's own stylesheet, appended so it wins on equal specificity.
      *

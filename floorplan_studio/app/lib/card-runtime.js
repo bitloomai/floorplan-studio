@@ -4,7 +4,8 @@
  * NOT a UMD module and not loaded on its own. `card-build.js` concatenates the
  * shared scene libraries and this file into one Lovelace module resource, with
  * the project baked in. Inside that bundle `Shapes`, `Flooring`, `SunModel`,
- * `Controls`, `Lighting`, `PlanScene` and `FPS_DATA` are already in scope.
+ * `Controls`, `Lighting`, `PlanScene`, `EntityBindings` and `FPS_DATA` are
+ * already in scope.
  *
  * The important thing about this file is how little of it there is. The card
  * does not know how to draw a house — `plan-scene.js` does, and it is the same
@@ -47,6 +48,7 @@ class FpsFloorplanCard extends HTMLElement {
     }
     this._config = Object.assign({ controls: true, header: true, motion: true }, config);
     this._floor = floor;
+    this._bound = null;
     this._sig = null;
     this._built = false;
     this.render();
@@ -106,43 +108,7 @@ class FpsFloorplanCard extends HTMLElement {
    * repaint either. */
   boundEntities() {
     if (this._bound) return this._bound;
-    const ids = new Set();
-    for (const it of this._floor.items || []) {
-      if (it.entity) ids.add(it.entity);
-      const p = it.props || {};
-      for (const k of ['presence', 'remote', 'sensor']) if (p[k]) ids.add(p[k]);
-      for (const c of p.channels || []) if (c.entity) ids.add(c.entity);
-    }
-    for (const op of this._floor.openings || []) {
-      if (op.sensor) ids.add(op.sensor);
-      if (op.cover) ids.add(op.cover);
-    }
-    /* The user's shortcuts too: a button that does not light up when you press
-     * it is indistinguishable from one that did nothing. Only the EXPLICIT
-     * shortcuts are watched — entities matched from the catalogue are found
-     * when the sheet opens, and watching them would put half the house in the
-     * repaint signature for a row nobody is looking at. */
-    for (const room of this._floor.rooms || []) {
-      for (const s of Controls.shortcuts(FPS_DATA.controls, FPS_DATA.project, this._floor, room)) {
-        if (s.state) ids.add(s.state);
-        if (s.entity) ids.add(s.entity);
-      }
-      if (room.master) ids.add(room.master);
-    }
-    /* Use the exact same default-aware, nested merge as the renderer. The old
-     * shallow merge made a floor override such as `{ ambient: {...} }` erase
-     * house-level nested settings from this subscription list. It also missed
-     * the default `sun.sun` id when the position source was HA but the user had
-     * not explicitly re-selected that default in the editor. In either case
-     * the renderer asked for state that this card had deliberately omitted. */
-    const sun = SunModel.mergeConfig(FPS_DATA.project.sun, this._floor.sun);
-    if (sun.enabled) {
-      const sunEntity = sun.source === 'entity' ? sun.sunEntity : null;
-      for (const id of [sunEntity, sun.weather && sun.weather.entity, sun.solarSensor && sun.solarSensor.entity]) {
-        if (id) ids.add(id);
-      }
-    }
-    this._bound = [...ids];
+    this._bound = EntityBindings.floor(FPS_DATA.project, this._floor, FPS_DATA.controls);
     return this._bound;
   }
 

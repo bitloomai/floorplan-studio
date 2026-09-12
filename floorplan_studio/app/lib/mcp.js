@@ -211,6 +211,37 @@ class ToolError extends Error {}
 
 /* ------------------------------------------------------------ deep paths */
 
+/* Three key names are not data, they are reachable machinery.
+ *
+ * A path is walked key by key and its last step is an assignment, so
+ * `__proto__.x` writes to Object's prototype rather than to the project, and
+ * `constructor.prototype.x` gets there the long way round. The result is a
+ * property on every object in the process — a caller who can name a settings
+ * path could change how unrelated code reads its own defaults. A VALUE carries
+ * the same risk one step later: `JSON.parse` makes `__proto__` an ordinary own
+ * property, which is inert on the way in and is not inert the moment something
+ * spreads or merges the object it landed in, which the renderer and the card do
+ * constantly.
+ *
+ * Nothing legitimate is lost by refusing all three outright: they are not field
+ * names in any document this server edits. `edit_registry` has checked them
+ * since it was written; these helpers exist so that the project side, which did
+ * not, cannot drift away from it again. */
+const UNSAFE_KEYS = ['__proto__', 'prototype', 'constructor'];
+
+function assertSafeKey(key, what) {
+  if (typeof key !== 'string' || !key) throw new ToolError(`${what} must contain safe literal keys`);
+  if (UNSAFE_KEYS.includes(key)) throw new ToolError(`${what} may not name ${key}`);
+}
+
+function assertSafeValue(value) {
+  if (!value || typeof value !== 'object') return;
+  for (const key of Object.keys(value)) {
+    if (UNSAFE_KEYS.includes(key)) throw new ToolError(`unsafe property ${key} in value`);
+    assertSafeValue(value[key]);
+  }
+}
+
 /* `edit_settings` addresses the project by a dot path and REPLACES whatever
  * is there. Not a merge: merging nested objects key-by-key is exactly the
  * kind of implicit behaviour this codebase avoids elsewhere (see "a section
@@ -221,17 +252,32 @@ function deepSet(root, dotPath, value) {
   const parts = String(dotPath).split('.').filter(Boolean);
   if (!parts.length) throw new ToolError('path must not be empty');
   if (parts[0] === 'floors') throw new ToolError('use edit_collection for floors/rooms/items/openings, not edit_settings');
+  for (const key of parts) assertSafeKey(key, 'path');
   let node = root;
   for (let i = 0; i < parts.length - 1; i++) {
     const key = parts[i];
-    if (node[key] == null || typeof node[key] !== 'object') node[key] = {};
+    /* `hasOwnProperty`, not just a null/type test: an INHERITED value is not a
+     * parent this path may descend into. Without it a key naming anything on
+     * the prototype chain reads as "the parent object already exists" and the
+     * walk continues into shared machinery instead of creating a field on the
+     * project. Belt and braces behind `assertSafeKey` — the guard above is what
+     * refuses the three names outright, and this is what makes the traversal
+     * itself incapable of leaving the document even if a fourth is ever found. */
+    if (!Object.prototype.hasOwnProperty.call(node, key) || node[key] == null || typeof node[key] !== 'object') node[key] = {};
     node = node[key];
   }
   node[parts[parts.length - 1]] = value;
 }
 
+/* Guarded as well as `deepSet`, though a read pollutes nothing: `find_objects`
+ * projects caller-supplied dot paths through this, and answering
+ * `fields:["constructor"]` with a piece of the JavaScript runtime is not a
+ * reading of the plan. Refusing is the honest answer to a key that is not a
+ * field. */
 function deepGet(root, dotPath) {
-  return String(dotPath).split('.').filter(Boolean).reduce((n, k) => (n == null ? undefined : n[k]), root);
+  const parts = String(dotPath).split('.').filter(Boolean);
+  for (const key of parts) assertSafeKey(key, 'field path');
+  return parts.reduce((n, k) => (n == null ? undefined : n[k]), root);
 }
 
 /* ------------------------------------------------------------ validation */
@@ -245,14 +291,34 @@ function validateOrThrow(project, library) {
   return result;
 }
 
-async function saveProject(project, library) {
-  if (Array.isArray(project.floors) && project.floors.some(f => f?.annotations?.length)) {
-    const before = await store.readProject();
-    if (before.id === project.id) Annotations.reconcile(before, project, library);
-  }
-  const result = validateOrThrow(project, library);
-  await store.writeProject(project);
-  return result;
+/* Every write this server makes to the project, as one transaction.
+ *
+ * `apply(project, library, boundaries)` runs INSIDE the storage queue slot for
+ * project.json, on the copy that is on disk at that moment, and its return
+ * value is the tool's own summary. That placement is the whole point: these
+ * tools advertise that an id-addressed edit leaves unrelated work alone, and
+ * reading the document before queueing the write cannot honour that — an
+ * editor autosave or a second assistant arriving in between was replaced by
+ * this call's stale copy, silently, however small the edit was.
+ *
+ * Validation runs in the same slot, so "refused to save" still means nothing
+ * reached disk. The annotation reconcile that used to sit here is gone: the
+ * store does it against the copy being replaced, which is the one that is
+ * actually being diffed against, and doing it out here needed a second read
+ * that had the same staleness problem in miniature.
+ *
+ * The registries are read outside the slot deliberately. They are separate
+ * documents with their own queues, and holding the project's slot while
+ * reading them would serialise project writes behind unrelated registry IO. */
+async function transact(apply) {
+  const [library, boundaries] = await Promise.all([store.readLibrary(), store.readBoundaries()]);
+  let summary = null;
+  let warnings = [];
+  await store.editProject(
+    (project) => { summary = apply(project, library, boundaries); },
+    { validate: (project) => { warnings = validateOrThrow(project, library).warnings; } },
+  );
+  return Object.assign({ ok: true, warnings }, summary);
 }
 
 /* ------------------------------------------------------------------ tools */
@@ -602,8 +668,7 @@ tool({
   },
   async run(args) {
     const a = args || {};
-    const [project, library, boundaries] = await Promise.all([store.readProject(), store.readLibrary(), store.readBoundaries()]);
-    return withSave(project, library, applyEdit(project, library, boundaries, a));
+    return transact((project, library, boundaries) => applyEdit(project, library, boundaries, a));
   },
 });
 
@@ -671,14 +736,15 @@ tool({
     const edits = (args || {}).edits;
     if (!Array.isArray(edits) || !edits.length) throw new ToolError('edits must be a non-empty array of edit_collection calls');
     if (edits.length > 200) throw new ToolError(`edits has ${edits.length} entries; 200 is the limit for one batch`);
-    const [project, library, boundaries] = await Promise.all([store.readProject(), store.readLibrary(), store.readBoundaries()]);
-    const results = [];
-    edits.forEach((edit, i) => {
-      /* Which entry failed, out of two hundred, is the whole message. */
-      try { results.push(applyEdit(project, library, boundaries, edit || {})); }
-      catch (e) { throw new ToolError(`edits[${i}] (${(edit || {}).op} ${(edit || {}).collection}): ${e.message} — nothing was written`); }
+    return transact((project, library, boundaries) => {
+      const results = [];
+      edits.forEach((edit, i) => {
+        /* Which entry failed, out of two hundred, is the whole message. */
+        try { results.push(applyEdit(project, library, boundaries, edit || {})); }
+        catch (e) { throw new ToolError(`edits[${i}] (${(edit || {}).op} ${(edit || {}).collection}): ${e.message} — nothing was written`); }
+      });
+      return { applied: results.length, results };
     });
-    return withSave(project, library, { applied: results.length, results });
   },
 });
 
@@ -981,17 +1047,13 @@ function editBoundaries(project, library, boundaries, floor, a) {
   return { removed: a.id };
 }
 
-function withSave(project, library, summary) {
-  return saveProject(project, library).then((validation) => Object.assign({ ok: true, warnings: validation.warnings }, summary));
-}
-
 tool({
   name: 'edit_settings',
   description: 'Set any other field on the project by a dot path — dashboard config, lighting, sun/daylight, project name, a room\'s controls/keys/shortcuts, a floor\'s own overrides, etc. REPLACES whatever is at that path (not a merge); read the current value with get_project first if you only want to change one field of a larger object. Use edit_collection instead for floors/rooms/items/openings.',
   inputSchema: {
     type: 'object',
     properties: {
-      path: { type: 'string', description: 'Dot path from the project root, e.g. "dashboard.house.title" or "lighting.targetFc".' },
+      path: { type: 'string', description: 'Dot path from the project root, e.g. "dashboard.house.title" or "lighting.targetFc". Literal field names only.' },
       value: { description: 'Any JSON value.' },
     },
     required: ['path', 'value'],
@@ -999,10 +1061,11 @@ tool({
   },
   async run(args) {
     const a = args || {};
-    const [project, library] = await Promise.all([store.readProject(), store.readLibrary()]);
-    deepSet(project, a.path, a.value);
-    await saveProject(project, library);
-    return { ok: true, path: a.path, value: deepGet(project, a.path) };
+    assertSafeValue(a.value);
+    return transact((project) => {
+      deepSet(project, a.path, a.value);
+      return { path: a.path, value: deepGet(project, a.path) };
+    });
   },
 });
 
@@ -1017,14 +1080,11 @@ tool({
   }, required: ['name', 'path', 'value'], additionalProperties: false },
   async run(a) {
     if (!a || !['library','themes','flooring','boundaries','controls'].includes(a.name)) throw new ToolError('unknown editable registry');
-    if (!Array.isArray(a.path) || !a.path.length || a.path.length > 32
-      || a.path.some(k => typeof k !== 'string' || !k || ['__proto__','prototype','constructor'].includes(k))) throw new ToolError('path must contain safe literal keys');
+    if (!Array.isArray(a.path) || !a.path.length || a.path.length > 32) throw new ToolError('path must contain safe literal keys');
+    for (const key of a.path) assertSafeKey(key, 'path');
     if (!Object.prototype.hasOwnProperty.call(a, 'value')) throw new ToolError('value is required');
     const object = x => x && typeof x === 'object' && !Array.isArray(x);
-    const safe = x => { if (x && typeof x === 'object') for (const k of Object.keys(x)) {
-      if (['__proto__','prototype','constructor'].includes(k)) throw new ToolError('unsafe property in value'); safe(x[k]);
-    } };
-    safe(a.value);
+    assertSafeValue(a.value);
     await store.editRegistry(a.name, async doc => {
       const arrayKey = (at, key) => { if (Array.isArray(at) && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= at.length)) throw new ToolError('array path must address an existing index; replace the array to add entries'); };
       let at = doc;

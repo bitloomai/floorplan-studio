@@ -531,6 +531,63 @@ function fillTypeGaps(doc, fresh) {
   return notes;
 }
 
+/* Read the project from inside a queue slot this process already holds.
+ *
+ * `readDoc` cannot be used there. Its corrupt-file recovery goes through
+ * `ensureFile`, and the project is the one document with no shipped seed — so
+ * that path writes `emptyProject()` with `writeAtomic`, which enqueues on this
+ * very file and would wait on the slot we are standing in. A deadlock in a
+ * save is indistinguishable from a hung editor, so it must be impossible
+ * rather than unlikely. */
+async function readProjectInSlot(file) {
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (e) { if (e.code !== 'ENOENT') throw e; return emptyProject(); }
+  try { return upgradeDoc('project', JSON.parse(raw)); }
+  catch (e) {
+    const broken = file + '.broken-' + Date.now();
+    await fsp.rename(file, broken).catch(() => {});
+    console.error(`[floorplan-studio] project.json was unreadable (${e.message}); moved to ${path.basename(broken)}`);
+    return emptyProject();
+  }
+}
+
+/* The shape checks every project write makes, whoever is writing. Separate
+ * from the write itself because a transaction has to make them AFTER its edit
+ * callback has run, while a whole-document save makes them before it queues. */
+function assertProjectShape(project) {
+  if (!project || typeof project !== 'object') throw new Error('project must be an object');
+  if (!Array.isArray(project.floors)) throw new Error('project.floors must be an array');
+  const noteErrors = [];
+  for (const floor of project.floors) if (floor) require('./annotations').validate(floor, (path, message) => noteErrors.push(path + ': ' + message), () => {}, 'annotations');
+  if (noteErrors.length) throw new Error(noteErrors.join('; '));
+}
+
+/* Everything between "we hold the slot" and "the new bytes are on disk".
+ *
+ * Shared by `writeProject` and `editProject`, so there is one answer to what a
+ * save does: reconcile the review notes against the copy being replaced, let
+ * the caller validate the RESULT of that, snapshot, then rename into place.
+ *
+ * `validate` runs after the reconcile and not before, because reconcile is what
+ * turns a note whose target an edit just deleted into a plain pin — validating
+ * first reports that note as a dangling target, and the warning is already
+ * untrue by the time the caller reads it. */
+async function commitProject(file, project, validate) {
+  if ((project.floors || []).some(f => f.annotations?.length)) {
+    let previous;
+    try { previous = JSON.parse(await fsp.readFile(file, 'utf8')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    if (previous?.id === project.id) require('./annotations').reconcile(previous, project, await readDoc('library'));
+  }
+  if (validate) await validate(project);
+  await snapshotProject();
+  const installedAt = await deploymentTime(project.id);
+  if (installedAt) project.dashboard = { ...project.dashboard, installedAt };
+  project.savedAt = new Date().toISOString();
+  project.schemaVersion = project.schemaVersion || 1;
+  return rawWriteAtomic(file, project);
+}
+
 async function readDoc(key) {
   const file = await ensureFile(key);
   const raw = await fsp.readFile(file, 'utf8');
@@ -621,29 +678,53 @@ module.exports = {
    * Optional on purpose: a caller that does not care (MCP) passes nothing and
    * is reported to everyone, which is the correct answer for it. */
   async writeProject(project, opts) {
-    if (!project || typeof project !== 'object') throw new Error('project must be an object');
-    if (!Array.isArray(project.floors)) throw new Error('project.floors must be an array');
-    const noteErrors = [];
-    for (const floor of project.floors) if (floor) require('./annotations').validate(floor, (path, message) => noteErrors.push(path + ': ' + message), () => {}, 'annotations');
-    if (noteErrors.length) throw new Error(noteErrors.join('; '));
+    assertProjectShape(project);
     const file = path.join(DATA_DIR, FILES.project);
     /* Snapshot AND write inside one queue slot. Queuing only the write is not
      * enough: `snapshotProject` copies the very file a concurrent rename is
-     * replacing, so the backup is what fails instead. `rawWriteAtomic` is used
-     * here rather than `writeAtomic` because we are already holding the slot —
-     * queueing again from inside it would wait on ourselves. */
+     * replacing, so the backup is what fails instead. `commitProject` uses
+     * `rawWriteAtomic` rather than `writeAtomic` because we are already holding
+     * the slot — queueing again from inside it would wait on ourselves.
+     *
+     * This replaces the whole document with a copy the caller read at some
+     * earlier moment. That is right for the editor, which owns the document it
+     * is displaying and is told over SSE when somebody else saves, and wrong
+     * for a partial edit: use `editProject` for those. */
+    const saved = await enqueue(file, () => commitProject(file, project));
+    notifyProjectChange(saved, opts && opts.origin);
+    return saved;
+  },
+
+  /* Read, modify, validate and write as ONE transaction, with the project's
+   * queue slot held across all four steps.
+   *
+   * This is the difference between "change that lamp's colour" keeping the rest
+   * of the house and silently reverting it. A caller that reads the project,
+   * edits its own copy and calls `writeProject` is holding a snapshot from
+   * before everything it does not know about: an editor autosave or a second
+   * assistant landing in that window is overwritten with no error and no trace,
+   * and the bigger the document the wider the window. Reading INSIDE the slot
+   * closes it — the copy being edited cannot be stale, because nothing else can
+   * write between that read and the rename.
+   *
+   * `edit(project)` mutates in place; `opts.validate(project)` sees the result.
+   * Either may throw, and a throw writes NOTHING: no snapshot, no rename, the
+   * document on disk untouched. Same contract as `editRegistry`, which has
+   * composed concurrent registry patches this way since it was written. */
+  async editProject(edit, opts) {
+    if (typeof edit !== 'function') throw new Error('editProject needs an edit function');
+    /* Outside the slot on purpose: seeding a missing project.json goes through
+     * `writeAtomic`, which queues on this same file. */
+    const file = await ensureFile('project');
     const saved = await enqueue(file, async () => {
-      if ((project.floors || []).some(f => f.annotations?.length)) {
-        let previous;
-        try { previous = JSON.parse(await fsp.readFile(file, 'utf8')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
-        if (previous?.id === project.id) require('./annotations').reconcile(previous, project, await readDoc('library'));
-      }
-      await snapshotProject();
+      const project = await readProjectInSlot(file);
+      /* Overlay the deployment receipt exactly as `readProject` does, so an
+       * edit callback sees the same document `get_project` would have shown it. */
       const installedAt = await deploymentTime(project.id);
       if (installedAt) project.dashboard = { ...project.dashboard, installedAt };
-      project.savedAt = new Date().toISOString();
-      project.schemaVersion = project.schemaVersion || 1;
-      return rawWriteAtomic(file, project);
+      await edit(project);
+      assertProjectShape(project);
+      return commitProject(file, project, opts && opts.validate);
     });
     notifyProjectChange(saved, opts && opts.origin);
     return saved;

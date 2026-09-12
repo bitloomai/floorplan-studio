@@ -51,6 +51,7 @@ const Sun = require(path.join(APP, 'lib', 'sun'));
 const Fl = require(path.join(APP, 'lib', 'flooring'));
 const Shapes = require(path.join(APP, 'lib', 'shapes'));
 const Controls = require(path.join(APP, 'lib', 'controls'));
+const EntityBindings = require(path.join(APP, 'lib', 'entity-bindings'));
 const Light = require(path.join(APP, 'lib', 'lighting'));
 const lib = require(path.join(APP, 'defaults', 'library.json'));
 const themes = require(path.join(APP, 'defaults', 'themes.json'));
@@ -1924,23 +1925,30 @@ ok('editor entity redaction keeps cover position but still removes location attr
 })());
 ok('the live card watches gate motors, describes partial states and opens more-info without operating them', (() => {
   let Card;
+  const floor = { id: 'old', items: [], rooms: [], openings: [{ id: 'g', type: 'gate_sliding', cover: 'cover.test_gate' }] };
+  const next = { id: 'next', items: [], rooms: [], openings: [{ id: 'b', covering: { entity: 'cover.next_blind' } }] };
   require('vm').runInNewContext(fs.readFileSync(path.join(APP,'lib','card-runtime.js'),'utf8'), {
-    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,SunModel:Sun,
-    FPS_DATA:{project:{},boundaries},
+    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,SunModel:Sun,EntityBindings,
+    FPS_DATA:{project:{floors:[floor,next]},boundaries},
   });
   const card=Object.create(Card.prototype);
-  card._floor={items:[],rooms:[],openings:[{id:'g',type:'gate_sliding',cover:'cover.test_gate'}]};
+  card._floor=floor;
   card._hass={states:{'cover.test_gate':{state:'opening',attributes:{current_position:35}}}};
   let tapped;card.moreInfo=id=>{tapped=id;};
   card.moreInfoForOpening('g');
-  return card.boundEntities().includes('cover.test_gate') && card.describeOpening('g').includes('35% open')
-    && card.describeOpening('g').includes('opening') && tapped==='cover.test_gate';
+  const oldDescription = card.describeOpening('g');
+  const watchesMotor = card.boundEntities().includes('cover.test_gate');
+  card.render = () => {};
+  card.setConfig({ floor: 'next' });
+  return watchesMotor && oldDescription.includes('35% open') && oldDescription.includes('opening')
+    && tapped==='cover.test_gate' && card.boundEntities().includes('cover.next_blind')
+    && !card.boundEntities().includes('cover.test_gate');
 })());
 ok('the live card binds default and nested sun inputs through a partial floor override', (() => {
   let Card;
   require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8'), {
     HTMLElement: class {}, customElements: { define: (_, c) => { Card = c; } }, window: {},
-    PlanScene: scene, SunModel: Sun,
+    PlanScene: scene, SunModel: Sun, EntityBindings,
     FPS_DATA: {
       project: { sun: {
         enabled: true, source: 'entity',
@@ -3844,7 +3852,7 @@ ok('a tap circle is bigger than the disc it covers', (() => {
   let Card;
   require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8'), {
     HTMLElement: class {}, customElements: { define: (_, c) => { Card = c; } }, window: {},
-    PlanScene: scene, SunModel: Sun, Controls, document: doc,
+    PlanScene: scene, SunModel: Sun, Controls, EntityBindings, document: doc,
     setInterval: () => null, clearInterval: () => null,
     FPS_DATA: { project: {}, boundaries, library: lib, controls: controlsDoc },
   });
@@ -4090,6 +4098,57 @@ ok('dashboard checks the same merged sun inputs that its live card binds', (() =
   p.floors[0].sun = { ambient: { outdoor: 0.5 } };
   const ids = dashboard.boundEntities(p);
   return ['sun.sun', 'weather.sun_test', 'sensor.sun_test'].every((id) => ids.includes(id));
+})());
+const bindingProject = {
+  sun: { enabled: true, source: 'entity', weather: { entity: 'weather.test' }, solarSensor: { entity: 'sensor.solar' } },
+  dashboard: { house: {
+    weather: 'weather.house', people: ['person.house'],
+    counts: [{ entities: ['light.count'], showWhen: { entity: 'binary_sensor.count_condition' } }],
+    stats: [{ entity: 'sensor.stat', valueEntity: 'sensor.value', showWhen: { entity: 'binary_sensor.stat_condition' } }],
+  } },
+  shortcuts: [
+    { entity: 'scene.house', state: 'binary_sensor.house_ready' },
+    { service: 'light.turn_on', data: { entity_id: 'light.service_target' } },
+  ],
+  floors: [{
+    id: 'f', name: 'Floor', extent: { w: 12, h: 12 }, shortcuts: [{ entity: 'script.floor' }], boundaries: [],
+    items: [{ id: 'i', kind: 'device', type: 'camera', at: [2, 2], entity: 'camera.main', props: {
+      presence: 'binary_sensor.presence', remote: 'remote.media', sensor: 'sensor.item',
+      holdEntity: 'binary_sensor.hold', channels: [{ entity: 'switch.channel' }],
+    } }],
+    rooms: [{
+      id: 'r', name: 'Room', rect: [0, 0, 12, 12], master: 'light.room', shortcuts: [{ entity: 'scene.room' }],
+      controls: { sections: [{ id: 'extras', enabled: true, source: 'explicit',
+        entities: [{ entity: 'climate.explicit' }], filter: { include: ['sensor.forced'] } }] },
+    }],
+    openings: [{ id: 'o', room: 'r', wall: 'n', at: 4, w: 3, type: 'window', sensor: 'binary_sensor.door', cover: 'cover.door', covering: { entity: 'cover.blind' } }],
+  }],
+};
+ok('one binding catalogue covers every primary and secondary entity surface', (() => {
+  const ids = EntityBindings.project(bindingProject, controlsDoc);
+  const expected = [
+    'sun.sun', 'weather.test', 'sensor.solar', 'weather.house', 'person.house', 'light.count', 'sensor.stat', 'sensor.value',
+    'scene.house', 'binary_sensor.house_ready', 'script.floor', 'camera.main', 'binary_sensor.presence', 'remote.media',
+    'sensor.item', 'binary_sensor.hold', 'switch.channel', 'light.room', 'scene.room', 'binary_sensor.door', 'cover.door', 'cover.blind',
+    'light.service_target', 'binary_sensor.count_condition', 'binary_sensor.stat_condition', 'climate.explicit', 'sensor.forced',
+  ];
+  return expected.every(id => ids.includes(id)) && new Set(ids).size === ids.length;
+})());
+ok('dashboard preflight delegates to the shared binding catalogue', (() => {
+  const p = { floors: [{ id: 'f', items: [{ id: 'i', props: { channels: [{ entity: 'switch.secondary' }] } }], rooms: [], openings: [{ id: 'o', covering: { entity: 'cover.secondary' } }] }] };
+  return JSON.stringify(dashboard.boundEntities(p)) === JSON.stringify(EntityBindings.project(p));
+})());
+ok('the headless floor API delegates to the shared binding catalogue', (() => {
+  const AppApi = require(path.join(APP, 'lib', 'app-api'));
+  const docs = { project: bindingProject, controls: controlsDoc };
+  return JSON.stringify(AppApi.entityIdsFor(bindingProject.floors[0], docs))
+    === JSON.stringify(EntityBindings.floor(bindingProject, bindingProject.floors[0], controlsDoc));
+})());
+ok('the export manifest delegates to the shared binding catalogue', (() => {
+  const out = exporter.build(bindingProject, lib, themes, 'bundle', 'f', { boundaries, flooring });
+  const manifest = JSON.parse(out.files.find((file) => file.name === 'manifest.json').content);
+  return JSON.stringify(manifest.boundEntities)
+    === JSON.stringify(EntityBindings.project(bindingProject, null, { floors: bindingProject.floors }));
 })());
 
 const cardDocs = {
@@ -5099,6 +5158,20 @@ const dispatchScenario = [
   '  t("edit_settings sets a nested path, creating parents as needed", settings.value === "My Home");',
   '  const guarded = await call("tools/call", { name: "edit_settings", arguments: { path: "floors", value: [] } }, 12);',
   '  t("edit_settings refuses to touch floors — that is edit_collection\'s job", guarded.result.isError === true);',
+  /* The same three key names edit_registry has always refused. A settings path
+   * is walked key by key and assigned to at the end, so `__proto__.polluted`
+   * reaches Object's prototype and `constructor.prototype` gets there the long
+   * way round — a property on every object in the process, set by an
+   * authenticated caller doing nothing that looks unusual. The check on the
+   * VALUE matters just as much: JSON.parse makes `__proto__` an inert own
+   * property, and it stops being inert the moment anything spreads the object
+   * it was stored in. */
+  "  const pollutePath = await call(\"tools/call\", { name: \"edit_settings\", arguments: { path: \"__proto__.polluted\", value: true } }, 121);",
+  "  const polluteVia = await call(\"tools/call\", { name: \"edit_settings\", arguments: { path: \"constructor.prototype.polluted\", value: true } }, 122);",
+  "  const polluteValue = await call(\"tools/call\", { name: \"edit_settings\", arguments: { path: \"dashboard.house.extra\", value: JSON.parse('{\"__proto__\":{\"polluted\":true}}') } }, 123);",
+  "  t(\"edit_settings rejects prototype keys in paths and in values, as edit_registry does\", pollutePath.result.isError && polluteVia.result.isError && polluteValue.result.isError && ({}).polluted === undefined && ([]).polluted === undefined);",
+  "  const safeStill = toolJson(await call(\"tools/call\", { name: \"edit_settings\", arguments: { path: \"dashboard.house.title\", value: \"Still Writable\" } }, 124));",
+  "  t(\"and an ordinary nested settings path still writes\", safeStill.value === \"Still Writable\");",
   '',
   '  const libSearch = toolJson(await call("tools/call", { name: "list_library", arguments: { kind: "device", category: "climate", query: "fan" } }, 13));',
   '  t("list_library filters by kind/category/query together", libSearch.types.length > 0 && libSearch.types.every((x) => x.kind === "device" && x.category === "climate"));',

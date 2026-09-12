@@ -102,6 +102,33 @@ module.exports = function (ok) {
   const sharedBand = centredShared.layers.boundaries.find(n => n.roomId === 'a' && n.wall === 'e' && n.attrs?.stroke === 'none');
   const sharedXs = sharedBand.attrs.d.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => !(i % 2));
   ok('a wall shared by two indoor rooms keeps its centre line', Math.min(...sharedXs) === 110 && Math.max(...sharedXs) === 130);
+  /* One room touches only the middle of a longer edge. The two exposed pieces
+   * are exterior runs and must fill inward; the shared middle is still a
+   * centred wall. This is the shape that an edge-wide midpoint probe cannot
+   * answer correctly. */
+  const mixedRooms = [{ ...room, id: 'a', rect: [0, 0, 12, 12] }, { ...room, id: 'b', rect: [12, 4, 4, 4] }];
+  const mixed = draw({}, { extent: { w: 20, h: 20 }, rooms: mixedRooms, boundaries: [
+    { id: 'mixed', room: 'a', wall: 'e', type: 'wall_exterior', props: { thicknessFt: 2, topFinish: 'granite_black' } },
+  ] });
+  const mixedBands = mixed.layers.boundaries.filter(n => n.roomId === 'a' && n.wall === 'e' && n.attrs?.stroke === 'none');
+  const range = (node, axis) => node.attrs.d.match(/-?\d+(?:\.\d+)?/g).map(Number)
+    .filter((_, i) => i % 2 === axis).reduce((r, v) => [Math.min(r[0], v), Math.max(r[1], v)], [Infinity, -Infinity]);
+  const lower = mixedBands.find(n => range(n, 1)[1] <= 80 + 1e-6);
+  const middle = mixedBands.find(n => range(n, 1)[0] >= 80 - 1e-6 && range(n, 1)[1] <= 160 + 1e-6);
+  const upper = mixedBands.find(n => range(n, 1)[0] >= 160 - 1e-6);
+  ok('a partially shared edge is split into independently placed wall runs', mixedBands.length === 3 && lower && middle && upper);
+  ok('the exposed runs fill inward while only the shared stretch stays centred',
+    JSON.stringify(range(lower, 0)) === JSON.stringify([200, 240])
+      && JSON.stringify(range(middle, 0)) === JSON.stringify([220, 260])
+      && JSON.stringify(range(upper, 0)) === JSON.stringify([200, 240]));
+  const shortExterior = draw({}, { extent: { w: 20, h: 20 }, rooms: mixedRooms, boundaries: [
+    { id: 'short', room: 'a', wall: 'e', from: 0, to: 3, type: 'wall_exterior', props: { thicknessFt: 2, topFinish: 'granite_black' } },
+  ] });
+  const shortClip = shortExterior.layers.defs.find(n => String(n.attrs?.id).startsWith('fpsWallSurface-'));
+  const shortBand = shortClip.children.find(n => range(n, 1)[1] <= 60 + 1e-6);
+  ok('a short exterior run is not centred by an indoor room elsewhere on its edge',
+    shortBand && JSON.stringify(range(shortBand, 0)) === JSON.stringify([200, 240])
+      && JSON.stringify(range(shortBand, 1)) === JSON.stringify([0, 60]));
   ok('wall finish is drawn in one clipped field', wide.layers.boundaries.filter(n => n.tag === 'g').length === 1);
   const adjoining = draw({}, { boundaries: [wall({ topFinish: 'granite_black' }), wall({ topFinish: 'granite_black' }, 'e', 'b2')] });
   ok('adjoining walls share a material field', adjoining.layers.boundaries.filter(n => n.tag === 'g').length === 1);

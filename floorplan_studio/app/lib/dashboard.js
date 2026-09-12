@@ -31,7 +31,7 @@
 
 'use strict';
 
-const Sun = require('./sun');
+const EntityBindings = require('./entity-bindings');
 
 /* The logic layer on the dashboard.
  *
@@ -264,43 +264,7 @@ function floorIcon(floor, floors) {
  * exist BEFORE saving over a working dashboard. A typo'd sensor should fail the
  * generate, not show up as a silent zero. */
 function boundEntities(project) {
-  const all = itemsOf((project.floors || []));
-  const ids = new Set();
-  /* Every marker with an entity: the floor card counts them all, class by
-   * class, so every one of them is named on the dashboard. */
-  for (const i of all) if (i.entity) ids.add(i.entity);
-  /* Whatever the house card was configured with, or seeded with. */
-  const house = (project.dashboard || {}).house;
-  if (house) {
-    if (house.weather) ids.add(house.weather);
-    for (const p of house.people || []) ids.add(p);
-    for (const c of house.counts || []) for (const e of c.entities || []) ids.add(e);
-    for (const s of house.stats || []) {
-      if (s.entity) ids.add(s.entity);
-      if (s.valueEntity) ids.add(s.valueEntity);
-    }
-  } else {
-    for (const c of defaultCounts(all)) for (const e of c.entities) ids.add(e);
-    for (const s of defaultStats(all)) ids.add(s.entity);
-  }
-  /* Shortcuts and logic markers are named on the generated dashboard too, so a
-   * typo'd scene has to fail the generate rather than appear as a dead tile on
-   * a wall tablet. */
-  for (const e of logicEntities(project, project.floors || [], true)) ids.add(e);
-  for (const e of logicEntities(project, project.floors || [], false)) ids.add(e);
-  /* The preview/install check must name the state inputs used inside the plan
-   * card too. Resolve each visible floor through the same deep/default-aware
-   * cascade as PlanScene and the card runtime; a partial floor override must
-   * not hide house-level weather/solar bindings, and selecting HA as the sun
-   * source must include the implicit default `sun.sun`. */
-  for (const floor of (project.floors || []).filter((f) => !f.hidden)) {
-    const sun = Sun.mergeConfig(project.sun, floor.sun);
-    if (!sun.enabled) continue;
-    if (sun.source === 'entity' && sun.sunEntity) ids.add(sun.sunEntity);
-    if (sun.weather && sun.weather.entity) ids.add(sun.weather.entity);
-    if (sun.solarSensor && sun.solarSensor.entity) ids.add(sun.solarSensor.entity);
-  }
-  return [...ids].sort();
+  return EntityBindings.project(project);
 }
 
 module.exports = {
