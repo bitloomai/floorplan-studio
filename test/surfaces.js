@@ -68,6 +68,31 @@ module.exports = function (ok) {
   const xy = wallClip.children[0].attrs.d.match(/-?\d+(?:\.\d+)?/g).map(Number);
   const ys = xy.filter((_,i) => i % 2);
   ok('wall top width is physical feet', Math.max(...ys) - Math.min(...ys) === 30);
+  const perimeterRoom = { ...room, rect: [0, 0, 12, 12] };
+  const perimeterBoundaries = [
+    wall({ thicknessFt: 2, topFinish: 'granite_black' }, 'n', 'bn'),
+    wall({ thicknessFt: 2, topFinish: 'granite_black' }, 'e', 'be'),
+    wall({ thicknessFt: 2, topFinish: 'granite_black' }, 's', 'bs'),
+    wall({ thicknessFt: 2, topFinish: 'granite_black' }, 'w', 'bw'),
+  ];
+  const perimeter = draw({}, { extent: { w: 12, h: 12 }, rooms: [perimeterRoom], boundaries: perimeterBoundaries });
+  const perimeterBands = perimeter.layers.boundaries.filter(n => n.roomId === 'r' && n.attrs?.stroke === 'none');
+  const bandsStayInside = bands => bands.every(n => {
+    const v = n.attrs.d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+    return v.every(x => x >= -1e-6 && x <= 240 + 1e-6);
+  });
+  ok('wide exterior wall tops fill inward and stay inside the room boundary', perimeterBands.length === 4 && bandsStayInside(perimeterBands));
+  const reversedRoom = { ...room, shape: 'poly', points: [[0, 0], [0, 12], [12, 12], [12, 0]] };
+  const reversed = draw({}, { extent: { w: 12, h: 12 }, rooms: [reversedRoom], boundaries: perimeterBoundaries });
+  const reversedBands = reversed.layers.boundaries.filter(n => n.roomId === 'r' && n.attrs?.stroke === 'none');
+  ok('reversing a room outline cannot reverse which way its walls fill', reversedBands.length === 4 && bandsStayInside(reversedBands));
+  const rooms = [{ ...room, id: 'a', rect: [0, 0, 6, 12] }, { ...room, id: 'b', rect: [6, 0, 6, 12] }];
+  const centredShared = draw({}, { extent: { w: 12, h: 12 }, rooms, boundaries: [
+    { id: 'shared', room: 'a', wall: 'e', type: 'wall_exterior', props: { thicknessFt: 1, topFinish: 'granite_black' } },
+  ] });
+  const sharedBand = centredShared.layers.boundaries.find(n => n.roomId === 'a' && n.wall === 'e' && n.attrs?.stroke === 'none');
+  const sharedXs = sharedBand.attrs.d.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => !(i % 2));
+  ok('a wall shared by two indoor rooms keeps its centre line', Math.min(...sharedXs) === 110 && Math.max(...sharedXs) === 130);
   ok('wall finish is drawn in one clipped field', wide.layers.boundaries.filter(n => n.tag === 'g').length === 1);
   const adjoining = draw({}, { boundaries: [wall({ topFinish: 'granite_black' }), wall({ topFinish: 'granite_black' }, 'e', 'b2')] });
   ok('adjoining walls share a material field', adjoining.layers.boundaries.filter(n => n.tag === 'g').length === 1);

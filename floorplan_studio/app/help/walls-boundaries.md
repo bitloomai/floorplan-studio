@@ -77,3 +77,7 @@ key), and `topFinishOptions` (generator options). These override the type's
 `render` values and survive project export and dashboard generation. A material
 is generated over the floor extent and clipped to the wall bands, preserving its
 physical scale. Overlapping bands using the same material share one paint pass.
+
+On an exterior edge, width grows inward: the room edge remains the wall's outer
+face, including at corners. A wall shared by two indoor rooms remains centred on
+their common edge.

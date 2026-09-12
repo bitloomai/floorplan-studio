@@ -295,9 +295,17 @@
   function roomEdges(room) {
     const pts = roomPoints(room);
     const box = roomBBox(room);
+    const winding = polygonArea(pts) < 0 ? -1 : 1;
     const out = [];
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      const edgeLen = Math.hypot(dx, dy) || 1;
+      /* Screen coordinates grow downward. For the usual clockwise outline the
+       * room is on the segment's right; reversed outlines put it on the left.
+       * Carry the geometric inward normal so wall bodies do not have to guess
+       * it from n/e/s/w and reversed polygon order cannot flip the result. */
+      const inward = [-dy / edgeLen * winding, dx / edgeLen * winding];
       const horizontal = Math.abs(a[1] - b[1]) < 1e-6;
       const vertical = Math.abs(a[0] - b[0]) < 1e-6;
       /* Which original corner this segment belongs to. For a straight outline
@@ -320,7 +328,7 @@
         }
         const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
         out.push({ a, b, wall, diagonal: true, curved: !!(pts.src), src, index: i,
-          horizontal: false, fixed: null, lo: 0, hi: segLen });
+          horizontal: false, fixed: null, lo: 0, hi: segLen, inward });
         continue;
       }
       const wall = horizontal
@@ -329,7 +337,7 @@
       const lo = horizontal ? Math.min(a[0], b[0]) : Math.min(a[1], b[1]);
       const hi = horizontal ? Math.max(a[0], b[0]) : Math.max(a[1], b[1]);
       const fixed = horizontal ? a[1] : a[0];
-      out.push({ a, b, wall, horizontal, lo, hi, fixed, index: i, src });
+      out.push({ a, b, wall, horizontal, lo, hi, fixed, index: i, src, inward });
     }
     return out;
   }
@@ -512,7 +520,7 @@
     return out;
   }
 
-  function boundaryNodes(run, edge, bDoc, theme, P, surface) {
+  function boundaryNodes(run, edge, bDoc, theme, P, surface, isExterior) {
     const def = (bDoc.types || {})[run.type] || (bDoc.types || {}).wall_partition || {};
     const r = Object.assign({}, def.render || {}, run.props || {});
     if (r.style === 'none') return [];
@@ -535,6 +543,15 @@
       const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
       const nx = -uy * half, ny = ux * half;
 
+      /* A room edge is the OUTER face of an exterior wall. Centering a wide
+       * band on that line puts half the wall outside the building/site and is
+       * especially obvious at a perimeter corner. Interior/shared walls keep
+       * their centre-line convention; only a geometrically exterior run moves
+       * its whole thickness into the room. `edge.inward` follows polygon
+       * winding, so clockwise and reversed outlines agree. */
+      const insetX = isExterior && edge.inward ? edge.inward[0] * half : 0;
+      const insetY = isExterior && edge.inward ? edge.inward[1] * half : 0;
+
       /* Mitre the corners.
        *
        * The band is half a thickness wide either side of the wall line, but it
@@ -552,10 +569,13 @@
        * the doorway it is supposed to stop at. `edge.lo`/`edge.hi` are the
        * edge's own ends, so a run touching them is at a corner and anything
        * else is a join with something on the same wall. */
-      const atLo = Math.abs(run.from - edge.lo) < 1e-6 ? half : 0;
-      const atHi = Math.abs(run.to - edge.hi) < 1e-6 ? half : 0;
-      const ax = x1 - ux * atLo, ay = y1 - uy * atLo;
-      const bx = x2 + ux * atHi, by = y2 + uy * atHi;
+      /* Two inward exterior bands already overlap inside their corner. The old
+       * tangent extension is still needed for centred interior walls, but on a
+       * perimeter it is the second way the band can escape the footprint. */
+      const atLo = !isExterior && Math.abs(run.from - edge.lo) < 1e-6 ? half : 0;
+      const atHi = !isExterior && Math.abs(run.to - edge.hi) < 1e-6 ? half : 0;
+      const ax = x1 + insetX - ux * atLo, ay = y1 + insetY - uy * atLo;
+      const bx = x2 + insetX + ux * atHi, by = y2 + insetY + uy * atHi;
       nodes.push({
         tag: 'path',
         attrs: {
@@ -2112,7 +2132,7 @@
 
         const isExterior = edgeIsExteriorHere(edge);
         for (const run of edgeRuns(edge, room, floor, defaults, isExterior)) {
-          for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface)) {
+          for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface, isExterior)) {
             n.roomId = room.id; n.wall = edge.wall;
             layers.boundaries.push(n);
           }

@@ -1678,11 +1678,9 @@ const fillBands = (type) => {
 };
 const band = fillBands('wall_exterior');
 ok('a type with render.fill draws the wall to its own thickness', band.length === 1);
-/* 0.75 ft at 20 px/ft is a 15 px band, centred on the line. Measured from the
- * path's own numbers rather than matched as a string: the band now runs half a
- * thickness PAST each corner so adjacent walls mitre, and pinning the literal
- * coordinates made a corner fix look like a thickness regression. Thickness is
- * the perpendicular extent, and that is what this is about. */
+/* 0.75 ft at 20 px/ft is a 15 px band. Measured from the path's own numbers
+ * rather than matched as a string: thickness is the perpendicular extent, and
+ * that is what this is about. */
 const bandExtent = (d) => {
   const n = String(d).match(/-?\d+(?:\.\d+)?/g).map(Number);
   const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
@@ -1691,12 +1689,11 @@ const bandExtent = (d) => {
 ok('and the band is that thickness, not a hairline',
   band.length === 1 && Math.abs(bandExtent(band[0].attrs.d).across - 15) < 0.01,
   band.length && band[0].attrs.d);
-ok('and it runs past the corner so two walls mitre instead of leaving a notch', (() => {
-  /* The wall spans 400 px; each end reaches half a thickness (7.5 px) beyond
-   * it, so the corner square is covered by both walls rather than by neither.
-   * Before this, every corner of every thick-walled plan had a bite out of it. */
+ok('and an exterior band stops at the footprint while meeting the next wall', (() => {
+  /* Exterior bands move wholly inward and meet inside the corner, so this wall
+   * spans exactly the 400 px room edge rather than protruding past either end. */
   if (band.length !== 1) return false;
-  return Math.abs(bandExtent(band[0].attrs.d).along - (400 + 15)) < 0.01;
+  return Math.abs(bandExtent(band[0].attrs.d).along - 400) < 0.01;
 })());
 ok('a type without a fill still draws none', fillBands('metal_railing').length === 0);
 

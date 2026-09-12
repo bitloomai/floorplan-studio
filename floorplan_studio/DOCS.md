@@ -243,6 +243,9 @@ neither. A material is generated once over the floor extent and clipped to the
 bands, so its physical scale is continuous across the house and a wall two rooms
 both name is painted once rather than twice.
 
+Exterior wall width fills inward from the room edge, which remains the outer
+face; shared walls between two indoor rooms remain centred on their common edge.
+
 ## Openings and doors
 
 The Opening tool (`A`) places one on the nearest wall. Select it to change type,

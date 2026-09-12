@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Wide exterior walls stay inside the plan
+
+- Increasing **Wall top width** no longer grows an exterior wall equally inside
+  and outside the room edge. The edge is now the wall's outer face and the full
+  configured width fills inward, so a wide wall cannot create the protruding
+  block beyond a building or site corner.
+- Exterior runs also stop at their boundary endpoints; adjoining inward bands
+  overlap inside the corner instead of relying on an extension beyond it.
+  Shared walls between two indoor rooms keep their existing centred geometry.
+- The inward direction comes from the room outline's winding rather than a
+  hard-coded compass letter, so clockwise and reversed polygon outlines agree.
+
 ### An assistant can see your devices, and the app says it is ready to use
 
 - **`list_entities`.** The app has always held a redacted Home Assistant entity
