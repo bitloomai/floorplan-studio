@@ -101,16 +101,20 @@ profile floorplan_studio flags=(attach_disconnected,mediate_deleted) {
 
   # ---- network -------------------------------------------------------------
   #
-  # Listens on 8099 (Ingress + /mcp) and optionally 8443 (MCP over TLS), and
-  # connects out to http://supervisor/core/api and the Home Assistant WebSocket.
-  # Stream sockets only: no raw, packet or netlink.
+  # Listens on 8099 (Ingress + /mcp) and optionally 8443 (MCP over TLS), over
+  # IPv6 and IPv4 both — one dual-stack socket each, which is why inet6 is
+  # here. Connects out to http://supervisor/core/api and its WebSocket for the
+  # app's own reads and writes, and to Core itself at http://homeassistant:8123
+  # to check an external caller's token. Stream sockets only: no raw, packet
+  # or netlink.
   network inet stream,
   network inet6 stream,
   network unix stream,
 
-  # Name resolution for the `supervisor` hostname. Spelled out rather than
-  # pulled in via abstractions/nameservice, so the profile does not depend on
-  # which abstraction files the host happens to ship.
+  # Name resolution for the `supervisor` and `homeassistant` hostnames.
+  # Spelled out rather than pulled in via abstractions/nameservice, so the
+  # profile does not depend on which abstraction files the host happens to
+  # ship.
   /etc/nsswitch.conf r,
   /etc/host.conf r,
   /etc/hosts r,

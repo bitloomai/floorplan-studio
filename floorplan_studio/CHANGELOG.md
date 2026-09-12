@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### MCP accepts your token on a real install, and answers over IPv6
+
+- Once installed, `/mcp` answered **401 to every valid token**. A caller's
+  token was checked through Supervisor's `http://supervisor/core` proxy, which
+  accepts only the app's own token, so Home Assistant never saw yours. It is
+  now checked against Core directly at `http://homeassistant:8123`, and Core's
+  own WebSocket is asked who the caller is. The headless endpoints had the same
+  fault and share the fix.
+- A client reaching the app over **IPv6** had its connection accepted and then
+  reset (`ECONNRESET`), because the server listened on IPv4 only.
+  `homeassistant.local` answers with both, so MCP worked or failed depending on
+  which address a client tried. Both listeners are now dual-stack.
+- When Home Assistant cannot be reached to check a token, the answer is a
+  **503** and the app log says what could not be reached, instead of a 401 that
+  blamed the token. Core serving HTTPS itself, or on a port other than 8123, is
+  not supported for this check yet.
+- `/mcp` now shares the headless endpoints' limit on failed attempts per
+  address, since each one reaches Home Assistant as a failed login.
+
 ### Sun settings survive export and stay live on the dashboard
 
 - The generated floor-plan card now resolves sun settings with the same deep,

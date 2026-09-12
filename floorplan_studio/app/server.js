@@ -772,7 +772,15 @@ function loadTlsCredentials() {
 server.on('upgrade', (req, socket, head) => appApiUpgradeHandler(req, socket, head, false));
 
 store.init().then(() => {
-  server.listen(PORT, '0.0.0.0', () => {
+  /* No host, deliberately. Node then binds `::` when the container has IPv6 —
+   * dual-stack, so IPv4 still arrives, as `::ffff:a.b.c.d`, which
+   * ingressPeer() and the external limiter already strip — and 0.0.0.0 when it
+   * has none. Naming 0.0.0.0 broke the published port for IPv6 clients:
+   * `homeassistant.local` answers with an IPv6 address too, Docker hands such a
+   * client to the container's IPv6 address, and nothing listened there, so the
+   * connection was accepted and then reset. Whether MCP worked came down to
+   * which address a client happened to try. */
+  server.listen(PORT, () => {
     log('info', `listening on :${PORT}`);
     log('info', `data dir  ${store.dataDir()}`);
     log('info', `HA mode   ${ha.mode()}${ha.isConfigured() ? '' : ' (no credentials — entity picker will be empty)'}`);
@@ -792,7 +800,8 @@ store.init().then(() => {
         return mcpRequestHandler(req, res);
       });
       tlsServer.on('upgrade', (req, socket, head) => appApiUpgradeHandler(req, socket, head, true));
-      tlsServer.listen(sslPort, '0.0.0.0', () => {
+      /* Dual-stack for the same reason as the main listener. */
+      tlsServer.listen(sslPort, () => {
         log('info', `MCP (TLS) https://<this-host>:${sslPort}/mcp${appApiEnabled() ? ' and ' + appApi.PREFIX : ''} — nothing else is served on this port`);
       });
     }

@@ -566,8 +566,14 @@ function handleUpgrade(req, socket, head, opts) {
       if (msg.type === 'auth') {
         const addr = String(socket.remoteAddress || '').replace(/^::ffff:/, '');
         if (auth.tooManyFailures(addr)) { sendJson({ type: 'auth_invalid', code: 'too_many_attempts' }); closeSocket(entry, 4429, 'rate limited'); continue; }
-        const valid = await auth.checkToken(msg.access_token, (opts.authOpts || {}).fetchImpl);
-        if (!valid) {
+        const state = await auth.tokenStatus(msg.access_token, (opts.authOpts || {}).fetchImpl);
+        if (state === 'unreachable') {
+          /* Not the caller's doing, so not counted against their address. */
+          sendJson({ type: 'auth_invalid', code: 'auth_unavailable', message: auth.unavailableMessage() });
+          closeSocket(entry, 4503, 'auth unavailable');
+          continue;
+        }
+        if (state !== 'valid') {
           auth.noteFailure(addr);
           sendJson({ type: 'auth_invalid' });
           closeSocket(entry, 4401, 'auth invalid');

@@ -547,6 +547,21 @@ profile → Security → Long-lived access tokens). Nothing app-specific is
 generated — the token is checked by asking Home Assistant itself whether it
 is still valid, so revoking it there revokes the AI's access immediately too.
 
+The app asks Home Assistant Core directly, at `http://homeassistant:8123` on
+the internal network, because Supervisor's own proxy accepts only the app's
+token and would refuse yours. Two things follow from that:
+
+- If Core serves HTTPS itself (an `ssl_certificate` in its `http:`
+  configuration) or listens on a port other than 8123, the check cannot reach
+  it yet. The client gets a **503** rather than a misleading 401, and the app
+  log names the address it could not reach and why.
+- A wrong token is a failed login as far as Home Assistant is concerned. It
+  raises the "Login attempt failed" notification, naming the app's internal
+  address rather than the client's, and if you have set
+  `login_attempts_threshold`, enough of them ban that address — after which no
+  token can be checked until it is removed from `ip_bans.yaml`. The app stops
+  passing on attempts from an address after 20 failures in a minute.
+
 Once connected, an AI has ten tools. Two of them orient it: **`get_guide`** is
 the working guide — which call answers which question, the concepts to grasp
 before editing (everything is in feet, walls are screen-relative, one

@@ -25,15 +25,18 @@
  * ## Auth
  *
  * No new secret is generated or stored. A caller presents `Authorization:
- * Bearer <token>` and the token is checked the way Home Assistant itself
- * would check it — by asking Home Assistant's own `GET /api/` whether it is
- * valid, over the same Supervisor/dev connection `ha.js` already has. Anyone
- * who already holds a real Home Assistant credential (a long-lived access
- * token from their profile, or a browser session token) is trusted, and
+ * Bearer <token>` and `external-auth.js` — the same door the headless
+ * endpoints use — asks Home Assistant's own `GET /api/` whether it is valid.
+ * It asks Core directly, not through Supervisor's proxy, which refuses every
+ * token except an app's own. Anyone who already holds a real Home Assistant
+ * credential (a long-lived access token from their profile, or a browser
+ * session token) is trusted, and
  * revoking it in Home Assistant revokes MCP access in the same instant —
  * there is nothing else to rotate or lose. In offline dev mode (no Home
  * Assistant configured at all) there is nothing to check against, so any
  * caller is allowed, the same way the entity picker falls back to typing ids.
+ * Failed attempts share that module's per-address limiter: each one reaches
+ * Home Assistant, which raises a "Login attempt failed" notification for it.
  *
  * ## What it can change
  *
@@ -61,6 +64,7 @@
 const store = require('./store');
 const ha = require('./ha');
 const haWrite = require('./ha-write');
+const auth = require('./external-auth');
 const dashboard = require('./dashboard');
 const cardBuild = require('./card-build');
 const planScene = require('./plan-scene');
@@ -128,39 +132,6 @@ Ask the human about their building when the answer is not in the project — whi
 const SKILL_URI = 'floorplanstudio://guide';
 
 const KINDS = ['fixture', 'device', 'furniture', 'logic'];
-
-/* ------------------------------------------------------------------ auth */
-
-const TOKEN_CACHE_MS = 60 * 1000;
-const tokenCache = new Map();
-
-/* `fetchImpl` exists only for tests — production always uses the global
- * `fetch`, exactly like `ha.js`'s own `get()`. */
-async function checkToken(token, fetchImpl) {
-  if (ha.mode() === 'offline') return true;
-  if (!token) return false;
-  const now = Date.now();
-  const cached = tokenCache.get(token);
-  if (cached && now - cached.at < TOKEN_CACHE_MS) return cached.ok;
-  const f = fetchImpl || fetch;
-  let ok = false;
-  try {
-    const res = await f(`${ha.baseUrl()}/`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
-    });
-    ok = !!(res && res.ok);
-  } catch (e) { ok = false; }
-  tokenCache.set(token, { ok, at: now });
-  return ok;
-}
-
-function bearerFrom(req) {
-  const h = req.headers && req.headers.authorization;
-  const m = /^Bearer\s+(.+)$/i.exec(h || '');
-  return m ? m[1].trim() : null;
-}
 
 /* ------------------------------------------------------------------ ids */
 
@@ -1565,9 +1536,17 @@ async function handleRequest(req, res, opts) {
   }
   if (req.method !== 'POST') { res.writeHead(405, { Allow: 'POST' }); return res.end(); }
 
-  const token = bearerFrom(req);
-  const authed = await checkToken(token, o.fetchImpl);
-  if (!authed) {
+  /* The headless endpoints' limiter too: a guess now reaches Home Assistant
+   * itself, which notifies about each one and counts it toward any ban. */
+  const addr = String((req.socket && req.socket.remoteAddress) || '').replace(/^::ffff:/, '');
+  if (auth.tooManyFailures(addr)) {
+    res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'too many failed authentication attempts — wait a minute and try again' }));
+  }
+  const state = await auth.tokenStatus(auth.bearerFrom(req), o.fetchImpl);
+  if (state === 'unreachable') return sendJson(res, 503, { error: auth.unavailableMessage() });
+  if (state !== 'valid') {
+    auth.noteFailure(addr);
     res.writeHead(401, { 'WWW-Authenticate': 'Bearer', 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'a valid Home Assistant Authorization: Bearer token is required' }));
   }
@@ -1583,4 +1562,4 @@ async function handleRequest(req, res, opts) {
   return sendJson(res, 200, reply);
 }
 
-module.exports = { handleRequest, checkToken, dispatch, TOOLS, CONTRACT_TEXT };
+module.exports = { handleRequest, dispatch, TOOLS, CONTRACT_TEXT };

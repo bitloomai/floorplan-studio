@@ -341,9 +341,10 @@ claude mcp add --transport http floorplan-studio \
 
 Get the token from your own Home Assistant profile (Settings → your profile →
 Security → Long-lived access tokens) — nothing is generated or stored by this
-app itself. The token is checked by asking Home Assistant's own `GET /api/`
-whether it is valid, so revoking it in Home Assistant revokes MCP access in
-the same instant. In offline development (no Home Assistant configured at
+app itself. The token is checked by asking Home Assistant Core's own
+`GET /api/` whether it is valid — directly, at `http://homeassistant:8123`,
+because Supervisor's proxy accepts only the app's own token — so revoking it in
+Home Assistant revokes MCP access in the same instant. In offline development (no Home Assistant configured at
 all) any caller is let through, matching how the entity picker degrades.
 
 **Why not through Ingress:** Ingress authenticates by a per-browser-session

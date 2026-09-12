@@ -11,6 +11,9 @@
  *   dev     HA_URL + HA_TOKEN from the environment or FPS_ENV_FILE
  * The token is never logged, never returned to the browser, and never written
  * into any saved document.
+ *
+ * `coreUrl()` is a third address and not this app's credential at all: it is
+ * where somebody ELSE's token gets checked — see `external-auth.js`.
  */
 
 const fs = require('fs');
@@ -34,6 +37,20 @@ const DEV_TOKEN = process.env.HA_TOKEN || envFile.HA_TOKEN || '';
 const MODE = SUPERVISOR_TOKEN ? 'supervisor' : (DEV_URL && DEV_TOKEN ? 'dev' : 'offline');
 const BASE = SUPERVISOR_TOKEN ? 'http://supervisor/core/api' : `${DEV_URL}/api`;
 const TOKEN = SUPERVISOR_TOKEN || DEV_TOKEN;
+
+/* Where a CALLER's own token is checked — never this app's own reads.
+ *
+ * Supervisor's proxy above admits app tokens and nothing else: its
+ * `_check_access` looks the bearer up among installed apps, logs "Unknown Home
+ * Assistant API access!" and answers 401, and its WebSocket proxy refuses the
+ * same way. A user's long-lived token is refused there however valid it is, so
+ * it has to reach Core itself. Inside an app container Core answers as
+ * `homeassistant` on the internal network, and 8123 over plain HTTP is its
+ * default. Learning a changed `server_port`, or that Core terminates TLS
+ * itself, would take Supervisor's `/core/info`, which needs `hassio_api: true`
+ * — read access to every info endpoint Supervisor has — and one check is not
+ * worth that permission. In development HA_URL already IS Core. */
+const CORE = SUPERVISOR_TOKEN ? 'http://homeassistant:8123' : DEV_URL;
 
 /* The ONLY attributes that ever leave this module.
  *
@@ -116,4 +133,6 @@ module.exports = {
    * written into a saved document. */
   baseUrl: () => BASE,
   token: () => TOKEN,
+  /* No token goes with this one: callers bring their own. */
+  coreUrl: () => CORE,
 };

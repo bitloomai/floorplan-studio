@@ -38,6 +38,12 @@ Long-lived access tokens**. This app never creates or stores one. It checks the
 token by asking Home Assistant whether it is still valid, so revoking it there
 revokes access here in the same moment.
 
+It asks Home Assistant Core directly, at `homeassistant:8123` on the internal
+network. If your Home Assistant serves HTTPS itself or uses another port, that
+check cannot reach it yet: the assistant is told Home Assistant could not be
+asked (a 503), and the app log says why. A wrong token counts as a failed login
+in Home Assistant, which notifies you about it.
+
 MCP is served on the app's own published port rather than through Ingress,
 because Ingress authenticates with a browser-session cookie that only the Home
 Assistant frontend can mint and a generic MCP client has no way to produce.

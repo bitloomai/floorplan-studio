@@ -5220,15 +5220,27 @@ const dispatchScenario = [
 
 for (const r of runInIsolatedDataDir(dispatchScenario)) ok(r.name, r.ok, r.detail);
 
+const AUTH_LIB = JSON.stringify(path.join(APP, 'lib', 'external-auth.js'));
+
 const authScenario = [
   'const http = require("http");',
   'const mcp = require(' + MCP_LIB + ');',
+  'const auth = require(' + AUTH_LIB + ');',
   'const store = require(' + STORE_LIB + ');',
   'const results = [];',
   'const t = (name, cond, detail) => results.push({ name, ok: !!cond, detail: detail || null });',
   '(async () => {',
   '  await store.init();',
-  '  const fakeFetch = async (url, opts) => ({ ok: (opts.headers.Authorization || "") === "Bearer good-user-token" });',
+  /* Answers the way Core does — 401 for a token it does not know — and can be
+   * made unreachable, which is a different answer and must stay one. */
+  '  const asked = [];',
+  '  let haDown = false;',
+  '  const fakeFetch = async (url, opts) => {',
+  '    asked.push(url);',
+  '    if (haDown) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });',
+  '    const good = /^Bearer good-/.test(opts.headers.Authorization || "");',
+  '    return { ok: good, status: good ? 200 : 401 };',
+  '  };',
   '  const server = http.createServer((req, res) => mcp.handleRequest(req, res, { allowInstall: false, fetchImpl: fakeFetch }));',
   '  await new Promise((resolve) => server.listen(0, resolve));',
   '  const port = server.address().port;',
@@ -5247,6 +5259,25 @@ const authScenario = [
   '  const getReq = await fetch(url, { method: "GET" });',
   '  t("GET is refused with an Allow header naming POST", getReq.status === 405 && getReq.headers.get("allow") === "POST");',
   '',
+  '  const post = (authorization) => fetch(url, { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, authorization ? { Authorization: authorization } : {}), body: JSON.stringify(rpc) });',
+  '  t("the token is asked of Home Assistant at its own API root", asked.length > 0 && asked.every((u) => u === "http://fake-ha.local:8123/api/"), JSON.stringify(asked));',
+  '',
+  '  haDown = true;',
+  '  const down = await post("Bearer good-while-down");',
+  '  const downBody = await down.json().catch(() => ({}));',
+  '  t("when Home Assistant cannot be asked the answer is 503, not a claim that the token is bad", down.status === 503 && /Could not reach Home Assistant/.test(downBody.error || ""), down.status + " " + JSON.stringify(downBody));',
+  '  haDown = false;',
+  '  const back = await post("Bearer good-while-down");',
+  '  t("and that is not remembered: the first request after Home Assistant returns is let in", back.status === 200, String(back.status));',
+  '',
+  '  let limitedAt = null;',
+  '  for (let i = 0; i <= auth.FAIL_LIMIT && limitedAt === null; i++) {',
+  '    if ((await post("Bearer wrong-" + i)).status === 429) limitedAt = i;',
+  '  }',
+  '  const askedBefore = asked.length;',
+  '  const afterLimit = await post("Bearer wrong-after-the-limit");',
+  '  t("repeated bad tokens from one address are cut off before Home Assistant is asked again", limitedAt !== null && afterLimit.status === 429 && asked.length === askedBefore, "limited at " + limitedAt + ", then " + afterLimit.status);',
+  '',
   '  server.close();',
   '  process.stdout.write(JSON.stringify(results));',
   '})().catch((e) => {',
@@ -5258,16 +5289,54 @@ for (const r of runInIsolatedDataDir(authScenario, { HA_URL: 'http://fake-ha.loc
 
 ok('an offline app (no Home Assistant configured) lets MCP through with no token — nothing local to protect', (() => {
   const offline = runInIsolatedDataDir([
-    'const mcp = require(' + MCP_LIB + ');',
-    'const store = require(' + STORE_LIB + ');',
+    'const auth = require(' + AUTH_LIB + ');',
     '(async () => {',
-    '  await store.init();',
-    '  const ok = await mcp.checkToken(null);',
-    '  process.stdout.write(JSON.stringify([{ name: "x", ok: ok }]));',
+    '  const state = await auth.tokenStatus(null);',
+    '  process.stdout.write(JSON.stringify([{ name: "x", ok: state === "valid" }]));',
     '})();',
-  ]);
+  ], { SUPERVISOR_TOKEN: '', HA_URL: '', HA_TOKEN: '', FPS_ENV_FILE: '' });
   return offline[0].ok === true;
 })());
+
+/* Every check above injects a fetch, so none of them could notice WHERE an
+ * installed app sends a caller's token — and on a real install that was the
+ * whole bug. Supervisor's proxy refuses every token but the app's own, so MCP
+ * answered 401 to everybody while this suite stayed green. A caller's token has
+ * to reach Core itself: its REST API for "is it valid", its WebSocket for
+ * "who is it". */
+const supervisorAuthScenario = [
+  'const auth = require(' + AUTH_LIB + ');',
+  'const results = [];',
+  'const t = (name, cond, detail) => results.push({ name, ok: !!cond, detail: detail || null });',
+  '(async () => {',
+  '  const asked = [];',
+  '  const fakeFetch = async (url, opts) => { asked.push({ url, authorization: opts.headers.Authorization }); return { ok: true, status: 200 }; };',
+  '  const state = await auth.tokenStatus("user-token", fakeFetch);',
+  '  t("an installed app checks a caller’s token against Core itself, not Supervisor’s proxy", state === "valid" && asked.length === 1 && asked[0].url === "http://homeassistant:8123/api/", JSON.stringify(asked.map((a) => a.url)));',
+  '  t("and presents the caller’s token, never the app’s own", asked.length === 1 && asked[0].authorization === "Bearer user-token");',
+  '  let wsUrl = null, presented = null;',
+  '  function FakeSocket(url) {',
+  '    wsUrl = url;',
+  '    const ls = {};',
+  '    this.addEventListener = (k, fn) => { (ls[k] = ls[k] || []).push(fn); };',
+  '    const emit = (m) => setTimeout(() => (ls.message || []).forEach((fn) => fn({ data: JSON.stringify(m) })), 0);',
+  '    this.send = (raw) => {',
+  '      const m = JSON.parse(raw);',
+  '      if (m.type === "auth") { presented = m.access_token; return emit({ type: "auth_ok" }); }',
+  '      if (m.type === "auth/current_user") emit({ id: m.id, type: "result", success: true, result: { id: "u1", name: "Someone", is_admin: true } });',
+  '    };',
+  '    this.close = () => (ls.close || []).forEach((fn) => fn());',
+  '    emit({ type: "auth_required" });',
+  '  }',
+  '  const who = await auth.principal("user-token", { WebSocket: FakeSocket });',
+  '  t("and asks Core’s own WebSocket who the caller is, as the caller", wsUrl === "ws://homeassistant:8123/api/websocket" && presented === "user-token" && !!who && who.id === "u1" && who.is_admin === true, wsUrl);',
+  '  process.stdout.write(JSON.stringify(results));',
+  '})().catch((e) => {',
+  '  process.stdout.write(JSON.stringify([{ name: "supervisor auth scenario", ok: false, detail: "threw: " + e.message }]));',
+  '});',
+];
+
+for (const r of runInIsolatedDataDir(supervisorAuthScenario, { SUPERVISOR_TOKEN: 'app-own-token', HA_URL: '', HA_TOKEN: '', FPS_ENV_FILE: '' })) ok(r.name, r.ok, r.detail);
 
 /* `mcp_enabled` is checked in server.js, above mcp.js entirely — server.js is
  * a run-to-listen entrypoint (store.init().then(() => server.listen(...))),
@@ -5381,6 +5450,25 @@ await okAsync('and MCP answers normally when the option is left on (the default)
     return res.status === 200 && body.result.serverInfo.name === 'floorplan-studio';
   });
 });
+
+/* `homeassistant.local` answers with an IPv6 address as well as an IPv4 one,
+ * and Docker hands an IPv6 client to the container's IPv6 address. A server
+ * bound to 0.0.0.0 by name had nothing listening there, so such a client saw
+ * its connection accepted and then reset, and MCP worked or failed depending on
+ * which address it tried. */
+const IPV6_LOOPBACK = Object.values(os.networkInterfaces()).flat()
+  .some((i) => i && i.internal && i.family === 'IPv6');
+if (IPV6_LOOPBACK) {
+  await okAsync('the published port answers over IPv6 as well as IPv4', async () => {
+    return withServer({}, async (port) => {
+      const v4 = await fetch(`http://127.0.0.1:${port}/api/health`);
+      const v6 = await fetch(`http://[::1]:${port}/api/health`);
+      return v4.status === 200 && v6.status === 200;
+    });
+  });
+} else {
+  skipped('the published port answers over IPv6 as well as IPv4', 'this machine has no IPv6 loopback to connect from');
+}
 
 /* Node's global `fetch` is undici-based and does not honour a plain
  * `https.Agent` passed as `agent` — it still validates against the real
