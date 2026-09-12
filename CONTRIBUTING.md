@@ -63,13 +63,25 @@ Then, as applicable:
 - **Changed floor materials or colour schemes?** Run
   `node tools/make-material-gallery.js` and `node tools/make-docs.js` to update
   the complete material gallery, README sheet and catalogue. Regenerate the
-  hero plan with `node tools/make-readme-image.js` when its rendering changes.
-  All three support `--check`.
+  pictures with `node tools/make-readme-image.js` and
+  `node tools/make-showcase.js` when their rendering changes. All support
+  `--check`.
 
 - **Changed `tools/make-test-house.js`, or how plans are rendered?** Run
-  `node tools/make-test-house.js` and `node tools/make-readme-image.js`, and
-  commit `test/house/` and `docs/hero-plan.svg`. The suite pins both to their
-  generators.
+  `node tools/make-test-house.js`, `node tools/make-readme-image.js` and
+  `node tools/make-showcase.js`, and commit `test/house/`,
+  `docs/hero-plan.svg` and `docs/showcase-plan.svg`. The suite pins them to
+  their generators. If the showcase changed visibly, rebuild the animation too
+  with `node tools/make-gif.js` and commit `docs/showcase.gif` — it needs Edge
+  or Chrome on the machine, and it writes its intermediate frames into the
+  gitignored `docs/frames/`.
+
+- **Moved a room or a piece of furniture in the showcase house?** Run
+  `node tools/make-showcase.js --test`. It asserts the things that make the
+  plan a building rather than a valid document — the rooms tile the plot, every
+  window is in an exterior wall, every room reaches the corridor, no room is
+  entered only through a bedroom or a bathroom, and no door opens onto the
+  furniture.
 - **Changed packaging or the repository layout?** Run `node tools/check-repository.js` — it fails if the tree would not install as a Home Assistant app repository.
 - **Changed `LICENSE`, `NOTICE`, or `THIRD_PARTY_NOTICES.md`?** Edit the root
   copy, then run `npm run sync:licenses`; the app-folder copies are generated
