@@ -1,0 +1,40 @@
+name: Help or documentation is wrong or missing
+description: "The help site, the editor's ? help, the README, the app's Documentation tab or the MCP guide."
+title: "Docs: "
+labels: ["documentation"]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where?
+      options:
+        - The help site
+        - The ? help inside the editor
+        - README
+        - The app's Documentation tab (DOCS.md)
+        - The AI guide (SKILL.md, get_help or get_guide over MCP)
+        - The live demo
+    validations:
+      required: true
+
+  - type: input
+    id: link
+    attributes:
+      label: Link, page or topic
+      placeholder: "https://bitloomai.github.io/floorplan-studio/light.html#concept-daylight"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong, unclear or missing
+      description: If it describes behaviour that differs from the app, say what the app actually does.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording
+      description: Optional. The help is generated from the same text in all its places, so a fix here reaches the editor, the site and the AI guide at once.

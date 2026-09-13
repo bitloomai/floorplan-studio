@@ -1,0 +1,31 @@
+name: Ask a question
+description: How to do something with Floorplan Studio, after checking the help guide.
+title: "Question: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The [help guide](https://bitloomai.github.io/floorplan-studio/) covers every panel and setting, and the [live demo](https://bitloomai.github.io/floorplan-studio/demo/) shows the dashboard working. Questions about Home Assistant itself, or another integration, are best asked on the [Home Assistant community forum](https://community.home-assistant.io/).
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried, and where you looked
+      description: The help topics you read, what you clicked, what happened.
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Floorplan Studio version
+      description: "Settings → Apps → Floorplan Studio — the version is shown under its name."
+      placeholder: "0.0.1"

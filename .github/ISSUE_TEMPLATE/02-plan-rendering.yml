@@ -1,0 +1,124 @@
+name: The plan draws something wrong
+description: A wall, opening, floor, light, piece of furniture or device looks wrong in the editor or on the dashboard.
+title: "Plan: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These are some of the most useful reports there are: every real house finds something the renderer was not written against.
+
+        A **screenshot** shows the problem. The **smallest plan that reproduces it** gets it fixed — ideally a brand-new project with one or two rooms, exported from the editor. Please do not export your real house: it names your rooms and your devices.
+
+  - type: dropdown
+    id: what
+    attributes:
+      label: What looks wrong?
+      multiple: true
+      options:
+        - Walls, railings, glass or wall tops
+        - Doors, windows, gates or garage doors
+        - Blinds, curtains or shutters
+        - Flooring or a material
+        - How a device, fixture or piece of furniture is drawn
+        - Lamp light, glow or the night
+        - Daylight, sun beams or shadows
+        - Room names, counts or labels
+        - Coverage wedges (cameras, sensors, speakers, AC)
+        - Size, zoom or fit on the screen
+        - Something else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where do you see it?
+      options:
+        - In the editor only
+        - On the generated dashboard only
+        - In both the editor and the dashboard
+        - In an exported SVG
+    validations:
+      required: true
+
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+      description: What you see, and what about it is wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: right
+    attributes:
+      label: What it should look like
+      description: Describe it, or link a product page, a manufacturer's drawing, or a photo you are happy to make public.
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images in. A close-up of the problem plus one of the whole floor helps. Crop or blur room names if you prefer.
+    validations:
+      required: true
+
+  - type: input
+    id: types
+    attributes:
+      label: Types, finishes or treatments involved
+      description: "The keys shown in the inspector, or on the help site's [Every type you can place](https://bitloomai.github.io/floorplan-studio/library.html) and [Material gallery](https://bitloomai.github.io/floorplan-studio/materials.html#material-gallery) pages."
+      placeholder: "fixture.cove, marble_calacatta, glass_railing, door_sliding"
+
+  - type: textarea
+    id: minimal
+    attributes:
+      label: The smallest plan that shows it
+      description: |
+        Optional, and the fastest route to a fix. Start a new project, draw only what reproduces the problem, then **Export** and paste the JSON here (or attach the file).
+        Use invented entity ids such as `light.demo_lamp` — never your real ones.
+      render: json
+
+  - type: dropdown
+    id: demo
+    attributes:
+      label: Can you see it in the live demo?
+      description: "[The demo house](https://bitloomai.github.io/floorplan-studio/demo/) uses the same renderer. Only relevant if the thing you are reporting is in it."
+      options:
+        - "Yes"
+        - "No, only in my plan"
+        - "The demo has nothing like it"
+        - "I did not try"
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Floorplan Studio version
+      description: "Settings → Apps → Floorplan Studio — the version is shown under its name."
+      placeholder: "0.0.1"
+    validations:
+      required: true
+
+  - type: input
+    id: client
+    attributes:
+      label: Browser and device
+      description: Rendering can differ between browsers and graphics drivers.
+      placeholder: "Chrome 128 on Windows 11 with an AMD GPU · Companion app on Android 15"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am on the latest version of Floorplan Studio.
+          required: true
+        - label: Anything I attached uses invented names and entity ids, or I am happy for it to be public.
+          required: true

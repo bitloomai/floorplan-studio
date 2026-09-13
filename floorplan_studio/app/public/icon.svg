@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="t">
+  <title id="t">Floorplan Studio</title>
+
+  <!--
+    Floorplan Studio, app icon. THIS FILE IS THE SOURCE; icon.png in the
+    repository root is generated from it. Edit here, then re-export with
+    `tools/export-branding.html`, or see DOCS.md, section "Branding".
+
+    Home Assistant requires a square icon and recommends 128x128. The viewBox is
+    512 so the geometry is comfortable to edit; export scales it to anything.
+
+    WHERE THIS ACTUALLY APPEARS: the app store listing and the app info
+    page, both of which draw it far below its native size. It is NOT the sidebar
+    icon — Home Assistant takes that from `panel_icon` in config.yaml, which is
+    an MDI name (`mdi:floor-plan` here) and cannot be a PNG.
+
+    DESIGNED SMALL, NOT AT 512. Everything in it earns its place in a store card
+    or it is not here. That rule removed a lot on the second pass: door-swing
+    arcs, dining chairs, a dashed measurement line with node handles, and a
+    second interior wall all turned to grey mush below 64px while making the 512
+    version look busy rather than detailed. What is left is four shapes that
+    survive being tiny: the plate, a bold plan, the pencil, the cursor. The
+    export tool previews it at 48 and 64 — well under anything Home Assistant is
+    known to use, which is the point of a floor rather than a target.
+
+    Flat on purpose too. No filters, no blurs, no drop shadows: at icon sizes a
+    soft shadow is just a dirty edge, and flat colour stays crisp at every
+    scale. Every colour is in the palette block below.
+
+    NOTE FOR EDITORS: XML comments may not contain a double hyphen. It is legal
+    everywhere else you write and illegal here, the file silently stops
+    rendering, and the export tool will tell you the line.
+  -->
+
+  <defs>
+    <!-- == palette, shared with logo.svg == -->
+    <linearGradient id="plate" x1="0" y1="0" x2="0.55" y2="1">
+      <stop offset="0" stop-color="#2A81F5"/>
+      <stop offset="1" stop-color="#0A45BA"/>
+    </linearGradient>
+    <linearGradient id="pencilBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8ED8FF"/>
+      <stop offset="0.45" stop-color="#31A9F2"/>
+      <stop offset="1" stop-color="#1370D2"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FCE1AE"/>
+      <stop offset="1" stop-color="#E0A75C"/>
+    </linearGradient>
+
+    <!-- The blueprint grid. Coarser and fainter than it first was: at 48px a
+         fine grid stops reading as a grid and starts reading as dither. -->
+    <pattern id="grid" width="46" height="46" patternUnits="userSpaceOnUse">
+      <path d="M46 0H0V46" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="3"/>
+    </pattern>
+
+    <clipPath id="plateClip">
+      <rect x="38" y="54" width="368" height="368" rx="33"/>
+    </clipPath>
+  </defs>
+
+  <!-- == the plate ==
+       Bigger than the first pass and with less dead margin, because at 48px
+       every pixel of margin is a pixel the plan does not get. -->
+  <rect x="26" y="42" width="392" height="392" rx="46" fill="#0A1E4E"/>
+  <rect x="38" y="54" width="368" height="368" rx="33" fill="url(#plate)"/>
+  <rect x="38" y="54" width="368" height="368" fill="url(#grid)" clip-path="url(#plateClip)"/>
+
+  <!-- == the plan ==
+       An L, not a rectangle: a plain rectangle of walls reads as a picture
+       frame, the step reads as a building. One interior wall, stopping short of
+       the outer one so the gap reads as a doorway without needing an arc drawn
+       through it. Stroke 20 is the thinnest that still holds together at 48. -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M74 92 H370 V316 H272 V384 H74 Z"/>
+    <path d="M248 92 V236"/>
+    <path d="M74 250 H166"/>
+  </g>
+
+  <!-- == furniture ==
+       Three shapes, each big enough to still be a shape at 48px. A bed with
+       pillows, a sofa with a back, a table. Anything smaller than these was
+       noise and has gone. -->
+  <g stroke="#0A1E4E" stroke-width="6" stroke-linejoin="round">
+    <!-- bed -->
+    <rect x="102" y="124" width="116" height="96" rx="14" fill="#5CC8F7"/>
+    <rect x="110" y="132" width="46" height="30" rx="8" fill="#B3E7FC"/>
+    <rect x="164" y="132" width="46" height="30" rx="8" fill="#B3E7FC"/>
+    <!-- table -->
+    <rect x="288" y="132" width="66" height="66" rx="14" fill="#5CC8F7"/>
+    <!-- sofa -->
+    <rect x="102" y="292" width="122" height="42" rx="14" fill="#19D9B4"/>
+    <rect x="102" y="276" width="122" height="24" rx="10" fill="#5FE9CE"/>
+  </g>
+
+  <!-- == the pencil ==
+       Drawn upright with its graphite tip at the local origin, then rotated 45
+       degrees into place, because moving a pencil point by two units is only
+       sane when the pencil is axis-aligned. It overhangs the plate: that is
+       what makes the square read as something being worked on.
+
+       The geometry is constrained at both ends. The tip has to land on the plan
+       rather than in the margin, and the eraser has to stay inside the viewBox:
+       at 45 degrees a pencil of length L reaches L*0.707 in each axis from the
+       tip, plus half its width diagonally at the corners. Tip (262,312) with
+       L=300 puts the far corner at about x=492, which is inside 512 with room
+       to spare. An earlier pass had it at 529 and was quietly clipping the
+       eraser against the right edge. -->
+  <g transform="translate(262 312) rotate(45)" stroke="#0A1E4E" stroke-width="7" stroke-linejoin="round">
+    <path d="M0 0 L-21 -42 H21 Z" fill="#243046"/>
+    <path d="M-21 -42 L-25 -70 H25 L21 -42 Z" fill="url(#wood)"/>
+    <rect x="-25" y="-236" width="50" height="166" fill="url(#pencilBody)"/>
+    <rect x="-25" y="-266" width="50" height="30" fill="#CBD9E6"/>
+    <rect x="-25" y="-300" width="50" height="34" rx="13" fill="#19D9B4"/>
+  </g>
+
+  <!-- == the cursor ==
+       The other overhang, diagonally opposite the pencil, which is what keeps
+       the composition from leaning. Kept because it is the half of the brand
+       that says "editor" rather than "drawing" — but moved clear of the plan's
+       detail instead of sitting on top of it. -->
+  <g transform="translate(310 320) scale(1.6)">
+    <path d="M0 0 L0 88 L21 67 L35 97 L54 88 L40 59 L68 57 Z"
+          fill="#FFFFFF" stroke="#0A1E4E" stroke-width="8" stroke-linejoin="round"/>
+  </g>
+</svg>

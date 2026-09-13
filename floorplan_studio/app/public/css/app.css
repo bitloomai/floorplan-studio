@@ -1,0 +1,651 @@
+/* Floorplan Studio — editor chrome.
+ *
+ * Every colour is a CSS variable fed from the active theme's `ui` tokens, so
+ * switching theme restyles the app and the drawing together rather than leaving
+ * a light toolbar wrapped around a dark plan. */
+
+:root {
+  --appBg: #eef1f6;
+  --panelBg: #ffffff;
+  --panelBorder: #d8dfea;
+  --ink: #243049;
+  --inkSoft: #6c7690;
+  --accent: #3d8bd6;
+  --accentInk: #ffffff;
+  --danger: #c05a5a;
+  --railBg: #f6f8fc;
+  --radius: 10px;
+  --rail-w: 250px;
+  --insp-w: 310px;
+  color-scheme: light dark;
+}
+
+* { box-sizing: border-box; }
+
+/* `height: 100%` on its own sizes against the layout viewport, which on a
+   tablet's browser or webview is taller than what is actually on screen
+   whenever any chrome (address bar, gesture bar) is showing — the bottom of
+   the app then renders below the visible area, and `overflow: hidden` below
+   means there is no way to scroll up into it. `dvh` tracks the real visible
+   viewport instead; the plain `100vh` before it is the fallback for engines
+   that do not know the unit. */
+html { height: 100vh; height: 100dvh; }
+body {
+  margin: 0; height: 100%;
+  background: var(--appBg); color: var(--ink);
+  font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+body { display: flex; flex-direction: column; }
+.spacer { flex: 1; }
+.hint { color: var(--inkSoft); font-size: 12px; margin: 8px 4px 0; }
+/* "N more settings here" — the panel saying what it is not showing you. It has
+ * to be quieter than a field and louder than nothing: a setting hidden with no
+ * trace is one you have to already know about to go looking for. */
+.adv-note { font-style: italic; opacity: .8; border-top: 1px dashed var(--panelBorder); padding-top: 8px; }
+/* A field holding something that does not parse. It keeps what was typed — the
+ * mark says "not saved yet", not "thrown away". */
+input.bad, textarea.bad { border-color: var(--danger, #d9534f); outline-color: var(--danger, #d9534f); }
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 12px; background: var(--panelBg);
+  border-bottom: 1px solid var(--panelBorder);
+  min-height: 52px; flex: 0 0 auto; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 8px; color: var(--accent); flex: 0 0 auto; }
+.brand .app-icon { display: block; flex: 0 0 auto; object-fit: contain; }
+.project-name {
+  font: 600 15px/1.2 inherit; color: var(--ink);
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 4px 6px; width: 15ch;
+}
+.project-name:hover { border-color: var(--panelBorder); }
+.project-name:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+/* A house with more floors than the topbar is wide used to scroll a row of
+   pill buttons sideways with nothing to say there was more past the edge — a
+   select never runs out of room, so `.floors` no longer needs `overflow-x`.
+   Still `flex: 1` like before: this is what pushes `.topbar-actions` to the
+   right edge of the bar, and its own content just left-aligns within it. */
+.floors { display: flex; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+#floorSelect { max-width: 160px; }
+
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; flex-wrap: wrap; }
+.save-state { font-size: 12px; color: var(--inkSoft); min-width: 74px; text-align: right; }
+.save-state.dirty { color: var(--danger); }
+
+.btn {
+  font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 7px;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--ink); cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accentInk); font-weight: 600; }
+.btn.tiny { padding: 3px 7px; font-size: 12px; }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
+.inline { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--inkSoft); }
+select, input[type=text], input[type=number], input[type=search] {
+  font: inherit; font-size: 13px; padding: 5px 7px; border-radius: 6px;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--ink);
+}
+
+/* ---------- workspace ---------- */
+
+.workspace { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--insp-w); flex: 1; min-height: 0; }
+
+.rail, .inspector {
+  background: var(--railBg); border-right: 1px solid var(--panelBorder);
+  overflow-y: auto; padding: 10px;
+  /* `viewport-fit=cover` draws under a tablet's home indicator; without this
+     the rail and inspector's last line scrolls out from behind it but never
+     back into view, because there is no unsafe padding left to scroll past. */
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+.inspector { border-right: 0; border-left: 1px solid var(--panelBorder); }
+
+.tools { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 14px; }
+.tool {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 4px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--inkSoft);
+  font: inherit; font-size: 11px;
+}
+.tool span { font-size: 16px; line-height: 1; }
+/* The tool glyphs are drawn SVG. Sized here rather than on each element so all
+   five stay one row of the same weight, and `display:block` stops the inline
+   baseline gap that otherwise pushes the labels off centre. */
+.tool span svg { width: 19px; height: 19px; display: block; }
+.tool[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panelBg)); font-weight: 600; }
+
+.rail-section { margin-top: 6px; }
+.rail-head { display: flex; align-items: baseline; justify-content: space-between; }
+.rail-head h2, .inspector h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--inkSoft); margin: 6px 0; }
+.search { width: 100%; margin-bottom: 8px; }
+
+.library { display: flex; flex-direction: column; gap: 10px; }
+.lib-cat > h3 { font-size: 11px; color: var(--inkSoft); margin: 4px 2px; font-weight: 600; }
+.lib-items { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+.lib-item {
+  display: flex; align-items: center; gap: 6px; text-align: left;
+  padding: 6px 7px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 11.5px;
+  border: 1px solid var(--panelBorder); background: var(--panelBg); color: var(--ink);
+  overflow: hidden;
+}
+.lib-item:hover { border-color: var(--accent); }
+.lib-item[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panelBg)); font-weight: 600; }
+.lib-item svg { flex: 0 0 auto; }
+.lib-item .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* `cursor:pointer` above still applies while idle; grab/grabbing only need to
+   win during an actual drag, which `:active` approximates well enough for a
+   mouse. Touch has no concept of hover-before-drag anyway. */
+.lib-item:active { cursor: grabbing; }
+
+/* ---------- canvas ---------- */
+
+/* `min-height: 0` is what stops the plan from pushing the app off the bottom
+   of the window, and it does NOT duplicate the `overflow: auto` below. That
+   overflow zeroes the SCROLLER's own automatic minimum size, but the
+   scroller's intrinsic height is still its content's — so the grid item
+   wrapping it inherits "as tall as the drawing" as its own minimum, and the
+   workspace row sizes itself to the ZOOMED PLAN instead of to the viewport.
+   All three columns then stretch past the bottom edge, the status bar goes
+   with them, and `overflow: hidden` on `body` means there is no outer scroll
+   to reach any of it: at any zoom above Fit the plan stopped scrolling and
+   started being cut off. Same symptom as the tablet viewport note above,
+   completely different cause — that one is about how tall the viewport is,
+   this one about how tall the app thinks it has to be. */
+.canvas-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--appBg); }
+.canvas-scroll {
+  flex: 1; min-height: 0; overflow: auto; position: relative; display: grid; place-items: center;
+  padding: 18px; padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+/* A library button dragged over the plan — the same visual language as a
+   focused input, so it reads as "drop is welcome here" without a new colour. */
+.canvas-scroll.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; }
+/* Nothing on the plan is text you'd want to select — a room label, a
+ * dimension, a marker glyph — but SVG text is selectable by default, and
+ * dragging always starts with a mousedown that the browser is free to read as
+ * "start selecting" unless told otherwise. That reading always loses to the
+ * app's own drag once the pointer leaves the text, which is why a drag begun
+ * over blank canvas felt fine and one begun over a label or a room's own
+ * text chip fought the browser for the gesture the whole way. */
+#canvas { display: block; box-shadow: 0 6px 26px rgba(20, 30, 50, 0.14); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
+
+#canvas.tool-rect, #canvas.tool-poly, #canvas.tool-aperture, #canvas.tool-place { cursor: crosshair; }
+#canvas.tool-pan { cursor: grab; }
+#canvas.panning { cursor: grabbing; }
+
+.hit { fill: transparent; stroke: transparent; }
+/* A target that IS its stroke — a perimeter cove traces the room's outline, and
+ * filling it would make the whole floor of that room select the cove. The rule
+ * has to live here rather than as a `fill="none"` attribute, because the class
+ * rule above beats a presentation attribute. */
+.hit.hit-outline { fill: none; }
+.room-hit { cursor: pointer; }
+.item-hit { cursor: move; }
+.sel-outline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
+.handle { fill: #fff; stroke: var(--accent); stroke-width: 1.6; cursor: pointer; }
+.handle:hover { fill: var(--accent); }
+.rot-handle .handle { cursor: grab; }
+.rot-handle .handle:active { cursor: grabbing; }
+.ghost { fill: color-mix(in srgb, var(--accent) 18%, transparent); stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 5 4; pointer-events: none; }
+.edge-hi { stroke: var(--accent); stroke-width: 5; opacity: 0.55; pointer-events: none; }
+/* One outline per multi-selected member — no dash, thinner than a single
+   selection's, so a dozen of them at once still reads as "these are picked",
+   not as a dozen competing single-selection borders. */
+.sel-outline.multi { stroke-width: 1.4; stroke-dasharray: none; opacity: 0.85; }
+/* Rubber-band drag: a light fill so the plan under it stays legible while
+   you're still choosing what's inside it. */
+.marquee { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1; pointer-events: none; }
+/* A drag-time alignment guide — a distinct colour from the accent-coloured
+   selection/ghost above so "this is snapped to something" doesn't read as
+   just another selection outline. Magenta is the de facto convention this
+   feature borrows from every design tool that has it. */
+.align-guide { stroke: #ff3fb0; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+
+/* The resize-time size readout and the hover distance pills — an optional
+   editing aid (project.guides), so it stays visually quiet: a small pill in
+   the panel's own colours rather than anything accent-coloured, which is
+   reserved for selection state. */
+.dim-label { pointer-events: none; }
+.dim-label rect { fill: var(--panelBg); stroke: var(--panelBorder); stroke-width: 1; opacity: 0.92; }
+.dim-label text { fill: var(--ink); font-size: 10px; font-weight: 600; }
+.dim-label.measure-hover rect { opacity: 0.85; }
+.dim-label.measure-hover text { font-weight: 500; fill: var(--inkSoft); }
+
+.statusbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 6px 12px;
+  border-top: 1px solid var(--panelBorder); background: var(--panelBg); font-size: 12px; color: var(--inkSoft);
+}
+.zoombox { display: inline-flex; align-items: center; gap: 5px; }
+.sunbox { display: inline-flex; align-items: center; gap: 7px; }
+.sunbox[hidden] { display: none; }
+.sunbox input[type=range] { width: 120px; }
+#sunReadout { color: var(--inkSoft); min-width: 130px; }
+
+/* ---------- inspector ---------- */
+
+.field { margin: 0 0 12px; min-width: 0; }
+.field > label, .field.row > div > label { display: block; font-size: 12px; font-weight: 500; color: var(--inkSoft); margin-bottom: 5px; }
+.field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea { width: 100%; min-width: 0; }
+.field.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.field.row > div { min-width: 0; }
+/* Boolean controls keep their native box beside a wrapping, clickable label.
+   Text-field sizing must never turn a checkbox into a full-width row. */
+label.inline:has(> input[type=checkbox]), label.inline:has(> input[type=radio]) {
+  display: flex; align-items: flex-start; gap: 9px; line-height: 1.5;
+  font-size: 12px; font-weight: 400; margin-bottom: 0; cursor: pointer;
+}
+input[type=checkbox], input[type=radio] {
+  flex: 0 0 auto; width: 16px; height: 16px; margin: 1px 0 0; accent-color: var(--accent);
+}
+:is(.inspector, #modalBody) label.inline:has(> input[type=checkbox]) {
+  padding: 9px 10px; border: 1px solid var(--panelBorder); border-radius: 7px;
+  background: var(--panelBg); color: var(--ink); min-height: 38px;
+}
+:is(.inspector, #modalBody) label.inline:has(> input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--panelBorder));
+  background: color-mix(in srgb, var(--accent) 5%, var(--panelBg));
+}
+:is(.inspector, #modalBody) label.inline:has(> input:disabled) { opacity: .6; cursor: default; }
+:is(.inspector, #modalBody) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select) { min-height: 32px; }
+:is(input, select, textarea, button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* The Save button carries its own state, so "nothing to do" has to LOOK like
+ * nothing to do rather than like a button waiting to be pressed. A disabled
+ * button that still lights up under the cursor says the opposite. */
+.btn:disabled:hover { border-color: var(--panelBorder); }
+
+/* Saving: a hairline that travels, drawn in CSS rather than as a spinner
+ * glyph — ⏳ and friends are tofu boxes on Windows and Android, which is why
+ * nothing in this editor draws a Unicode symbol it can draw instead. */
+.btn.saving { position: relative; overflow: hidden; }
+.btn.saving::after {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 2px; width: 40%;
+  background: var(--accentInk); opacity: .85; animation: fps-saving 1.1s ease-in-out infinite;
+}
+@keyframes fps-saving {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.saving::after { animation: none; width: 100%; opacity: .5; }
+}
+.inspector .hint, #modalBody .hint { line-height: 1.55; margin: 6px 0 12px; }
+.setting-help { margin: 6px 0 14px; padding: 9px 11px; border-left: 2px solid var(--panelBorder); font-size: 12px; color: var(--inkSoft); }
+.setting-help > p { margin: 0; line-height: 1.5; }
+.setting-help details { margin-top: 6px; }
+.setting-help summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.setting-help ul { margin: 8px 0 0; padding-left: 17px; line-height: 1.55; }
+.setting-help li + li { margin-top: 5px; }
+.settings-group { margin: 12px 0; padding: 12px; border: 1px solid var(--panelBorder); border-radius: 9px; background: var(--panelBg); }
+.settings-group > :last-child { margin-bottom: 0; }
+.settings-group > h3 { margin: 0 0 12px; font-size: 12px; color: var(--ink); }
+.option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.control-section { border: 1px solid var(--panelBorder); border-radius: 8px; background: var(--panelBg); margin-bottom: 8px; overflow: hidden; }
+.inspector .control-section > label.inline { border: 0; border-radius: 0; }
+.control-section > .link { margin: 0 10px 10px; }
+.filter-details { padding: 0 10px 8px; font-size: 12px; color: var(--inkSoft); }
+.filter-details summary { cursor: pointer; }
+.boundary-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 9px; margin: 0 0 8px; border: 1px solid var(--panelBorder); border-radius: 7px; background: var(--panelBg); }
+.boundary-row select { grid-row: 2; grid-column: 1 / -1; width: 100%; min-width: 0; }
+.boundary-row > :last-child { grid-column: 2; grid-row: 1; }
+.subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--inkSoft); margin: 14px 0 6px; border-top: 1px solid var(--panelBorder); padding-top: 10px; }
+.entity-pick { display: flex; gap: 6px; align-items: center; }
+.entity-pick .cur { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.empty { color: var(--inkSoft); font-size: 12.5px; padding: 18px 6px; text-align: center; }
+.badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10.5px; background: var(--panelBorder); color: var(--ink); }
+.chanrow { display: grid; grid-template-columns: 1fr 1fr auto; gap: 4px; margin-bottom: 4px; align-items: center; }
+.warn { color: var(--danger); font-size: 12px; }
+
+/* ---------- modal + toast ---------- */
+
+/* An author `display` beats the UA sheet's [hidden] { display: none }, so both
+ * of these need the attribute honoured explicitly or they never hide. */
+.modal[hidden], .toast[hidden] { display: none; }
+
+.modal { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border: 0; color: inherit; background: transparent; display: grid; place-items: center; z-index: 50; padding: 20px; }
+.modal::backdrop { background: rgba(12, 18, 30, .45); }
+.modal-card {
+  background: var(--panelBg); border-radius: var(--radius); border: 1px solid var(--panelBorder);
+  width: min(760px, 100%); max-height: 84vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-card > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--panelBorder); }
+/* The dialog header's own controls. `margin-left:auto` keeps them against the
+ * close button so the title keeps the left edge whatever its length. */
+.modal-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; margin-right: 10px; }
+.modal-adv { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 12px; color: var(--inkSoft); white-space: nowrap; }
+.modal-adv input { width: auto; margin: 0; }
+.modal-card > header h2 { margin: 0; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+#modalBody { padding: 14px; overflow: auto; }
+
+.entity-list { max-height: 46vh; overflow: auto; border: 1px solid var(--panelBorder); border-radius: 8px; }
+.entity-row { display: flex; gap: 8px; align-items: center; padding: 6px 9px; cursor: pointer; border-bottom: 1px solid var(--panelBorder); }
+.entity-row:last-child { border-bottom: 0; }
+.entity-row:hover { background: var(--railBg); }
+.entity-row .eid { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--inkSoft); }
+.entity-row .en { font-size: 13px; }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.grid th, table.grid td { text-align: left; padding: 5px 7px; border-bottom: 1px solid var(--panelBorder); }
+table.grid th { color: var(--inkSoft); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+
+.swatchrow { display: grid; grid-template-columns: 1fr 46px; gap: 6px; align-items: center; margin-bottom: 5px; }
+.swatchrow label { font-size: 12px; color: var(--inkSoft); overflow: hidden; text-overflow: ellipsis; }
+.swatchrow input[type=color] { width: 46px; height: 26px; padding: 0; border: 1px solid var(--panelBorder); border-radius: 5px; background: none; }
+
+.toast {
+  position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--panelBg); padding: 9px 15px; border-radius: 8px;
+  font-size: 13px; z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: 70vw;
+}
+.toast.err { background: var(--danger); color: #fff; }
+
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 190px 1fr 260px; }
+  :root { --rail-w: 190px; --insp-w: 260px; }
+}
+
+.tool-opts { padding: 8px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.tool-opts select { width: 100%; }
+.tool-opts[hidden] { display: none; }
+
+/* Compass shortcuts beside the facing number. */
+.dial { display: flex; gap: 2px; margin-bottom: 4px; }
+.dial .btn { flex: 1 1 0; min-width: 0; padding: 3px 0; }
+
+/* The marker variant picker. A grid of the actual drawings rather than a
+   dropdown of names: "bullet" and "turret" mean nothing until you see them. */
+.variant-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 6px; padding: 2px 0 8px;
+}
+.variant-grid .variant {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 2px 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panelBg); color: var(--ink); cursor: pointer;
+  font-size: 9px; line-height: 1.1; opacity: 0.72;
+}
+.variant-grid .variant span {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.variant-grid .variant:hover { opacity: 1; border-color: var(--accent); }
+.variant-grid .variant.on {
+  opacity: 1; color: var(--accent); border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* The swatch inherits `currentColor` from the button, which is what makes the
+   selected state recolour the drawing rather than only its frame. */
+.variant-grid .variant svg { display: block; }
+
+/* The colour picker's swatches are the exception: they carry REAL colours
+   rather than `currentColor`, so the dimming that makes an unselected look
+   recede would be dimming the one thing you are being asked to judge. The
+   frame alone carries selection here, and every swatch stays at full
+   strength. */
+.variant-grid.schemes .variant { opacity: 1; }
+.variant-grid.schemes .variant:hover { border-color: var(--accent); }
+
+/* Resize handles are squares so they read as different from the round rotate
+   knob without needing a legend. */
+.size-handle .handle { cursor: nwse-resize; }
+
+/* ---------- help ----------
+
+   A "?" sits at the end of a panel title rather than beside each field. A
+   tooltip per control answers "what is this", which the label already did; the
+   questions worth answering — why is this off by default, what does it interact
+   with — span several controls, so help is per PLACE and opens one sheet.
+
+   The button is deliberately quiet until hovered: on a panel with four
+   sections, four bright glyphs read as errors. */
+.panel-title { display: flex; align-items: baseline; gap: 6px; }
+.panel-title h2, .panel-title h3 { margin: 0; flex: 1 1 auto; }
+.panel-title.sub { margin: 16px 0 8px; padding-top: 10px; border-top: 1px solid var(--line); align-items: center; }
+.panel-title.sub h3 { font-size: 12px; color: var(--ink); }
+
+.help-btn {
+  flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: transparent; color: var(--inkSoft);
+  font-size: 12px; line-height: 1; cursor: pointer;
+  opacity: 0.85; transition: opacity .12s, color .12s, border-color .12s;
+}
+.help-btn:hover, .help-btn:focus-visible {
+  opacity: 1; color: var(--accent); border-color: var(--accent);
+}
+
+/* min()/max-width rather than a bare min-width: the sheet wants a prose
+   measure when there is room and has to give way when there is not. A bare
+   42ch on the browser overflowed the modal by a couple of pixels at 375px,
+   which is the width at which nobody is looking closely enough to report it. */
+.help-sheet { display: flex; flex-direction: column; gap: 18px; max-width: min(62ch, 100%); }
+.help-topic h3 { margin: 0 0 2px; font-size: 14px; }
+.help-summary { margin: 0 0 8px; color: var(--inkSoft); font-style: italic; }
+
+/* Long-form prose, so it gets prose measure and leading rather than the
+   panel's dense form spacing. */
+.help-body { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.help-body h2 { font-size: 13px; margin: 16px 0 4px; }
+.help-body h3 { font-size: 12px; margin: 14px 0 4px; color: var(--inkSoft); }
+.help-body p { margin: 0 0 8px; }
+.help-body ul, .help-body ol { margin: 0 0 8px; padding-left: 18px; }
+.help-body li { margin: 2px 0; }
+.help-body code {
+  background: var(--panelBg); border: 1px solid var(--line); border-radius: 3px;
+  padding: 0 3px; font-size: 11.5px;
+}
+.help-body pre {
+  background: var(--panelBg); border: 1px solid var(--line); border-radius: 6px;
+  padding: 8px 10px; overflow-x: auto; margin: 0 0 8px;
+}
+.help-body pre code { border: 0; background: none; padding: 0; }
+.help-body table { border-collapse: collapse; margin: 0 0 8px; width: 100%; }
+.help-body th, .help-body td {
+  border: 1px solid var(--line); padding: 3px 7px; text-align: left; vertical-align: top;
+}
+.help-body th { background: var(--panelBg); font-weight: 600; }
+/* A blockquote is where a topic says "this is the one that costs time", so it
+   gets the accent rail rather than the usual grey. */
+.help-body blockquote {
+  margin: 0 0 8px; padding: 4px 0 4px 10px;
+  border-left: 2px solid var(--accent); color: var(--inkSoft);
+}
+.help-body hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+
+.help-browser { display: flex; flex-direction: column; gap: 10px; min-width: min(42ch, 100%); }
+.help-browser input[type="search"] { width: 100%; }
+.help-results { display: flex; flex-direction: column; gap: 12px; max-height: 56vh; overflow-y: auto; }
+.help-results h4 {
+  margin: 4px 0 2px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--inkSoft);
+}
+.help-hit {
+  display: flex; flex-direction: column; gap: 1px; width: 100%;
+  padding: 5px 7px; border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--ink); text-align: left; cursor: pointer;
+}
+.help-hit:hover, .help-hit:focus-visible { border-color: var(--accent); background: var(--panelBg); }
+.help-hit strong { font-size: 12.5px; font-weight: 600; }
+.help-hit span { font-size: 11px; color: var(--inkSoft); }
+.help-back { align-self: flex-start; }
+.help-related { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.help-topic + .help-topic { padding-top: 16px; border-top: 1px solid var(--line); }
+.help-hit { min-height: 44px; padding: 8px 10px; }
+.help-body table { display: block; overflow-x: auto; }
+@media (pointer: coarse) { .help-btn { width: 40px; height: 40px; } }
+
+/* ---------- one editor, three kinds of hand ----------
+
+   A mouse hovers, clicks a 7px handle and has a keyboard beside it. A trackpad
+   scrolls in two dimensions and pinches. A finger does none of those: it has no
+   hover to find anything with, it lands about 9 mm wide, and the tablet it
+   belongs to has no Ctrl+Z at all. What follows is everything that has to
+   differ between them — the gestures themselves live in canvas.js, and the
+   commands a keyboardless screen still has to reach live in the shortcut bar
+   below. */
+
+/* The dropdown holding the top bar's secondary controls. On a wide screen it
+   is `display: contents`: the controls are laid out by `.topbar-actions`
+   exactly as they were before this element existed, and the ⋯ button is
+   hidden. Narrow, it becomes a panel and the bar stays one row instead of
+   wrapping into three on a tablet. Same controls either way — a second
+   "mobile" copy of them is the copy that stops matching. */
+.topbar-more { display: contents; }
+.drawer-btn { display: none; }
+/* Above the scrim, and above the plan: the menu it drops has to paint over
+   both. */
+.topbar { position: relative; z-index: 40; }
+.workspace { position: relative; }
+
+.scrim { position: absolute; inset: 0; background: rgba(12, 18, 30, .38); z-index: 25; }
+.scrim[hidden] { display: none; }
+
+/* ---------- the shortcut bar ----------
+
+   Every command the keyboard can ask for, as a button, because a tablet's
+   keyboard is a thing somebody has to go and find. Built from the same
+   catalogue the keys are bound from, so it cannot offer something no key does
+   or miss something they do. */
+.quickbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  padding: 6px 12px; flex: 0 0 auto;
+  background: var(--panelBg); border-bottom: 1px solid var(--panelBorder);
+}
+.quickbar[hidden] { display: none; }
+/* `flex: 0 0 auto` so a group WRAPS to the next line instead of being squeezed
+   narrower than its own buttons, which on a 768 px tablet quietly clipped the
+   last three of them off the right-hand edge. */
+.quick-group {
+  display: flex; align-items: center; gap: 4px; flex: 0 0 auto;
+  padding-right: 10px; border-right: 1px solid var(--panelBorder);
+}
+.quick-group:last-child { border-right: 0; padding-right: 0; }
+.quick-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 38px; height: 38px; padding: 0 8px;
+  border: 1px solid var(--panelBorder); border-radius: 8px;
+  background: var(--panelBg); color: var(--ink);
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.quick-btn svg { width: 19px; height: 19px; display: block; }
+.quick-glyph { line-height: 1; }
+/* "Multi", "Esc", "Fit" — a word where the others have a symbol. */
+.quick-glyph.word { font-size: 12px; letter-spacing: .01em; }
+.quick-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.quick-btn:disabled { opacity: .35; cursor: default; }
+.quick-btn[aria-pressed="true"] {
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panelBg));
+}
+
+/* Hold Space and the canvas becomes paper you can drag, whatever tool is
+   active — the gesture the Pan tool's own tooltip has always promised. */
+#canvas.space-pan { cursor: grab; }
+#canvas.space-pan.panning { cursor: grabbing; }
+
+/* ---------- a narrow screen ----------
+
+   A tablet in portrait is 768 px wide. Two permanent 190/260 px columns leave
+   roughly 300 px to draw a house in, which is not a floor plan editor, so
+   below this width the rail and the inspector become drawers over the plan and
+   the canvas gets the whole window. Nothing about them changes above it. */
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .drawer-btn { display: inline-flex; align-items: center; }
+  /* `visibility` keeps a closed drawer out of the tab order instead of leaving
+     it focusable just off screen. It is switched at 0s — instantly on the way
+     in, delayed to the end of the slide on the way out — rather than
+     transitioned: a discrete property with a duration flips somewhere in the
+     middle of the animation, which is a rule about how browsers interpolate
+     keywords and not something anybody should have to reason about. */
+  .rail, .inspector {
+    position: absolute; top: 0; bottom: 0; z-index: 30;
+    width: min(330px, 88vw); border: 0; visibility: hidden;
+    box-shadow: 0 10px 40px rgba(12, 18, 30, .28);
+    transition: transform .18s ease, visibility 0s linear .18s;
+  }
+  .rail { left: 0; transform: translateX(-101%); border-right: 1px solid var(--panelBorder); }
+  .inspector { right: 0; transform: translateX(101%); border-left: 1px solid var(--panelBorder); }
+  body.rail-open .rail, body.insp-open .inspector {
+    transform: none; visibility: visible;
+    transition: transform .18s ease, visibility 0s;
+  }
+
+  .topbar-more {
+    display: none; position: absolute; top: calc(100% + 4px); right: 8px; z-index: 45;
+    flex-direction: column; align-items: stretch; gap: 8px; padding: 12px;
+    min-width: 232px; max-height: 72vh; overflow-y: auto;
+    background: var(--panelBg); border: 1px solid var(--panelBorder);
+    border-radius: var(--radius); box-shadow: 0 12px 34px rgba(12, 18, 30, .26);
+  }
+  body.more-open .topbar-more { display: flex; }
+  .topbar-more .btn { text-align: left; }
+
+  /* The project name gives up its width first: it is the one control here
+     whose value you can read in the browser tab. */
+  .project-name { width: 8ch; }
+  .statusbar { gap: 6px 10px; }
+}
+
+@media (max-width: 620px) {
+  /* The live coordinate readout is the first thing to go: it answers a
+     question a phone-sized screen is not being used to ask. */
+  #coordReadout { display: none; }
+  .sunbox input[type=range] { width: 84px; }
+  #sunReadout { min-width: 0; }
+}
+
+/* ---------- a coarse pointer ----------
+
+   Sizes, not behaviour. Everything here exists because a finger cannot aim at
+   what a mouse can: 30 px controls become 40+, native boxes grow, and text
+   inputs go to 16 px because iOS zooms the whole page in on any field smaller
+   than that the moment it is focused — which on an Ingress iframe leaves the
+   editor scrolled somewhere nobody asked for. */
+@media (pointer: coarse) {
+  .btn { padding: 9px 13px; font-size: 14px; }
+  .btn.tiny { padding: 7px 11px; font-size: 13px; }
+  .quick-btn { min-width: 46px; height: 46px; }
+  .tool { padding: 11px 4px; font-size: 12px; }
+  .tool span svg { width: 22px; height: 22px; }
+  .lib-item { padding: 9px 8px; font-size: 12px; }
+  .link { padding: 6px 2px; font-size: 13px; }
+  select, input[type=text], input[type=number], input[type=search], textarea { font-size: 16px; padding: 8px 9px; }
+  input[type=checkbox], input[type=radio] { width: 20px; height: 20px; }
+  input[type=range] { height: 30px; }
+  .statusbar { padding: 8px 12px; gap: 10px 14px; }
+  .entity-row { padding: 10px 9px; }
+  .variant-grid .variant { padding: 9px 2px 7px; }
+}
+
+/* A tap must not be read as a possible double-tap-to-zoom, which is where the
+   300 ms delay before every button press on a touch screen comes from, and a
+   press must not leave a grey flash behind on Android's WebView. */
+.btn, .tool, .lib-item, .quick-btn, .help-btn, .variant-grid .variant, label.inline, select {
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+
+/* Review surfaces remain legible over a busy plan. */
+.notes-surface { width: 340px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow: auto; border: 1px solid var(--panelBorder, #ccd2dd); border-radius: 12px; padding: 16px; background: var(--panelBg, #fff); color: var(--ink, #243049); box-shadow: 0 12px 48px #0004; }
+.notes-surface::backdrop { background: #0001; }
+.notes-surface h2 { margin: 0 0 12px; font-size: 17px; }
+.notes-surface textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 100px; }
+.notes-surface select { margin: 8px 0; }
+.notes-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.notes-surface[role=menu] { padding: 6px; }
+.notes-surface[role=menu] button { display: block; width: 100%; min-height: 36px; border: 0; background: transparent; color: inherit; text-align: left; padding: 8px 12px; border-radius: 6px; }
+.notes-surface[role=menu] button:focus-visible, .notes-surface[role=menu] button:hover { background: #7194bb26; outline: 2px solid #2774d4; outline-offset: -2px; }
+.notes-surface[role=menu] button:disabled { opacity: .4; }
+.notes-list { display: grid; gap: 8px; }
+.note-row { white-space: pre-wrap; text-align: left; overflow-wrap: anywhere; }
+.note-row small { display: block; opacity: .7; }
+.note-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (pointer: coarse) { .notes-surface[role=menu] button { min-height: 44px; } }

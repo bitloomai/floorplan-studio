@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard preview · Floorplan Studio</title>
+<!-- Ingress serves this under /api/hassio_ingress/<token>/, so every asset and
+     API call must be RELATIVE. No leading slashes anywhere in this file. -->
+<link rel="stylesheet" href="css/app.css">
+<style>
+  body { padding: 0; margin: 0; background: var(--appBg, #eef1f6); }
+  .pv-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panelBg); }
+  .pv-bar h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  /* As wide as a real dashboard tab gets. The house card changes shape with
+   * the width of the window (one bar, a rail, a row of people), so the
+   * width buttons resize the frame the cards sit in rather than faking it. */
+  .pv-body { padding: 16px; margin: 0 auto; display: grid; gap: 12px; box-sizing: border-box; width: 100%; max-width: 1480px; }
+  .pv-frame { margin: 0 auto; width: 100%; transition: max-width .2s ease; display: grid; gap: 12px; }
+  .pv-frame[data-width="tablet"] { max-width: 900px; }
+  .pv-frame[data-width="phone"] { max-width: 420px; }
+  .pv-note { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .pv-err { color: #b3261e; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<!--
+  A harness for the generated dashboard.
+
+  It loads exactly what `/api/dashboard/install` would install — the same bytes
+  from the same `/api/card.js` — and lays out one tab the way the generated view
+  does: the house card, the live plan, and the floor card under it. Each card is
+  driven by a stubbed `hass` built from the app's own read-only state snapshot,
+  so this page answers "does the dashboard work" without touching the live one,
+  and cannot answer it differently from the real thing, because there is nothing
+  different to answer with.
+
+  `callService` is stubbed to LOG rather than to call. The app has no service
+  access at all (see lib/ha.js), and a preview that could switch the house on
+  would be a surprising thing for a page called preview. People show as
+  unavailable here: the app never receives where anybody is.
+-->
+
+<div class="pv-bar">
+  <h1>Dashboard preview</h1>
+  <label class="inline">Floor
+    <select id="floorPick"></select>
+  </label>
+  <label class="inline"><input type="checkbox" id="liveStates" checked> Live states</label>
+  <span class="inline" role="group" aria-label="Width">
+    <button class="btn tiny" data-w="wide">Wide</button>
+    <button class="btn tiny" data-w="tablet">Tablet</button>
+    <button class="btn tiny" data-w="phone">Phone</button>
+  </span>
+  <span class="spacer" style="flex:1"></span>
+  <span id="pvStatus" class="pv-note"></span>
+  <a class="btn" href="index.html">← Editor</a>
+</div>
+
+<div class="pv-body">
+  <div class="pv-frame" id="pvHost" data-width="wide"></div>
+  <p class="pv-note" id="pvLog"></p>
+  <pre class="pv-err" id="pvErr" hidden></pre>
+</div>
+
+<script>
+(async function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const log = [];
+  const say = (m) => { log.unshift(m); $('pvLog').textContent = log.slice(0, 6).join('  ·  '); };
+
+  function fail(e) {
+    $('pvErr').hidden = false;
+    $('pvErr').textContent = (e && e.stack) || String(e);
+  }
+
+  /* Everything a card needs to think it is inside Home Assistant. */
+  function makeHass(states) {
+    return {
+      states,
+      themes: {},
+      language: 'en',
+      locale: { language: 'en' },
+      user: { id: 'preview', name: 'Preview', is_admin: false },
+      callService(domain, service, data) {
+        say(`callService ${domain}.${service} ${JSON.stringify(data && data.entity_id)}`);
+        return Promise.resolve();
+      },
+      connection: {
+        subscribeMessage: () => Promise.resolve(() => {}),
+        subscribeEvents: () => Promise.resolve(() => {}),
+        sendMessagePromise: () => Promise.resolve({}),
+      },
+    };
+  }
+
+  try {
+    const boot = await fetch('api/bootstrap').then((r) => r.json());
+    const project = boot.project || {};
+    const dash = project.dashboard || {};
+    const floors = project.floors || [];
+    $('floorPick').replaceChildren(...floors.map((f) => {
+      const o = document.createElement('option');
+      o.value = f.id; o.textContent = f.name || f.id;
+      return o;
+    }));
+
+    for (const b of document.querySelectorAll('[data-w]')) {
+      b.addEventListener('click', () => { $('pvHost').dataset.width = b.dataset.w; });
+    }
+
+    /* Load the generated bundle. It is an IIFE that defines its custom
+     * elements, so it goes in as a plain script — not a module — and defining
+     * them twice would throw, which is why the page never reloads it. */
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'api/card.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('could not load api/card.js'));
+      document.head.appendChild(s);
+    });
+    $('pvStatus').textContent = 'card module loaded';
+
+    let cards = [];
+    async function show() {
+      const floor = $('floorPick').value;
+      let states = {};
+      if ($('liveStates').checked) {
+        try { states = (await fetch('api/states').then((r) => r.json())).states || {}; }
+        catch (e) { say('no live states: ' + e.message); }
+      }
+      const hass = makeHass(states);
+      /* The same stack, in the same order, as one tab of the generated view. */
+      const wanted = [];
+      if (dash.includeHouse !== false) wanted.push(['fps-house-card', { type: 'custom:fps-house-card' }]);
+      wanted.push(['fps-floorplan-card', { type: 'custom:fps-floorplan-card', floor }]);
+      if (dash.includeFloor !== false) wanted.push(['fps-floor-card', { type: 'custom:fps-floor-card', floor }]);
+      cards = wanted.map(([tag, config]) => {
+        if (!customElements.get(tag)) { say(`${tag} is not defined by this bundle`); return null; }
+        const card = document.createElement(tag);
+        card.setConfig(config);
+        return card;
+      }).filter(Boolean);
+      $('pvHost').replaceChildren(...cards);
+      for (const card of cards) card.hass = hass;
+      $('pvStatus').textContent = `${floor} · ${cards.length} cards · ${Object.keys(states).length} live entities`;
+    }
+
+    $('floorPick').addEventListener('change', show);
+    $('liveStates').addEventListener('change', show);
+    /* The cards only repaint when a bound entity changes, so a preview that
+     * never re-polls looks frozen. Ten seconds is plenty to see a light land. */
+    setInterval(async () => {
+      if (!cards.length || !$('liveStates').checked) return;
+      try {
+        const states = (await fetch('api/states').then((r) => r.json())).states || {};
+        const hass = makeHass(states);
+        for (const card of cards) card.hass = hass;
+      } catch (e) { say('no live states: ' + e.message); }
+    }, 10000);
+    await show();
+  } catch (e) {
+    fail(e);
+  }
+}());
+</script>
+</body>
+</html>

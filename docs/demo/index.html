@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Live demo — Floorplan Studio</title>
+<meta name="description" content="The dashboard Floorplan Studio generates, for an invented house, running against a stand-in Home Assistant in your browser.">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<style>
+/* Home Assistant's own light-theme variables, which the cards read. */
+:root{--primary-background-color:#eef1f5;--secondary-background-color:#e3e7ee;--card-background-color:#fff;
+  --ha-card-background:#fff;--primary-text-color:#1b1f24;--secondary-text-color:#5f6874;--primary-color:#2f7de1;
+  --divider-color:rgba(20,30,45,.12);--ha-card-border-radius:14px;
+  --ha-card-box-shadow:0 1px 2px rgba(15,25,45,.06),0 6px 18px rgba(15,25,45,.06);color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--primary-background-color);color:var(--primary-text-color);
+  font:14px/1.45 Roboto,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .9rem;padding:.5rem .85rem;
+  background:#fff;border-bottom:1px solid var(--divider-color)}
+/* Solid, not frosted: a blurred bar over a plan that repaints makes the
+   browser re-blur the plan under it on every change. */
+.brand{display:flex;align-items:center;gap:.45rem;font-weight:650;white-space:nowrap}
+.tag{color:var(--secondary-text-color);font-size:.8rem}
+.time{display:flex;align-items:center;gap:.55rem;flex:1 1 16rem;min-width:12rem}
+.time output{font:600 1rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-width:3.2rem}
+.time input{flex:1;accent-color:var(--primary-color)}
+.bar button,.bar a{font:inherit;font-size:.85rem;padding:.38rem .7rem;border-radius:9px;border:1px solid var(--divider-color);
+  background:#fff;color:var(--primary-text-color);cursor:pointer;text-decoration:none;white-space:nowrap}
+.bar button[aria-pressed=true]{background:var(--primary-color);color:#fff;border-color:transparent}
+.view{display:grid;gap:8px;padding:8px;max-width:1440px;margin:0 auto}
+.toast{position:fixed;left:0;right:0;margin:0 auto;bottom:18px;width:max-content;max-width:calc(100vw - 32px);z-index:10000;
+  padding:.55rem .9rem;border-radius:10px;background:#1b1f24;color:#fff;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.embed .tag,.embed .back{display:none}
+.capture .bar{display:none}
+.capture .view{max-width:none}
+[hidden]{display:none!important}
+</style>
+</head><body>
+<header class="bar">
+  <span class="brand"><img src="../favicon.svg" width="22" height="22" alt="">Aria House</span>
+  <span class="tag">Live demo — an invented house and a stand-in Home Assistant. Tap lamps, rooms and scenes.</span>
+  <label class="time"><output id="clock">18:20</output><input id="time" type="range" min="0" max="1435" step="5" aria-label="Time of day"></label>
+  <button id="play" type="button" aria-pressed="false">Play the day</button>
+  <button id="reset" type="button">Undo my taps</button>
+  <a class="back" href="../index.html">Help</a>
+</header>
+<main class="view" id="view"></main>
+<div class="toast" id="toast" role="status" hidden></div>
+<script>window.FPS_DEMO = {"start":"18:20","floor":"ground","floorName":"Ground floor","life":{"date":"2026-09-21","people":{"person.demo_maya":{"away":[["10:30","12:15","Market"]]},"person.demo_leo":{"away":[["08:40","17:45","Work"]]},"person.demo_nora":{"away":[["08:10","15:30","School"]]}},"on":{"light.demo_kitchen_under":[["06:30","08:15"],["18:45","21:00"]],"light.demo_kitchen":[["06:30","07:30"],["18:45","20:30"]],"light.demo_bath":[["06:40","07:05"],["21:40","21:55"]],"light.demo_ens":[["06:15","06:45"],["22:30","22:50"]],"light.demo_ens_mirror":[["06:15","06:45"],["22:30","22:50"]],"light.demo_wardrobe":[["06:45","07:00"]],"light.demo_foyer":[["17:40","23:00"]],"light.demo_hall":[["06:10","06:40"],["17:50","23:10"]],"light.demo_living":[["17:50","21:30"]],"light.demo_living_cove":[["17:50","23:00"]],"light.demo_dining":[["18:30","20:15"]],"light.demo_dining_pendant":[["18:30","20:45"]],"light.demo_terrace":[["18:10","22:00"]],"light.demo_path":[["18:00","06:10"]],"light.demo_porch":[["18:00","06:10"]],"light.demo_yard":[["19:00","19:20"]],"light.demo_utility":[["18:30","18:45"]],"light.demo_study":[["19:30","21:15"]],"light.demo_bed2":[["20:30","22:15"]],"light.demo_bed_main":[["21:45","22:40"]],"fan.demo_living":[["11:30","22:00"]],"fan.demo_bed_main":[["13:30","16:00"],["21:50","06:00"]],"fan.demo_bed2":[["21:00","06:00"]],"fan.demo_utility_exhaust":[["18:30","19:40"]],"fan.demo_hood":[["07:20","07:40"],["19:00","19:40"]],"climate.demo_living":[["13:00","17:00"]],"climate.demo_bed_main":[["22:00","02:00"]],"climate.demo_house":[["12:00","18:00"]],"sensor.demo_ac_outdoor_1":[["13:00","17:00"]],"sensor.demo_ac_outdoor_2":[["22:00","02:00"]],"media_player.demo_tv":[["20:00","22:00"]],"media_player.demo_speaker":[["07:00","08:00"],["18:00","19:30"]],"switch.demo_hob":[["07:20","07:35"],["19:05","19:40"]],"switch.demo_bath_geyser":[["06:00","06:45"]],"switch.demo_board_1":[["09:00","17:30"],["19:30","21:15"]],"switch.demo_board_2":[["09:00","17:30"],["19:30","21:15"]],"switch.demo_board_3":[["22:30","06:30"]],"switch.demo_living_plug":[["20:00","22:00"]],"switch.demo_irrigation":[["06:30","06:50"]],"binary_sensor.demo_front_door":[["08:08","08:11"],["08:38","08:41"],["10:28","10:31"],["12:14","12:17"],["15:29","15:33"],["17:44","17:48"]],"binary_sensor.demo_gate":[["08:37","08:42"],["17:42","17:47"]],"binary_sensor.demo_hall_motion":[["06:10","06:50"],["08:05","08:45"],["15:28","15:40"],["17:43","18:00"],["18:30","22:30"]],"binary_sensor.demo_living_slider":[["10:00","18:30"]],"binary_sensor.demo_bed_main_window":[["06:30","09:30"]]},"attributes":{"light.demo_bed_main":{"brightness":150},"light.demo_bed2":{"brightness":180},"light.demo_living_cove":{"brightness":170},"light.demo_dining_pendant":{"brightness":205},"fan.demo_living":{"percentage":60},"fan.demo_bed_main":{"percentage":40},"fan.demo_bed2":{"percentage":35},"sensor.demo_weather":{"unit_of_measurement":"°C"}},"cover":{"cover.demo_living_drape":[["06:30","13:00",100],["13:00","16:15",45],["16:15","20:30",100],["20:30","06:30",0]]},"fixed":{"camera.demo_porch":"streaming","sensor.demo_router":"on","sensor.demo_db":"on","sensor.demo_ev":"off","sensor.demo_study_board":"on","sensor.demo_weather":"29"},"weather":{"entity":"weather.demo_home","sunrise":"06:10","sunset":"18:05","cloudy":[["14:00","15:10"]],"min":24,"max":33,"peak":"15:00"},"solar":{"entity":"sensor.demo_solar","also":["sensor.demo_inverter"],"peak":3400,"from":"06:15","to":"17:55"},"power":{"entity":"sensor.demo_power","base":380,"domains":{"fan":45,"climate":1150,"media_player":110,"switch":60},"entities":{"switch.demo_hob":1700,"switch.demo_bath_geyser":1900,"sensor.demo_washer":480}},"battery":{"entity":"sensor.demo_battery","points":[["00:00",58],["06:15",41],["14:30",97],["24:00",58]]},"tank":{"entity":"sensor.demo_tank","from":76,"to":62},"washer":{"entity":"sensor.demo_washer","remaining":"sensor.demo_washer_remaining","runs":[["09:10","10:25"],["18:30","19:40"]]},"scenes":{"scene.demo_goodnight":{"name":"Goodnight","set":[["light.*","off"],["light.demo_path","on"],["light.demo_porch","on"],["media_player.demo_tv","off"],["fan.demo_living","off"],["fan.demo_bed_main",{"state":"on","percentage":40}],["cover.demo_living_drape",{"position":0}]]},"script.demo_away":{"name":"Away","set":[["light.*","off"],["fan.*","off"],["media_player.*","off"],["climate.*","off"]]},"scene.demo_living_movie_night":{"name":"Movie night","set":[["light.demo_living","off"],["light.demo_living_cove",{"state":"on","brightness":70}],["media_player.demo_tv","on"],["cover.demo_living_drape",{"position":0}]]},"script.demo_living_bright":{"name":"Everything bright","set":[["light.demo_living",{"state":"on","brightness":255}],["light.demo_living_cove",{"state":"on","brightness":255}]]},"scene.demo_dining_dinner":{"name":"Dinner","set":[["light.demo_dining",{"state":"on","brightness":110}],["light.demo_dining_pendant",{"state":"on","brightness":230}]]},"script.demo_bed_main_wind_down":{"name":"Wind down","set":[["light.demo_bed_main",{"state":"on","brightness":60}],["fan.demo_bed_main",{"state":"on","percentage":30}],["light.demo_ens_mirror","off"]]}}},"entities":["binary_sensor.demo_back_door","binary_sensor.demo_bed_main_window","binary_sensor.demo_dining_slider","binary_sensor.demo_doorbell","binary_sensor.demo_front_door","binary_sensor.demo_gate","binary_sensor.demo_hall_motion","binary_sensor.demo_hall_smoke","binary_sensor.demo_living_slider","binary_sensor.demo_utility_leak","camera.demo_porch","climate.demo_bed2","climate.demo_bed_main","climate.demo_house","climate.demo_living","cover.demo_living_drape","fan.demo_bed2","fan.demo_bed_main","fan.demo_hood","fan.demo_living","fan.demo_utility_exhaust","light.demo_bath","light.demo_bed2","light.demo_bed_main","light.demo_dining","light.demo_dining_pendant","light.demo_ens","light.demo_ens_mirror","light.demo_foyer","light.demo_hall","light.demo_kitchen","light.demo_kitchen_under","light.demo_living","light.demo_living_cove","light.demo_path","light.demo_porch","light.demo_study","light.demo_terrace","light.demo_utility","light.demo_wardrobe","light.demo_yard","media_player.demo_speaker","media_player.demo_tv","person.demo_leo","person.demo_maya","person.demo_nora","scene.demo_dining_dinner","scene.demo_goodnight","scene.demo_living_movie_night","script.demo_away","script.demo_bed_main_wind_down","script.demo_living_bright","sensor.demo_ac_outdoor_1","sensor.demo_ac_outdoor_2","sensor.demo_battery","sensor.demo_db","sensor.demo_ev","sensor.demo_inverter","sensor.demo_power","sensor.demo_router","sensor.demo_solar","sensor.demo_study_board","sensor.demo_tank","sensor.demo_washer","sensor.demo_washer_remaining","sensor.demo_weather","switch.demo_bath_geyser","switch.demo_board_1","switch.demo_board_2","switch.demo_board_3","switch.demo_hall_plate","switch.demo_hob","switch.demo_irrigation","switch.demo_living_plate","switch.demo_living_plug","weather.demo_home"],"names":{"binary_sensor.demo_back_door":"Back door","binary_sensor.demo_bed_main_window":"Main bedroom Window","binary_sensor.demo_dining_slider":"Dining Slider","binary_sensor.demo_doorbell":"Doorbell","binary_sensor.demo_front_door":"Front door","binary_sensor.demo_gate":"Gate","binary_sensor.demo_hall_motion":"Hallway Motion","binary_sensor.demo_hall_smoke":"Hallway Smoke","binary_sensor.demo_living_slider":"Living room Slider","binary_sensor.demo_utility_leak":"Utility Leak","camera.demo_porch":"Porch Camera","climate.demo_bed2":"Bedroom AC","climate.demo_bed_main":"Main bedroom AC","climate.demo_house":"House","climate.demo_living":"Living room AC","cover.demo_living_drape":"Living room Drape","fan.demo_bed2":"Bedroom Fan","fan.demo_bed_main":"Main bedroom Fan","fan.demo_hood":"Hood","fan.demo_living":"Living room Fan","fan.demo_utility_exhaust":"Utility Exhaust","light.demo_bath":"Bath Lights","light.demo_bed2":"Bedroom Lights","light.demo_bed_main":"Main bedroom Lights","light.demo_dining":"Dining Lights","light.demo_dining_pendant":"Dining Pendant","light.demo_ens":"Ensuite Lights","light.demo_ens_mirror":"Ensuite Mirror","light.demo_foyer":"Entrance Lights","light.demo_hall":"Hallway Lights","light.demo_kitchen":"Kitchen Lights","light.demo_kitchen_under":"Kitchen Under","light.demo_living":"Living room Lights","light.demo_living_cove":"Living room Cove","light.demo_path":"Path","light.demo_porch":"Porch Lights","light.demo_study":"Study Lights","light.demo_terrace":"Terrace Lights","light.demo_utility":"Utility Lights","light.demo_wardrobe":"Walk-in Lights","light.demo_yard":"Service Lights","media_player.demo_speaker":"Speaker","media_player.demo_tv":"Television","person.demo_leo":"Leo","person.demo_maya":"Maya","person.demo_nora":"Nora","scene.demo_dining_dinner":"Dinner","scene.demo_goodnight":"Goodnight","scene.demo_living_movie_night":"Movie night","script.demo_away":"Away","script.demo_bed_main_wind_down":"Wind down","script.demo_living_bright":"Everything bright","sensor.demo_ac_outdoor_1":"AC outdoor 1","sensor.demo_ac_outdoor_2":"AC outdoor 2","sensor.demo_battery":"Battery","sensor.demo_db":"Distribution board","sensor.demo_ev":"EV charger","sensor.demo_inverter":"Inverter","sensor.demo_power":"Power","sensor.demo_router":"Router","sensor.demo_solar":"Solar","sensor.demo_study_board":"Study Board","sensor.demo_tank":"Tank","sensor.demo_washer":"Washer","sensor.demo_washer_remaining":"Washer remaining","sensor.demo_weather":"Weather","switch.demo_bath_geyser":"Bath Geyser","switch.demo_board_1":"Study desk","switch.demo_board_2":"Study monitor","switch.demo_board_3":"Study charger","switch.demo_hall_plate":"Hallway Switch plate","switch.demo_hob":"Induction hob","switch.demo_irrigation":"Irrigation","switch.demo_living_plate":"Living room Switch plate","switch.demo_living_plug":"Living room Plug","weather.demo_home":"Home"},"watts":{"light.demo_living":42,"light.demo_dining":28,"light.demo_kitchen":42,"light.demo_bed_main":42,"light.demo_bed2":28,"light.demo_study":14,"light.demo_bath":14,"light.demo_ens":7,"light.demo_utility":7,"light.demo_foyer":7,"light.demo_wardrobe":7,"light.demo_hall":28,"light.demo_dining_pendant":36,"light.demo_living_cove":20,"light.demo_kitchen_under":9,"light.demo_ens_mirror":6,"light.demo_terrace":24,"light.demo_path":12,"light.demo_porch":4,"light.demo_yard":30}};</script>
+<script src="demo-hass.js"></script>
+<script src="aria-dashboard.js"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.FPS_DEMO;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search.slice(1) + '&' + location.hash.slice(1));
+  var capture = params.has('capture');
+  document.documentElement.classList.toggle('capture', capture);
+  document.documentElement.classList.toggle('embed', params.has('embed'));
+  var ymd = D.life.date.split('-').map(Number);
+  var toMin = function (s) { var p = String(s).split(':').map(Number); return p[0] * 60 + (p[1] || 0); };
+  var epochAt = function (min) { return Date.UTC(ymd[0], ymd[1] - 1, ymd[2]) + Math.round(min * 60000); };
+  var start = epochAt(toMin(params.get('t') || D.start));
+  if (capture) FpsDemo.clock.useVirtualTime(start); else FpsDemo.clock.setHouseTime(start);
+
+  /* Filmed as two screens side by side, both frames share ONE house, so a tap
+   * on the phone shows on the desktop too. The first frame to boot makes it. */
+  var host = capture && window.parent !== window ? window.parent : null;
+  var house = (host && host.FPS_SHARED_HOUSE)
+    || FpsDemo.createHouse({ life: D.life, names: D.names, watts: D.watts, entities: D.entities });
+  if (host) host.FPS_SHARED_HOUSE = house;
+  var make = function (tag, config) { var el = document.createElement(tag); el.setConfig(config); return el; };
+  var cards = [
+    make('fps-house-card', { type: 'custom:fps-house-card' }),
+    make('fps-floorplan-card', { type: 'custom:fps-floorplan-card', floor: D.floor, title: D.floorName }),
+    make('fps-floor-card', { type: 'custom:fps-floor-card', floor: D.floor }),
+  ];
+  $('view').replaceChildren.apply($('view'), cards);
+  var push = function () { var h = house.hass(); cards.forEach(function (c) { c.hass = h; }); };
+  house.onChange(push);
+  push();
+
+  var show = function () {
+    var m = Math.floor(house.minute()) % 1440;
+    $('clock').value = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    $('time').value = String(m - (m % 5));
+  };
+  var goTo = function (min) { FpsDemo.clock.setHouseTime(epochAt(((min % 1440) + 1440) % 1440)); house.tick(); push(); show(); };
+  $('time').addEventListener('input', function () { goTo(Number($('time').value)); });
+  var playing = null;
+  $('play').addEventListener('click', function () {
+    if (playing) { clearInterval(playing); playing = null; }
+    else playing = setInterval(function () { goTo(house.minute() + 4); }, 100);
+    $('play').setAttribute('aria-pressed', String(!!playing));
+    $('play').textContent = playing ? 'Pause' : 'Play the day';
+  });
+  $('reset').addEventListener('click', function () { house.reset(); push(); });
+  show();
+  /* The sun moves on its own; a real dashboard hears about it every few
+   * minutes from sun.sun, this one every twenty seconds. */
+  if (!capture) setInterval(function () { house.tick(); push(); show(); }, 20000);
+
+  var toastTimer = null;
+  document.addEventListener('hass-more-info', function (ev) {
+    var id = ev.detail && ev.detail.entityId;
+    var st = house.states[id];
+    $('toast').textContent = ((st && st.attributes.friendly_name) || id) + ' — ' + (st ? st.state : 'unknown')
+      + '. In Home Assistant this opens its details.';
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').hidden = true; }, 2600);
+  });
+
+  if (params.get('open')) {
+    setTimeout(function () {
+      var hit = FpsDemo.find(cards[1].shadowRoot, '.fps-hit[data-target="chip"][data-id="' + params.get('open') + '"]');
+      if (hit) FpsDemo.press(hit);
+    }, 60);
+  }
+  window.demo = { house: house, cards: cards, push: push, show: show, goTo: goTo, epochAt: epochAt, toMin: toMin };
+}());
+</script>
+</body></html>

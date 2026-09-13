@@ -1,0 +1,72 @@
+name: Add something to the library
+description: A device, light, piece of furniture, floor finish, wall, opening, covering or look that is missing.
+title: "Library: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything the plan draws is data in a registry, so a clear description here can become a new entry quickly. Before asking, check [Every type you can place](https://bitloomai.github.io/floorplan-studio/library.html) and the [Material gallery](https://bitloomai.github.io/floorplan-studio/materials.html#material-gallery) — what you need may exist under another name, or as a **look** of an existing type.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of thing?
+      options:
+        - A device (something bound to an entity)
+        - A light fixture
+        - A piece of furniture
+        - A floor finish
+        - A wall, railing or other boundary treatment
+        - A door, window, gate or garage door
+        - A blind, curtain or shutter
+        - A colour scheme for items
+        - A new look for a type that already exists
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: What is it called?
+      description: The name you would search for, plus any other names it goes by where you live.
+      placeholder: "Pedestal fan (also: stand fan)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: plan-view
+    attributes:
+      label: What it looks like from directly above
+      description: A floor plan shows things from above. Describe the outline and the details that make it recognisable, and a typical size.
+      placeholder: "A round base about 1.5 ft across, a small motor disc in the middle, three blades sweeping about 1.3 ft …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Reference pictures
+      description: Links to product pages, manufacturer drawings or photos. Only attach a photo of your own home if you are happy for it to be public.
+    validations:
+      required: true
+
+  - type: textarea
+    id: home-assistant
+    attributes:
+      label: How it appears in Home Assistant
+      description: "For devices and lights: the entity domain and device class, and what a tap on it should do."
+      placeholder: "Domain fan, no device class. A tap should toggle it; the blades should turn at its percentage."
+
+  - type: input
+    id: closest
+    attributes:
+      label: The closest existing type or look
+      placeholder: "device.fan, look industrial4"
+
+  - type: textarea
+    id: properties
+    attributes:
+      label: Settings it should have
+      description: Sizes, counts, colours or options that change how it is drawn or how it lights a room.
+      placeholder: "Height, blade count, whether it oscillates"

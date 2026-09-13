@@ -1,0 +1,28 @@
+{
+  "_comment": "Worked examples for custom flooring. Copy a chosen entry into flooring.types to make it selectable.",
+  "types": {
+    "_script_example_tatami": {
+      "label": "Tatami (script example)",
+      "group": "Custom",
+      "generator": "script",
+      "reflectance": 0.28,
+      "options": {
+        "color": "#d9d3ac",
+        "matW": 3,
+        "matH": 6,
+        "script": "const {o,P,bounds}=ctx; const n=[]; const bw=o.matW, bh=o.matH;\nfor(let x=Math.floor(bounds.x0/bw)*bw; x<bounds.x1; x+=bw){\n  for(let y=Math.floor(bounds.y0/bh)*bh; y<bounds.y1; y+=bh){\n    n.push({tag:'rect',attrs:{x:P.X(x),y:P.Y(y),width:P.S(bw),height:P.S(bh),fill:'none',stroke:'#6b5f3a','stroke-width':2,opacity:0.55}});\n  }\n}\nreturn n;"
+      }
+    },
+    "_script_example_radial": {
+      "label": "Radial inlay (script example)",
+      "group": "Custom",
+      "generator": "script",
+      "reflectance": 0.4,
+      "options": {
+        "color": "#efe7d8",
+        "rings": 7,
+        "script": "const {o,P,bounds,shade}=ctx;\nconst cx=(bounds.x0+bounds.x1)/2, cy=(bounds.y0+bounds.y1)/2;\nconst maxR=Math.max(bounds.x1-bounds.x0,bounds.y1-bounds.y0)/2;\nconst n=[];\nfor(let i=1;i<=o.rings;i++){\n  n.push({tag:'circle',attrs:{cx:P.X(cx),cy:P.Y(cy),r:P.S(maxR*i/o.rings),fill:'none',stroke:shade(o.color,-0.3),'stroke-width':1,opacity:0.4}});\n}\nreturn n;"
+      }
+    }
+  }
+}

@@ -1,0 +1,173 @@
+name: Something is broken
+description: The app, the editor, the generated dashboard, dashboard install or the MCP endpoint does not do what it should.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two things first:
+
+        - **Only the latest version is supported.** Update the app and check the problem is still there.
+        - **Redact before you paste.** Logs, project files and dashboard configs from a real house can carry access tokens, latitude/longitude, `person.*` and `device_tracker.*` states, and entity ids that name your rooms and family. Never paste your real `project.json` or dashboard config here. A security problem goes through [SECURITY.md](https://github.com/bitloomai/floorplan-studio/security/policy), not an issue.
+
+        If the plan *draws* something wrong — a wall, a light, a floor, a furniture look — use **The plan draws something wrong** instead; it asks for the things that make a rendering problem fixable.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where is the problem?
+      options:
+        - Installing or starting the app
+        - The editor (drawing, panels, saving, undo)
+        - Binding entities or the entity picker
+        - Generating or installing the dashboard
+        - "Dashboard: the plan card (taps, zoom, tooltips)"
+        - "Dashboard: the house card or the floor card"
+        - "Dashboard: a room's popup"
+        - AI assistant / MCP
+        - Import or export
+        - The help site or the live demo
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include any error message exactly as shown.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The shortest path from a fresh start to the problem.
+      placeholder: |
+        1. Open Floorplan in the sidebar
+        2. Select a window on the ground floor
+        3. Change its covering to Roller blind
+        4. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: demo
+    attributes:
+      label: Does it also happen in the live demo?
+      description: "[The demo](https://bitloomai.github.io/floorplan-studio/demo/) runs the same dashboard cards against an invented house. Only relevant to dashboard problems."
+      options:
+        - "Yes, I can reproduce it there"
+        - "No, only on my installation"
+        - "Not applicable (editor, install or MCP)"
+        - "I did not try"
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Floorplan Studio version
+      description: "Settings → Apps → Floorplan Studio — the version is shown under its name."
+      placeholder: "0.0.1"
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant versions
+      description: "Settings → About: the Core, Supervisor and Operating System versions."
+      placeholder: "Core 2026.9.1, Supervisor 2026.09.0, Operating System 16.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-type
+    attributes:
+      label: Installation type
+      description: Apps need Supervisor, so Home Assistant Container and Core installs cannot run this one.
+      options:
+        - Home Assistant OS
+        - Home Assistant Supervised
+        - Other (say which below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Hardware architecture
+      description: "Settings → System → Hardware, or the Supervisor's system information. 32-bit armv7 is not supported."
+      options:
+        - "amd64 (Intel or AMD)"
+        - "aarch64 (64-bit ARM, e.g. Raspberry Pi 3/4/5 on 64-bit Home Assistant OS)"
+        - "I am not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: client
+    attributes:
+      label: Browser and device where you saw it
+      description: For anything on screen. Include the Home Assistant Companion app if that is where it happens.
+      placeholder: "Edge 128 on Windows 11 · Companion app on Android 15 (Pixel 8) · Safari on iPad"
+
+  - type: input
+    id: mcp-client
+    attributes:
+      label: AI client and connection (MCP problems only)
+      description: Which assistant, and whether it connects over plain HTTP on 8099 or HTTPS on the TLS port.
+      placeholder: "Claude Code over http://homeassistant.local:8099/mcp"
+
+  - type: dropdown
+    id: options
+    attributes:
+      label: App options changed from their defaults
+      description: "Settings → Apps → Floorplan Studio → Configuration."
+      multiple: true
+      options:
+        - "Nothing changed from the defaults"
+        - "mcp_enabled turned off"
+        - "mcp_allow_dashboard_install turned on"
+        - "headless_endpoints_enabled turned on"
+        - "ssl_cert and ssl_key set"
+        - "log_level changed"
+        - "entity_refresh_seconds changed"
+        - "Host ports remapped"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        The app's log: Settings → Apps → Floorplan Studio → **Log**. Setting `log_level` to `debug` and reproducing the problem helps. For the editor or the dashboard, also copy any red errors from the browser console (F12 → Console).
+        Remove tokens and anything that names your household before pasting.
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Drag files in. Room names on a plan are your household's; crop or blur them if you prefer.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am on the latest version of Floorplan Studio.
+          required: true
+        - label: I searched the existing issues for this problem.
+          required: true
+        - label: I removed tokens, coordinates, person and device-tracker states, and anything naming my household.
+          required: true

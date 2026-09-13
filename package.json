@@ -1,0 +1,24 @@
+{
+  "name": "floorplan-studio",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Open Home Assistant floor-plan editor and dashboard generator",
+  "homepage": "https://bitloomai.github.io/floorplan-studio/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitloomai/floorplan-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bitloomai/floorplan-studio/issues"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "test": "node test/verify.js",
+    "check:repo": "node tools/check-repository.js",
+    "sync:licenses": "node tools/sync-license-files.js",
+    "make:house": "node tools/make-test-house.js"
+  }
+}

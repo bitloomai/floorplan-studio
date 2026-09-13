@@ -1,0 +1,74 @@
+name: Suggest a feature or improvement
+description: Something Floorplan Studio could do, or do better.
+title: "Idea: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with the **problem** — what you are trying to do and what gets in the way. A good problem statement often finds a better solution than the first one that comes to mind.
+
+        Some reasonable ideas get declined to protect three rules ([CONTRIBUTING.md](https://github.com/bitloomai/floorplan-studio/blob/main/CONTRIBUTING.md)): **no runtime dependencies**, **one renderer** shared by the editor and the dashboard, and a **small writable surface** in Home Assistant. The editor's screen is also already busy, so a gesture or a key usually beats a new button.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Floorplan Studio?
+      options:
+        - The editor
+        - "Dashboard: the plan card"
+        - "Dashboard: the house card or floor card"
+        - "Dashboard: room popups and controls"
+        - Walls, openings, coverings or materials
+        - Lighting or the daylight model
+        - Binding entities, scenes and shortcuts
+        - AI assistant / MCP
+        - Import, export or dashboard deployment
+        - Help and documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what stops you today?
+      placeholder: "When I … I have to … which means …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to happen
+      description: How it would work from where you sit. Sketches and mockups are welcome.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: screens
+    attributes:
+      label: Where would you use it?
+      multiple: true
+      options:
+        - A phone
+        - A tablet or wall panel
+        - A desktop or laptop
+        - Not about a screen
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do now instead
+      description: Workarounds, automations or other approaches you have tried.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and the help guide for this.
+          required: true
+        - label: It would not need a new runtime dependency, or I have explained in the proposal why it must.
+          required: true
