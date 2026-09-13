@@ -29,6 +29,34 @@ even approximate figures makes the difference between rooms meaningful.
 **The floor matters.** The same lamps over dark carpet and over polished marble
 give genuinely different levels, because reflectance is in the chain.
 
+## What a lit room looks like
+
+Two things are drawn for every lamp that is on, and they answer different
+questions.
+
+**The pool** is the light on the floor round the fitting. It is brightest under
+the lamp and falls away with distance, in the colour the lamp is actually giving
+out — a magenta spot throws magenta. A tube or a strip pools along its length; a
+perimeter cove glows along its run. Every lighting type pools, including a
+bollard, a pendant or a chandelier; a type whose marker has a **Pool spread**
+uses that as its reach.
+
+**The wash** is the whole room lifting, because light comes back off the ceiling
+and the walls. So it depends on the room having them:
+
+- **A walled room** lifts evenly — that is what a lit room looks like from the
+  doorway.
+- **An outdoor area** — a yard, a setback, a car port marked outdoor — has
+  nothing to throw light back, so it gets only a trace of the wash and the pools
+  carry the rest. Two bollards on a long strip read as two lamps, not a lit strip.
+- **A room open on some sides** — a covered entrance with no walls — sits
+  between the two, by how much of its outline is actually wall.
+
+Light **stops at a wall**, **carries on across an open edge** as if the edge were
+not there (it is not), and **thins out past a window, a doorway or a glass
+railing** by that opening's transmission. Nothing ends in a straight line in
+open space.
+
 ## Colour
 
 `kelvin` sets the lamp's colour temperature, warm to cool. When an entity reports
@@ -79,14 +107,17 @@ run, or a strip whose marker you moved somewhere you can reach it.
 
 Settings both light models read that a plan needs none of to look right:
 
-- **light zones** — clip a lamp's glow to its room and let it out through each
-  opening by that opening's own transmission, so a blackout blind stops the
-  spill and a sheer curtain does not. Off, every lamp draws a plain circle that
-  washes straight through walls.
+- **light zones** — hold a lamp's glow to its room and let it out through each
+  opening by that opening's own transmission, fading with distance, so a
+  blackout blind stops the spill and a sheer curtain does not. Off, every lamp
+  draws a plain circle that washes straight through walls.
+- **the outdoor wash** — how much of a lit room's even lift an outdoor area
+  gets. Low on purpose: see *What a lit room looks like* above.
 - **floor bounce** — how much of a flooring's own reflectance counts. 0 is
   arithmetically the model as it was before floors had a say.
-- **the glow pool** — how a lamp's pool of light grows with its output. It grows
-  slowly on purpose: a 20 W tube is not four times the radius of a 5 W spot.
+- **the glow pool** — how a lamp's pool of light grows with its output, and how
+  far past that bright core the drawn pool reaches. It grows slowly on purpose:
+  a 20 W tube is not four times the radius of a 5 W spot.
 - **a fitting that says nothing** — what a lamp marker counts as when its type
   carries no figure. Raising these brightens every unspecified fitting at once.
 - **room name chips** — whether the name is drawn, whether it carries a live

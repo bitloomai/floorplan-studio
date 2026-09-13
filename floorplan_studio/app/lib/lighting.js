@@ -59,8 +59,23 @@
     fallback: { watt: 9, efficacy: 90, beam: 2.6, kelvin: 3000, count: 1 },
     /* A lamp's glow pool grows with its output, but only slowly — a 20 W tube
      * is not four times the radius of a 5 W spot. Radius is
-     * beam x (lumens / refLumens) ^ poolGamma. */
-    pool: { refLumens: 475, gamma: 0.28, min: 0.5, max: 4 },
+     * beam x (lumens / refLumens) ^ poolGamma.
+     *
+     * `scale` is how far the DRAWN pool reaches, as a multiple of that radius.
+     * The radius is the bright core under the fitting; light carries well past
+     * it and fades. Drawn at 1x, a 5 W downlight was a 2.4 ft dab that read as
+     * a highlight on its own marker rather than light on the floor, which is
+     * why rooms needed a flat wash to look lit at all. 1.75 puts a downlight's
+     * pool at about 4 ft, which is what a recessed spot throws from a normal
+     * ceiling and what the hand-built card this replaced had settled on. */
+    pool: { refLumens: 475, gamma: 0.28, min: 0.5, max: 4, scale: 1.75 },
+    /* How much of a lit room's wash an OUTDOOR area gets. Indoors a lamp's
+     * light comes back off the ceiling and walls, so a lit room genuinely reads
+     * as evenly lifted. A yard, a setback or a car port has nothing to throw it
+     * back: the light is where the fittings are and falls off round them. At 1
+     * a pair of bollards lit a 39 ft strip as one flat block, which read as a
+     * box rather than as two lamps. The pools carry the rest. */
+    outdoorWash: 0.15,
     /* Rooms lit by lamps stop taking a daylight wash as well; whichever is
      * brighter wins rather than the two adding up to a blown-out white. */
     combine: 'max',            // 'max' | 'add'

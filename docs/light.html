@@ -92,6 +92,17 @@
 <p>Two consequences worth holding on to:</p>
 <p><strong>A lamp with no wattage contributes a default, not nothing.</strong> If a house's lamps all lack wattage, the model still runs — it is just fiction. Filling in even approximate figures makes the difference between rooms meaningful.</p>
 <p><strong>The floor matters.</strong> The same lamps over dark carpet and over polished marble give genuinely different levels, because reflectance is in the chain.</p>
+<h2>What a lit room looks like</h2>
+<p>Two things are drawn for every lamp that is on, and they answer different questions.</p>
+<p><strong>The pool</strong> is the light on the floor round the fitting. It is brightest under the lamp and falls away with distance, in the colour the lamp is actually giving out — a magenta spot throws magenta. A tube or a strip pools along its length; a perimeter cove glows along its run. Every lighting type pools, including a bollard, a pendant or a chandelier; a type whose marker has a <strong>Pool spread</strong> uses that as its reach.</p>
+<p><strong>The wash</strong> is the whole room lifting, because light comes back off the ceiling and the walls. So it depends on the room having them:</p>
+<ul><li><strong>A walled room</strong> lifts evenly — that is what a lit room looks like from the</li></ul>
+<p>  doorway.</p>
+<ul><li><strong>An outdoor area</strong> — a yard, a setback, a car port marked outdoor — has</li></ul>
+<p>  nothing to throw light back, so it gets only a trace of the wash and the pools   carry the rest. Two bollards on a long strip read as two lamps, not a lit strip.</p>
+<ul><li><strong>A room open on some sides</strong> — a covered entrance with no walls — sits</li></ul>
+<p>  between the two, by how much of its outline is actually wall.</p>
+<p>Light <strong>stops at a wall</strong>, <strong>carries on across an open edge</strong> as if the edge were not there (it is not), and <strong>thins out past a window, a doorway or a glass railing</strong> by that opening's transmission. Nothing ends in a straight line in open space.</p>
 <h2>Colour</h2>
 <p><code>kelvin</code> sets the lamp's colour temperature, warm to cool. When an entity reports its own colour, that wins — the number here is what to assume when it does not.</p>
 <h2>Brightness follows the entity</h2>
@@ -106,12 +117,14 @@
 <p><strong>A cove may sit outside the room it lights.</strong> Set the room explicitly and the run traces that room, wherever the marker itself is parked — a pillar-mounted run, or a strip whose marker you moved somewhere you can reach it.</p>
 <h2>The light model (Advanced)</h2>
 <p>Settings both light models read that a plan needs none of to look right:</p>
-<ul><li><strong>light zones</strong> — clip a lamp's glow to its room and let it out through each</li></ul>
-<p>  opening by that opening's own transmission, so a blackout blind stops the   spill and a sheer curtain does not. Off, every lamp draws a plain circle that   washes straight through walls.</p>
+<ul><li><strong>light zones</strong> — hold a lamp's glow to its room and let it out through each</li></ul>
+<p>  opening by that opening's own transmission, fading with distance, so a   blackout blind stops the spill and a sheer curtain does not. Off, every lamp   draws a plain circle that washes straight through walls.</p>
+<ul><li><strong>the outdoor wash</strong> — how much of a lit room's even lift an outdoor area</li></ul>
+<p>  gets. Low on purpose: see <em>What a lit room looks like</em> above.</p>
 <ul><li><strong>floor bounce</strong> — how much of a flooring's own reflectance counts. 0 is</li></ul>
 <p>  arithmetically the model as it was before floors had a say.</p>
-<ul><li><strong>the glow pool</strong> — how a lamp's pool of light grows with its output. It grows</li></ul>
-<p>  slowly on purpose: a 20 W tube is not four times the radius of a 5 W spot.</p>
+<ul><li><strong>the glow pool</strong> — how a lamp's pool of light grows with its output, and how</li></ul>
+<p>  far past that bright core the drawn pool reaches. It grows slowly on purpose:   a 20 W tube is not four times the radius of a 5 W spot.</p>
 <ul><li><strong>a fitting that says nothing</strong> — what a lamp marker counts as when its type</li></ul>
 <p>  carries no figure. Raising these brightens every unspecified fitting at once.</p>
 <ul><li><strong>room name chips</strong> — whether the name is drawn, whether it carries a live</li></ul>

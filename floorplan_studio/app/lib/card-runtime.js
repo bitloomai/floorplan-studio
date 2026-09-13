@@ -645,13 +645,20 @@ class FpsFloorplanCard extends HTMLElement {
   }
 
   paintHeader(scene, states) {
-    const lit = Object.values(scene.roomLevels || {});
-    const on = lit.reduce((n, r) => n + r.on, 0);
-    const total = lit.reduce((n, r) => n + r.total, 0);
+    /* Counted per ENTITY across the floor, the rule every other count on the
+     * dashboard uses. Summing the rooms' own counts counted a relay shared by
+     * two rooms twice and a lamp in no room not at all, so this line and the
+     * floor card under the same plan disagreed ("9 of 33" over "8 of 31"). */
+    const lamps = [...new Set((this._floor.items || [])
+      .filter((i) => (i.kind || 'fixture') === 'fixture' && i.entity).map((i) => i.entity))];
+    const on = lamps.filter((e) => this.isOn(e)).length;
+    const total = lamps.length;
     const sun = scene.sun;
     const bits = [`${on} of ${total} lights on`];
     if (sun && typeof sun.elevation === 'number') {
-      const wx = states[(FPS_DATA.project.sun || {}).weatherEntity || ((FPS_DATA.project.sun || {}).weather || {}).entity];
+      const sunCfg = FPS_DATA.project.sun || {};
+      const wx = states[sunCfg.weatherEntity || (sunCfg.weather || {}).entity
+        || ((FPS_DATA.project.dashboard || {}).house || {}).weather];
       const sky = wx ? String(wx.state).replace(/-/g, ' ') : null;
       bits.push(`${sky ? sky + ', ' : ''}sun ${Math.round(sun.elevation)}°`);
     }
@@ -982,6 +989,9 @@ class FpsFloorplanCard extends HTMLElement {
       const target = Controls.resolveTarget(b.target, cfg.shortcuts, room);
       const btn = document.createElement('button');
       btn.className = 'fps-btn' + (target && this.isOn(target) ? ' on' : '');
+      /* The action as an attribute, so a stylesheet can tell All on from All
+       * off without relying on the label a house may have renamed. */
+      btn.dataset.action = b.action;
       btn.textContent = b.label;
       btn.addEventListener('click', () => this.headerAction(b, cfg, room, items));
       row.appendChild(btn);
@@ -1103,10 +1113,20 @@ class FpsFloorplanCard extends HTMLElement {
       const slider = document.createElement('input');
       slider.type = 'range'; slider.min = '1'; slider.max = '255'; slider.className = 'fps-slider';
       slider.value = String(lit.length ? Math.round(lit.reduce((a, b) => a + b, 0) / lit.length) : 128);
+      /* The level as a number beside it. A bare slider says "about here", and
+       * the room's lights report a real value worth reading. */
+      const pct = document.createElement('span');
+      pct.className = 'fps-pct';
+      const showPct = () => { pct.textContent = Math.round((Number(slider.value) / 255) * 100) + '%'; };
+      showPct();
+      slider.addEventListener('input', showPct);
       slider.addEventListener('change', () => {
         this.call('light', 'turn_on', { entity_id: [...new Set(dimmable)], brightness: Number(slider.value) });
       });
-      wrap.appendChild(slider);
+      const row = document.createElement('div');
+      row.className = 'fps-slider-row';
+      row.append(slider, pct);
+      wrap.appendChild(row);
       return wrap;
     }
 
@@ -1176,7 +1196,8 @@ class FpsFloorplanCard extends HTMLElement {
     const tile = document.createElement('button');
     tile.className = 'fps-tile fps-tile-' + control
       + (this.isOn(stateOf) ? ' on' : '') + (st || synthetic ? '' : ' dead')
-      + (cand.shortcut ? ' fps-shortcut' : '');
+      + (cand.shortcut ? ' fps-shortcut' : '')
+      + (section.source === 'devices' ? ' fps-tile-device' : '');
 
     if (section.swatch) {
       const dot = document.createElement('span');

@@ -1624,8 +1624,9 @@ const zoneOf = (bounds) => {
   const p = glassProj();
   p.floors[0].boundaries = bounds;
   const s = scene.build(p, p.floors[0], lib, theme, { boundaries, flooring, states: { 'light.a': { state: 'on', attributes: {} } } });
-  const clip = (s.layers.defs || []).find((n) => n.tag === 'clipPath' && /Zone/.test(n.attrs && n.attrs.id || ''));
-  return clip ? (clip.children[0].attrs.d.match(/M /g) || []).length : 0;
+  const mask = (s.layers.defs || []).find((n) => n.tag === 'mask' && /^fpsZone-/.test(n.attrs && n.attrs.id || ''));
+  /* The room itself, plus a shape for every way light gets out of it. */
+  return mask ? mask.children.reduce((sum, c) => sum + (c.attrs.d.match(/M /g) || []).length, 0) : 0;
 };
 const sealedZone = zoneOf([]);
 ok('an open edge widens the light zone past the wall line', zoneOf([{ room: 'r', wall: 'n', type: 'open_edge' }]) > sealedZone,
@@ -1665,10 +1666,14 @@ const clearBand = litWash([{ room: 'r', wall: 'n', type: 'glass_partition' }]);
 const tintBand = litWash([{ room: 'r', wall: 'n', type: 'glass_tinted' }]);
 ok('a translucent wall throws a band onto the far side', clearBand.length === 1 && tintBand.length === 1,
   clearBand.length + ' / ' + tintBand.length);
+/* The band is a gradient now — it fades with distance — so the colour that
+ * lands is read from `data-light`, which is what the gradient is made of. */
 ok('an untinted one carries the lamp colour through unchanged',
-  clearBand[0].attrs.fill === tintBand[0].attrs.fill === false, clearBand[0].attrs.fill);
+  clearBand[0].attrs['data-light'] === tintBand[0].attrs['data-light'] === false, clearBand[0].attrs['data-light']);
 ok('a tinted one changes the colour that lands',
-  tintBand[0].attrs.fill !== clearBand[0].attrs.fill, tintBand[0].attrs.fill);
+  tintBand[0].attrs['data-light'] !== clearBand[0].attrs['data-light'], tintBand[0].attrs['data-light']);
+ok('and the band fades out across its reach instead of ending in a hard edge',
+  /^url\(#fpsSpill-/.test(clearBand[0].attrs.fill), clearBand[0].attrs.fill);
 /* Strength has to follow transmission, or the tint is decoration rather than
  * a model of what the material does. */
 ok('and the band is weaker through the less transmissive wall',
@@ -4374,6 +4379,19 @@ const dashboardUiSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'panels-da
 ok('both overview cards are defined',
   /customElements\.define\('fps-house-card'/.test(overviewSrc)
   && /customElements\.define\('fps-floor-card'/.test(overviewSrc));
+/* The shapes the hand-built dashboard settled on, which these cards replace:
+ * people as pills with a presence dot, the house as one status bar, and the
+ * floor as a sentence rather than a table. */
+ok('the house card draws each person with a picture or initial and a presence dot',
+  /fps-presence/.test(overviewSrc) && /entity_picture/.test(overviewSrc) && /fps-initial/.test(overviewSrc));
+ok('the floor card says what a floor is doing in one sentence, and keeps the breakdown on request',
+  /snapshot/.test(overviewSrc) && /no motion detected/.test(overviewSrc) && /'breakdown'/.test(overviewSrc));
+ok('the house card people picker is offered people, which the entity list never contains', (() => {
+  const panelsSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'panels.js'), 'utf8');
+  const serverSrc = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
+  return /domains\.includes\('person'\)/.test(panelsSrc) && /S\.people/.test(panelsSrc)
+    && /ha\.people\(/.test(serverSrc);
+})());
 ok('they are in the same bundle as the plan', (() => {
   const b = cardBuild.build({ project: dashProj, library: lib, themes, boundaries, flooring, controls: controlsDoc }, {});
   return b.content.includes("customElements.define('fps-house-card'")
@@ -4625,13 +4643,24 @@ const zScene = zoned(project);
 ok('every room gets a light zone',
   new Set((JSON.stringify(zScene.layers.defs).match(/fpsZone-[a-z0-9_]+/g) || [])).size
     >= (f2.rooms || []).filter((r) => !r.part_of).length);
-ok('every glow pool is clipped to one',
-  zScene.layers.glow.length > 0 && zScene.layers.glow.every((n) => n.attrs['clip-path']),
-  `${zScene.layers.glow.filter((n) => n.attrs['clip-path']).length} of ${zScene.layers.glow.length}`);
+/* Masked, not clipped: a clip can only say in or out, so a pool stopped in a
+ * straight line past every window. A cove brings its own room clip instead,
+ * because a run along every wall would pour through every opening. */
+const zonedGlow = (n) => n.attrs.mask || n.attrs['clip-path'];
+ok('every glow pool is held to one',
+  zScene.layers.glow.length > 0 && zScene.layers.glow.every(zonedGlow),
+  `${zScene.layers.glow.filter(zonedGlow).length} of ${zScene.layers.glow.length}`);
+ok('and a zone is a mask whose openings fade rather than a hard clip', (() => {
+  const masks = zScene.layers.defs.filter((d) => d.tag === 'mask' && /^fpsZone-/.test((d.attrs || {}).id || ''));
+  const fades = zScene.layers.defs.filter((d) => d.tag === 'linearGradient' && /^fpsZoneFade-/.test((d.attrs || {}).id || ''));
+  return masks.length > 0 && fades.length > 0
+    && !zScene.layers.defs.some((d) => d.tag === 'clipPath' && /^fpsZone-/.test((d.attrs || {}).id || ''))
+    && fades.every((g) => g.children[0].attrs['stop-opacity'] === 1 && g.children[g.children.length - 1].attrs['stop-opacity'] === 0);
+})());
 ok('turning zones off goes back to unclipped pools', (() => {
   const p = JSON.parse(JSON.stringify(project));
   p.lighting = Object.assign({}, p.lighting, { zones: { enabled: false } });
-  return zoned(p).layers.glow.every((n) => !n.attrs['clip-path']);
+  return zoned(p).layers.glow.every((n) => !n.attrs.mask && !n.attrs['clip-path']);
 })());
 /* A shut blind is a wall as far as spill is concerned, so the zone gets smaller
  * — measured as the length of the clip path, which is the only handle on "how
@@ -4645,6 +4674,67 @@ ok('a shut covering shrinks the zone it spills into', (() => {
   const len = (p) => JSON.stringify(zoned(p).layers.defs.filter((d) => String((d.attrs || {}).id || '').startsWith('fpsZone-'))).length;
   return len(shutP) < len(openP);
 })());
+
+/* Pools, not boxes. The shape that exposed it: an outdoor yard lit by a
+ * bollard, open on one side to a drive. Before, the bollard drew no pool at
+ * all (its type had no glow block), the yard lifted as one flat rectangle, and
+ * a flat 3.5 ft band with square ends stood across the open edge. */
+const poolProj = () => ({ name: 'P', ppf: 10, origin: [0, 0], floors: [{
+  id: 'f', name: 'F', extent: { w: 30, h: 20 },
+  rooms: [
+    { id: 'yard', name: 'Yard', shape: 'rect', rect: [0, 0, 15, 20], outdoor: true },
+    { id: 'drive', name: 'Drive', shape: 'rect', rect: [15, 0, 15, 20], outdoor: true },
+  ],
+  boundaries: [{ room: 'yard', wall: 'e', type: 'open_edge' }],
+  openings: [],
+  items: [{ id: 'b1', kind: 'fixture', type: 'bollard', at: [5, 10], entity: 'light.b1', props: { spread: 6 } }],
+}] });
+const poolScene = (p) => scene.build(p, p.floors[0], lib, theme,
+  { boundaries, flooring, states: { 'light.b1': { state: 'on', attributes: {} } }, when: night });
+{
+  const s = poolScene(poolProj());
+  const pool = s.layers.glow.find((n) => n.itemId === 'b1');
+  ok('a lamp type with no glow block still throws a pool', !!pool);
+  ok('and its "Pool spread" is how far that pool reaches', !!pool && Math.abs(+pool.attrs.r - 60) < 1e-6, pool && pool.attrs.r);
+  ok('a pool falls off from its centre in the lamp’s own colour rather than a flat disc', (() => {
+    const id = /url\(#(fpsGlow-[0-9a-f]{6})\)/.exec((pool && pool.attrs.fill) || '');
+    const grad = id && s.layers.defs.find((d) => d.attrs && d.attrs.id === id[1]);
+    return !!grad && grad.tag === 'radialGradient' && grad.children.length > 3;
+  })());
+  const zone = s.layers.defs.find((d) => d.tag === 'mask' && d.attrs.id === 'fpsZone-yard');
+  ok('an open edge takes the space beyond it into the zone whole, not a band of it',
+    !!zone && zone.children.some((c) => c.attrs.fill === '#fff' && (c.attrs.d.match(/M /g) || []).length === 2)
+      && !s.layers.defs.some((d) => /^fpsZoneFade-yard-/.test((d.attrs || {}).id || '')));
+  ok('and no flat spill band is laid across an open edge', !s.layers.lampWash.some((n) => n.tag === 'path'));
+
+  const walledP = poolProj();
+  walledP.floors[0].rooms[0].outdoor = false;
+  walledP.floors[0].boundaries = [];
+  const roofedP = poolProj();
+  roofedP.floors[0].rooms[0].outdoor = false;
+  const washOf = (sc) => sc.layers.lampWash.find((n) => n.roomId === 'yard' && n.tag === 'rect');
+  const outdoorWash = washOf(s), walledWash = washOf(poolScene(walledP)), roofedWash = washOf(poolScene(roofedP));
+  ok('an outdoor area takes only a trace of the wash a walled room gets',
+    !!outdoorWash && !!walledWash && outdoorWash.attrs.opacity < walledWash.attrs.opacity * 0.3,
+    `${outdoorWash && outdoorWash.attrs.opacity.toFixed(3)} vs ${walledWash && walledWash.attrs.opacity.toFixed(3)}`);
+  ok('and a roofed space open on one side washes less than the same room walled in',
+    !!roofedWash && roofedWash.attrs.opacity < walledWash.attrs.opacity && roofedWash.attrs.opacity > outdoorWash.attrs.opacity,
+    `${roofedWash && roofedWash.attrs.opacity.toFixed(3)}`);
+
+  const coveP = poolProj();
+  coveP.floors[0].rooms[0].outdoor = false;
+  coveP.floors[0].items = [{ id: 'c1', kind: 'fixture', type: 'cove', at: [5, 10], room: 'yard', entity: 'light.b1', props: {} }];
+  const coveGlow = poolScene(coveP).layers.glow.filter((n) => n.itemId === 'c1');
+  ok('a cove glows along its run and is held to its own room, not poured through every opening',
+    coveGlow.length > 0 && coveGlow.every((n) => n.tag === 'path' && n.attrs['clip-path'] === 'url(#fpsClip-yard)'));
+
+  const tubeP = poolProj();
+  tubeP.floors[0].items = [{ id: 't1', kind: 'fixture', type: 'tube', at: [5, 10], entity: 'light.b1', props: { len: 8, rot: 90 } }];
+  const tubeGlow = poolScene(tubeP).layers.glow.find((n) => n.itemId === 't1');
+  ok('a tube pools along its length, and its zone mask is not turned with it',
+    !!tubeGlow && tubeGlow.tag === 'g' && !!tubeGlow.attrs.mask && tubeGlow.children[0].tag === 'ellipse'
+      && /rotate\(90 /.test(tubeGlow.children[0].attrs.transform) && tubeGlow.children[0].attrs.rx > tubeGlow.children[0].attrs.ry);
+}
 
 /* -------------------------------------------------------- curved rooms */
 
@@ -7122,9 +7212,13 @@ ok('a door on an L-shaped room cuts one edge, not every edge sharing its letter'
     items: [],
   }] };
   const lines = wallScene(p).layers.boundaries.filter((n) => n.tag === 'line');
-  const onX = (x) => lines.filter((n) => Math.abs(+n.attrs.x1 - x) < 0.5 && Math.abs(+n.attrs.x2 - x) < 0.5).length;
+  /* `inward` is how far a wall's outline sits inside its edge: an exterior
+   * wall's outline runs along the middle of its own band, which lies wholly
+   * inside the room, so the x = 20 edge draws at 20 ft less half its 0.75 ft. */
+  const onX = (x, inward = 0) => lines.filter((n) => Math.abs(+n.attrs.x1 - (x - inward)) < 0.5
+    && Math.abs(+n.attrs.x2 - (x - inward)) < 0.5).length;
   /* The door's own edge is cut in two; the other east edge stays whole. */
-  return onX(200) === 2 && onX(100) === 1;
+  return onX(200, 3.75) === 2 && onX(100) === 1;
 })());
 
 ok('an opening can name the exact edge it sits on', (() => {
@@ -7169,11 +7263,9 @@ ok('and light crosses a shared opening in both directions', (() => {
   /* The zone took only its OWNER's openings, so a lamp lit one way through a
    * door and not the other — which side it is filed under is bookkeeping. */
   const s = wallScene(sharedProj());
-  const zones = s.layers.defs.filter((n) => n.tag === 'clipPath' && /Zone/.test((n.attrs || {}).id || ''));
-  const through = zones.filter((c) => {
-    const d = String((((c.children || [])[0] || {}).attrs || {}).d || '');
-    return (d.match(/M /g) || []).length > 1;   // room outline plus a spill quad
-  });
+  const zones = s.layers.defs.filter((n) => n.tag === 'mask' && /^fpsZone-/.test((n.attrs || {}).id || ''));
+  // room outline plus a fading spill quad through the shared window
+  const through = zones.filter((c) => (c.children || []).length > 1);
   return zones.length === 2 && through.length === 2;
 })());
 

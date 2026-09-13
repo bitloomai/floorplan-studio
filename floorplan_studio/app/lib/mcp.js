@@ -1110,7 +1110,10 @@ tool({
     if (ha.isConfigured()) {
       try {
         const live = await ha.stateMap(60000);
-        missing = wanted.filter((e) => !live[e]);
+        /* People are not in the state map (see `ha.people`), so without this
+         * every house card with a people row "misses" them. */
+        const people = new Set((await ha.people(60000, false)).map((p) => p.entity_id));
+        missing = wanted.filter((e) => !live[e] && !people.has(e));
       } catch (e) { /* best-effort, same as the HTTP preview route */ }
     }
     return {

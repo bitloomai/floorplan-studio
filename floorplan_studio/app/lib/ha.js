@@ -95,18 +95,48 @@ function get(pathname) {
   });
 }
 
-let cache = { at: 0, list: null };
+let cache = { at: 0, list: null, people: null };
 
-async function entities(ttlMs, force) {
+/* Who lives here, for the house card's people row — and nothing else.
+ *
+ * The house card has always named `person.*` entities, and the editor's picker
+ * for them filtered the entity list by domain. That list drops `person`
+ * wholesale, so the picker could never offer a single one: the row was only
+ * reachable by typing an id. A person's id and display name are what a
+ * dashboard shows anyway; their state (home, away, a zone's name) and every
+ * attribute are location data and do not come through here. Kept apart from
+ * `entities()` so the assistant catalogue and live states stay exactly as
+ * redacted as they were. */
+function personRow(entry) {
+  return {
+    entity_id: entry.entity_id,
+    domain: 'person',
+    name: (entry.attributes && entry.attributes.friendly_name) || entry.entity_id.split('.')[1].replace(/_/g, ' '),
+  };
+}
+
+async function refresh(ttlMs, force) {
   const now = Date.now();
-  if (!force && cache.list && now - cache.at < ttlMs) return cache.list;
+  if (!force && cache.list && now - cache.at < ttlMs) return cache;
   const raw = await get('/states');
   const list = raw
     .filter((e) => !EXCLUDED_DOMAINS.has(e.entity_id.split('.')[0]))
     .map(redact)
     .sort((a, b) => a.entity_id.localeCompare(b.entity_id));
-  cache = { at: now, list };
-  return list;
+  const people = raw
+    .filter((e) => e.entity_id.startsWith('person.'))
+    .map(personRow)
+    .sort((a, b) => a.entity_id.localeCompare(b.entity_id));
+  cache = { at: now, list, people };
+  return cache;
+}
+
+async function entities(ttlMs, force) {
+  return (await refresh(ttlMs, force)).list;
+}
+
+async function people(ttlMs, force) {
+  return (await refresh(ttlMs, force)).people;
 }
 
 async function stateMap(ttlMs) {
@@ -120,6 +150,7 @@ module.exports = {
   mode: () => MODE,
   isConfigured: () => MODE !== 'offline',
   entities,
+  people,
   stateMap,
   SAFE_ATTRS,
   /* Credentials for `ha-write.js`, which needs a WebSocket rather than the

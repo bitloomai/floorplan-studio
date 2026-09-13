@@ -84,6 +84,21 @@ module.exports = function (ok) {
           assert.ok(!text.includes(k), k + ' reached the answer');
         }
       });
+      /* The house card names people, and the editor's picker for them used to
+       * filter the list above by domain — which can never contain one. They
+       * arrive separately, as an id and a display name: no state (home, away,
+       * a zone's name is location) and no attribute of any kind. */
+      await t('people reach the house card picker as an id and a name, and nothing else', async () => {
+        const ha = require('./floorplan_studio/app/lib/ha');
+        const people = await ha.people(0, true);
+        assert.deepEqual(people, [{ entity_id: 'person.demo_resident', domain: 'person', name: 'Resident' }]);
+        const text = JSON.stringify(people);
+        for (const k of ['home', 'latitude', '123.4567', 'device_tracker', 'zone.']) {
+          assert.ok(!text.includes(k), k + ' reached the people list');
+        }
+        assert.ok(!(await ha.entities(60000, false)).some((e) => e.domain === 'person'),
+          'and the entity catalogue still has no person in it');
+      });
       await t('a domain filter answers "what can this type bind to"', async () => {
         const lights = await call('list_entities', { domain: 'light' });
         assert.deepEqual(lights.entities.map((e) => e.entity_id), ['light.demo_hall', 'light.demo_kitchen']);

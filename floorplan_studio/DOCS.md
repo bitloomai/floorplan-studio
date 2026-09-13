@@ -887,14 +887,22 @@ house card / the floor cards**.
 
 ### The house card
 
-The house's **name and weather are always there**; everything else is yours.
+One status bar: the house's **name, today's date and the weather** on a row you
+can tap, then what is on, then live readings as pills — with the household beside
+it. On a wide screen it is a single bar with the people at its end; beside a plan
+on a tablet the people stack into a rail; on a phone they become a row of three.
 
 | Row | What it is |
 |---|---|
-| **People** | `person` entities, shown as chips and lit when they are home. |
-| **Counts** | "26/101 lights". Name marker **types** and it follows the plan for ever; name a **domain** and it follows Home Assistant; name **entities** and it follows nothing. `skipGroups` stops a light group being counted alongside its own members. |
-| **Stats** | One live number each — power reads in kW past a thousand, `signed` shows a `+` when positive, and `showWhen` makes a chip appear only while something is true (the washing machine that shows up while it runs and goes away when it stops). |
+| **People** | `person` entities, one pill each: their picture (or initial), first name, and a dot that is green at home and red away. Picked from **+ person** in the dialog. |
+| **Counts** | A line of text — "💡 26/101 · ✱ 3/11". Name marker **types** and it follows the plan for ever; name a **domain** and it follows Home Assistant; name **entities** and it follows nothing. `skipGroups` stops a light group being counted alongside its own members. |
+| **Stats** | One live reading per pill — power reads in kW past a thousand, `signed` shows a `+` when positive, and `showWhen` makes a pill appear only while something is true (the washing machine that shows up while it runs and goes away when it stops). `tone: "warm"` tints it as something happening. |
 | **Buttons** | The house's own shortcuts. |
+
+Counts and stats lead with a drawn `icon`, or with a `glyph` — any character,
+emoji included — when you set one. `weatherIcons` maps Home Assistant's weather
+states to glyphs of your own; `showDate`, `showTemperature` and `weatherText`
+turn those parts of the name row on or off.
 
 The first time you generate a dashboard the counts and stats are **seeded from
 the plan** — a chip for every class the house actually has, none for the ones it
@@ -902,14 +910,20 @@ does not. After that the card is yours and the seeding never runs again.
 
 ### The floor card
 
-Under the plan: **how much of that floor is active**, out of how many, with a
-bar per class and unavailable devices called out separately rather than counted
-as off.
+Under the plan, one sentence on **what that floor is doing**:
 
-Left alone, the classes are whatever that floor actually has, grouped by the
-library's own categories — so adding a heater to the plan adds a heater row and
-there is no list to maintain. Pick a fixed set from the dialog if you would
-rather every floor read the same way.
+> **Ground Floor snapshot** — **9** of 34 lights on · **0** of 1 fan running ·
+> no motion detected · rainy, sun -64°
+
+A phrase appears for each kind of thing the floor actually has — lights, fans,
+ACs, heaters, TVs, motion sensors — so adding a fan to the plan adds the fan
+phrase. Unavailable lights are called out rather than counted as off. Each
+phrase opens what it counted.
+
+`style: "breakdown"` (on the card, the floor's `dashboard`, or the house's
+`dashboard.floor`) keeps the older layout instead: a count of everything active
+and a bar per library category, optionally a fixed set of classes from the
+dialog.
 
 ## Dashboard theme
 
@@ -968,10 +982,18 @@ card preview before you generate.
 ## Light zones
 
 A lamp lights **its own room**, and spills through the room's openings by
-exactly as much as each opening lets through. So light stops at a wall, leaks
-through a doorway, pours through an open window and barely creeps past a
-blackout blind — all from the one transmission number the sun model already
-reads.
+exactly as much as each opening lets through, fading with distance. So light
+stops at a wall, leaks through a doorway, pours through an open window and
+barely creeps past a blackout blind — all from the one transmission number the
+sun model already reads. An **open edge** is not an opening at all: the room
+beyond it is the same space, and the pools carry straight on into it.
+
+A lit room's even **wash** is light coming back off its walls and ceiling, so it
+is as strong as the room is enclosed. An outdoor area gets only a trace of it
+(`outdoorWash`, 15% by default), and a roofed space open on some sides gets a
+share by how much of its outline is wall. The pools round each fitting carry the
+rest, which is why a yard lit by two bollards shows two pools of light rather
+than one lit rectangle.
 
 Under **◐ Light**: `spillFt` is how far light reaches past a fully open
 opening (3.5 ft by default), and the whole thing can be switched off, which puts
@@ -1252,7 +1274,11 @@ the meantime.
 
 Person, device tracker and zone entities are dropped wholesale rather than
 filtered, because `/api/states` carries GPS coordinates on those and a drawing
-tool has no business with them.
+tool has no business with them. The one exception is the house card's people
+picker, which is given each `person` entity's **id and display name only** —
+never whether they are home, never any attribute — because naming who lives
+there is the whole of what that row needs from the editor. The card itself reads
+presence live from Home Assistant in your browser, like any other card.
 
 An AI connected over MCP has exactly the same reach as a human at the
 keyboard, no more: it can read states and edit the project freely, and it can

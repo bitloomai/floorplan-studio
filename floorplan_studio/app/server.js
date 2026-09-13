@@ -344,14 +344,19 @@ async function handleApi(req, res, pathname, query) {
 
   /* Entity list for the binding picker. Redacted to id/name/domain/state plus a
    * couple of display hints — NEVER raw attributes, which on person.* carry GPS
-   * coordinates. Cached so opening the picker does not hammer HA. */
+   * coordinates. Cached so opening the picker does not hammer HA.
+   *
+   * `people` rides alongside for the house card's people picker: id and name
+   * only, never a state or an attribute — see `ha.people`. */
   if (pathname === '/api/entities' && method === 'GET') {
     try {
-      const list = await ha.entities(OPTIONS.entity_refresh_seconds * 1000, query.get('refresh') === '1');
-      return sendJson(res, 200, { entities: list, mode: ha.mode(), count: list.length });
+      const ttl = OPTIONS.entity_refresh_seconds * 1000;
+      const list = await ha.entities(ttl, query.get('refresh') === '1');
+      const people = await ha.people(ttl, false);
+      return sendJson(res, 200, { entities: list, people, mode: ha.mode(), count: list.length });
     } catch (e) {
       log('warning', 'entity fetch failed:', e.message);
-      return sendJson(res, 200, { entities: [], mode: ha.mode(), count: 0, error: e.message });
+      return sendJson(res, 200, { entities: [], people: [], mode: ha.mode(), count: 0, error: e.message });
     }
   }
 
@@ -581,8 +586,13 @@ async function handleApi(req, res, pathname, query) {
       let missing = [];
       if (ha.isConfigured()) {
         try {
-          const live = await ha.stateMap(OPTIONS.entity_refresh_seconds * 1000);
-          missing = wanted.filter((e) => !live[e]);
+          const ttl = OPTIONS.entity_refresh_seconds * 1000;
+          const live = await ha.stateMap(ttl);
+          /* People are never in the live state map — it drops `person` for
+           * privacy — so the house card's people row was reported missing on
+           * every house that had one. The id list is enough to say they exist. */
+          const people = new Set((await ha.people(ttl, false)).map((p) => p.entity_id));
+          missing = wanted.filter((e) => !live[e] && !people.has(e));
         } catch (e) { log('warning', 'entity check skipped:', e.message); }
       }
       return sendJson(res, 200, {

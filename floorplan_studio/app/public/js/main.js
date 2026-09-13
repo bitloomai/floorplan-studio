@@ -594,6 +594,7 @@
     try {
       const res = await API.entities();
       S.entities = res.entities || [];
+      S.people = res.people || [];
       if (res.error) Panels.toast(`Entity list unavailable (${res.error}) — you can still type entity ids.`, true);
     } catch { /* handled above */ }
     loadStates();

@@ -524,7 +524,7 @@ section.
 - Project writes are atomic and rolling backups are retained.
 - Dashboard replacement is backed up and read back after save.
 - Person, device-tracker, and zone location data is excluded from the browser
-  state map.
+  state map; the house card's people picker receives person ids and names only.
 - `floorplan_studio/app/lib/mcp.js` is the MCP server. It has no service-call command either —
   it reads/writes the project file and, if the option is on, one Lovelace
   dashboard through the same `ha-write.js` path above, nothing else. It is

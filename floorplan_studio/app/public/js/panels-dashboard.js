@@ -708,6 +708,10 @@ window.PanelsDashboard = (function () {
       h('div', { class: 'subhead' }, 'Night'),
       slider('scrim', 'Darkness with no daylight', 0, 0.8, 0.02, (v) => `${Math.round(v * 100)}%`),
       slider('maxWash', 'Most a lit room can lift', 0.1, 1, 0.02, (v) => `${Math.round(v * 100)}%`),
+      slider('outdoorWash', 'How much of that an outdoor area gets', 0, 1, 0.05, (v) => `${Math.round(v * 100)}%`),
+      h('p', { class: 'hint' },
+        'Indoors, light comes back off the ceiling and walls and the whole room lifts. '
+        + 'A yard or a car port has nothing to throw it back, so its light stays in the pools round each fitting.'),
       h('div', { class: 'subhead' }, 'Brightness'),
       slider('targetFc', 'Fully lit at', 4, 60, 1, (v) => `${v} fc`),
       slider('gamma', 'Response curve', 0.3, 1.5, 0.05, (v) => v.toFixed(2)),
@@ -807,6 +811,9 @@ window.PanelsDashboard = (function () {
           + '(lumens ÷ this) raised to a fractional power, so a 20 W tube is not four times '
           + 'the radius of a 5 W spot.'),
         numIn('How fast it grows', 'pool', 'gamma', 0.02),
+        numIn('How far the drawn pool reaches (× that radius)', 'pool', 'scale', 0.05,
+          'The radius above is the bright core under the fitting; light carries past it and fades. '
+          + 'A type whose marker has its own “Pool spread” uses that instead.'),
 
         h('div', { class: 'subhead' }, 'Advanced — a fitting that says nothing'),
         h('p', { class: 'hint' },

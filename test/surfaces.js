@@ -129,6 +129,33 @@ module.exports = function (ok) {
   ok('a short exterior run is not centred by an indoor room elsewhere on its edge',
     shortBand && JSON.stringify(range(shortBand, 0)) === JSON.stringify([200, 240])
       && JSON.stringify(range(shortBand, 1)) === JSON.stringify([0, 60]));
+  /* A finished wall top is DRAWN by its finish. The plain outline laid over it
+   * left a band of the old wall colour along the face — the report was that the
+   * compound wall's material did not cover the wall. */
+  ok('a finished wall top draws no outline over its own material',
+    wide.layers.boundaries.filter(n => n.tag === 'line' && n.roomId === 'r' && n.wall === 'n').length === 0);
+  const plainWide = draw({}, { boundaries: [wall({ thicknessFt: 1.5 })] });
+  const plainLine = plainWide.layers.boundaries.find(n => n.tag === 'line' && n.roomId === 'r' && n.wall === 'n');
+  ok('an unfinished inward wall keeps its outline on its band, not hanging off its outer face',
+    !!plainLine && Math.abs(+plainLine.attrs.y1 - 55) < 1e-6 && plainLine.attrs['stroke-linecap'] === 'butt',
+    plainLine && JSON.stringify(plainLine.attrs));
+  /* A parapet along a planter at the edge of the site is a half wall, not an
+   * "exterior wall". Centred, half its body and a mitre tab at each end stuck
+   * out past the plot. Nothing is beyond it, so the edge is its outer face. */
+  const half = draw({}, { boundaries: [{ id: 'h', room: 'r', wall: 's', type: 'wall_half' }] });
+  const halfBand = half.layers.boundaries.find(n => n.roomId === 'r' && n.wall === 's' && n.attrs?.stroke === 'none');
+  ok('any wall set on an edge with nothing beyond it fills inward rather than straddling the edge',
+    !!halfBand && JSON.stringify(range(halfBand, 1)) === JSON.stringify([270, 280])
+      && JSON.stringify(range(halfBand, 0)) === JSON.stringify([40, 280]),
+    halfBand && halfBand.attrs.d);
+  const corner = draw({}, { boundaries: [
+    wall({ thicknessFt: 2, topFinish: 'granite_black' }, 'n', 'bn'),
+    { id: 'bw', room: 'r', wall: 'w', type: 'wall_exterior' },
+  ] });
+  const materialAt = corner.layers.boundaries.findIndex(n => n.tag === 'g');
+  const plainOutlineAt = corner.layers.boundaries.findIndex(n => n.tag === 'line' && n.wall === 'w');
+  ok('a plain wall’s outline sits under the finished wall it runs into, not across its granite',
+    materialAt > -1 && plainOutlineAt > -1 && plainOutlineAt < materialAt);
   ok('wall finish is drawn in one clipped field', wide.layers.boundaries.filter(n => n.tag === 'g').length === 1);
   const adjoining = draw({}, { boundaries: [wall({ topFinish: 'granite_black' }), wall({ topFinish: 'granite_black' }, 'e', 'b2')] });
   ok('adjoining walls share a material field', adjoining.layers.boundaries.filter(n => n.tag === 'g').length === 1);

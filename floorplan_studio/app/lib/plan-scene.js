@@ -446,7 +446,7 @@
       const ov = overrides.find((o) => mid >= num(o.from, edge.lo) && mid <= num(o.to, edge.hi));
       const probe = { from, to };
       const exterior = typeof exteriorAt === 'function' ? !!exteriorAt(probe) : !!exteriorAt;
-      runs.push({ from, to, exterior,
+      runs.push({ from, to, exterior, explicit: !!ov,
         type: (ov && ov.type) || (exterior ? defaults.exterior : defaults.interior),
         props: (ov && ov.props) || null });
     }
@@ -473,6 +473,33 @@
     if (!a) return light;
     if (!b) return light;
     return `rgb(${a.map((v, i) => Math.round((v * b[i]) / 255)).join(',')})`;
+  }
+
+  /* How a pool of lamp light falls off from its centre.
+   *
+   * Two stops — full at the centre, nothing at the rim — is a LINEAR ramp, and
+   * a linear ramp reads as a flat disc with a soft edge: the eye picks out where
+   * it stops. Light on a floor falls away steeply near the fitting and then
+   * trails off, which is what these stops approximate. Shared by every pool, so
+   * a spot, a tube and a pendant fade the same way. */
+  const GLOW_STOPS = [[0, 0.9], [0.18, 0.76], [0.4, 0.48], [0.62, 0.24], [0.82, 0.08], [1, 0]];
+
+  /* One gradient per COLOUR, not per lamp. A pool is drawn in the light the
+   * lamp is actually giving out — a magenta foyer spot throws magenta — and a
+   * house of warm-white downlights still shares one definition. */
+  function glowGradient(colourStr, fallback) {
+    const rgb = Light().parseColour(colourStr) || Light().parseColour(fallback) || [255, 200, 140];
+    const hex = rgb.map((v) => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+    return { id: `fpsGlow-${hex}`, colour: `#${hex}` };
+  }
+
+  function glowGradientNode(g) {
+    return {
+      tag: 'radialGradient', attrs: { id: g.id },
+      children: GLOW_STOPS.map(([o, a]) => ({
+        tag: 'stop', attrs: { offset: `${Math.round(o * 100)}%`, 'stop-color': g.colour, 'stop-opacity': a },
+      })),
+    };
   }
 
   /* Every run on a room's edges that light actually gets through.
@@ -535,15 +562,22 @@
     return out;
   }
 
+  /* Which boundary nodes are a plain wall's own outline. A WeakSet rather than
+   * a flag on the node, because a node is serialised as it stands and an extra
+   * key would change the bytes of every wall on every plan — including the
+   * ones with no finish anywhere, which are pinned not to change. */
+  const UNDER_FINISH = new WeakSet();
+
   function boundaryNodes(run, edge, bDoc, theme, P, surface, isExterior) {
     const def = (bDoc.types || {})[run.type] || (bDoc.types || {}).wall_partition || {};
     const r = Object.assign({}, def.render || {}, run.props || {});
     if (r.style === 'none') return [];
     const a = pointOn(edge, run.from), b = pointOn(edge, run.to);
-    const x1 = P.X(a[0]), y1 = P.Y(a[1]), x2 = P.X(b[0]), y2 = P.Y(b[1]);
+    let x1 = P.X(a[0]), y1 = P.Y(a[1]), x2 = P.X(b[0]), y2 = P.Y(b[1]);
     const col = colour(r.color, theme, theme.wallThin);
     const w = num(r.widthPx, 2);
     const nodes = [];
+    let banded = false, inwardBand = false, finished = false;
 
     /* The wall's own body.
      *
@@ -553,6 +587,7 @@
      * down FIRST so the style's own strokes still read on top, and a type that
      * sets no fill draws exactly as it always did. */
     if (r.fill || (r.topFinish && def.encloses !== false)) {
+      banded = true;
       const half = P.S(Math.max(0, num(r.thicknessFt, num(def.thicknessFt, 0.3)))) / 2;
       const len = Math.hypot(x2 - x1, y2 - y1) || 1;
       const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
@@ -601,16 +636,33 @@
         },
       });
       if (surface && r.topFinish && def.encloses !== false) {
+        finished = true;
         const xs = [ax-nx, bx-nx, bx+nx, ax+nx], ys = [ay-ny, by-ny, by+ny, ay+ny];
         surface(r, nodes[0].attrs.d, {
           x0: (Math.min(...xs)-P.X(0))/P.S(1), y0: (Math.min(...ys)-P.Y(0))/P.S(1),
           x1: (Math.max(...xs)-P.X(0))/P.S(1), y1: (Math.max(...ys)-P.Y(0))/P.S(1),
         });
       }
+      /* The style's own strokes follow the band they decorate. They used to
+       * stay on the room edge — the band's OUTER face once it fills inward —
+       * so a 5 px outline hung half outside the wall, and a parapet's double
+       * rule sat on its outside edge rather than along its top. */
+      if (isExterior && edge.inward && (insetX || insetY)) {
+        inwardBand = true;
+        x1 += insetX; y1 += insetY; x2 += insetX; y2 += insetY;
+      }
     }
+    /* A wall with a finished top is DRAWN by its finish. The outline strokes
+     * are the plain wall's way of reading as a wall, and painted over granite
+     * they left a band of the old wall colour along its face — reported as the
+     * compound wall's material not covering the wall. Railings and the other
+     * patterned styles are the object itself, not an outline, and still draw. */
+    if (finished && (!r.style || r.style === 'solid' || r.style === 'double')) return nodes;
     switch (r.style) {
       case 'solid':
-        nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: col, 'stroke-width': w, 'stroke-linecap': 'square' } });
+        /* Butt ends on an inward band: a square cap reaches half a stroke past
+         * the corner, which is outside the perpendicular wall's outer face. */
+        nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: col, 'stroke-width': w, 'stroke-linecap': inwardBand ? 'butt' : 'square' } });
         break;
       case 'dashed':
         nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: col, 'stroke-width': w, 'stroke-dasharray': r.dash || '6 4' } });
@@ -694,6 +746,13 @@
       }
       default:
         nodes.push({ tag: 'line', attrs: { x1, y1, x2, y2, stroke: col, 'stroke-width': w } });
+    }
+    /* A plain wall's outline belongs to its own body, so it is layered with
+     * the bodies — beneath any finished wall top. Laid over everything, the
+     * outline of a plain side wall ran straight across the granite block at
+     * the corner where it met a finished one. */
+    if (banded && (!r.style || r.style === 'solid' || r.style === 'double')) {
+      for (let i = 1; i < nodes.length; i++) UNDER_FINISH.add(nodes[i]);
     }
     return nodes;
   }
@@ -1571,18 +1630,55 @@
      * either of them being special-cased. `render.glow.spread` still wins if a
      * type sets one, because a cove that traces a wall is not a point source
      * and its own number is the better answer. */
-    if (sk.on && r.glow && r.glow.enabled) {
-      const ft = r.glow.spread !== undefined
-        ? num(r.glow.spread, 2.4) * (0.6 + 0.4 * bright)
-        : (out ? out.poolFt : 2.4);
-      nodes.push({
-        tag: 'circle', layer: 'glow',
-        attrs: {
-          cx, cy, r: P.S(ft),
-          fill: 'url(#fpsGlow)', opacity: num(theme.glowOpacity, 0.5) * bright,
-          'pointer-events': 'none',
-        },
-      });
+    /* Every lamp glows unless its type says otherwise. Nine lighting types —
+     * a bollard, a pendant, a chandelier, a garden spike — shipped no
+     * `render.glow` block at all, so switching one on lit its room's number
+     * and drew no light anywhere near it. Those same types carry a "Pool
+     * spread (ft)" prop that nothing read; it is the drawn reach now, which is
+     * what its label always said. */
+    const glowDef = r.glow || (isLamp ? { enabled: true } : null);
+    let glow = null;
+    if (sk.on && glowDef && glowDef.enabled !== false) {
+      const poolCfg = Object.assign({}, Light().DEFAULTS.pool, ((ctx && ctx.lightCfg) || {}).pool || {});
+      const ownSpread = num(props.spread, num(defs.spread, NaN));
+      const ft = Number.isFinite(ownSpread)
+        ? ownSpread * (0.6 + 0.4 * bright)
+        : (glowDef.spread !== undefined
+          ? num(glowDef.spread, 2.4) * (0.6 + 0.4 * bright)
+          : (out ? out.poolFt : 2.4)) * num(poolCfg.scale, 1.75);
+      glow = {
+        ft,
+        gradient: glowGradient(litColour, theme.glow),
+        opacity: num(theme.glowOpacity, 0.5) * bright,
+        /* Light ADDS at night: a pool screened over a dark floor brightens it
+         * in the lamp's colour the way a real one does. By day a screen over a
+         * pale floor all but vanishes, which would hide what is switched on
+         * from somebody placing lamps in the editor, so it paints normally. */
+        blend: ctx && ctx.night ? 'screen' : null,
+      };
+      const base = { 'pointer-events': 'none', opacity: glow.opacity, 'mix-blend-mode': glow.blend };
+      if (shape === 'line') {
+        /* A tube or a strip lights along its length, so its pool does too.
+         * Wrapped in a group because the zone clip is applied to the node the
+         * layer holds, and a clip on an element with its own rotate() would be
+         * rotated along with it — cutting the pool on a wall that is not
+         * there. */
+        const len = num(props.len, num(defs.len, num(r.len, 4)));
+        const rotDeg = num(props.rot, num(defs.rot, 0));
+        nodes.push({
+          tag: 'g', layer: 'glow', glowGradient: glow.gradient, attrs: base,
+          children: [{ tag: 'ellipse', attrs: {
+            cx, cy, rx: P.S(len / 2 + ft * 0.75), ry: P.S(ft),
+            transform: rotDeg ? `rotate(${rotDeg} ${cx} ${cy})` : null,
+            fill: `url(#${glow.gradient.id})`,
+          } }],
+        });
+      } else if (shape !== 'perimeter') {
+        nodes.push({
+          tag: 'circle', layer: 'glow', glowGradient: glow.gradient,
+          attrs: Object.assign({ cx, cy, r: P.S(ft), fill: `url(#${glow.gradient.id})` }, base),
+        });
+      }
     }
 
     /* Coverage: what a camera sees, what a speaker throws, where an AC blows.
@@ -1781,6 +1877,26 @@
         const d = outline.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z';
         const ink = litColour || stroke;
         const w = num(r.thickness, 1.5);
+        /* A cove's light is along its run, not in a blob where its marker
+         * happens to be parked — the pool used to be a circle at the marker,
+         * which for a perimeter cove is usually the middle of the room. Three
+         * nested strokes stand in for a fade across the run.
+         *
+         * Clipped to its OWN room rather than the light zone. A cove washes
+         * the ceiling and walls it is set into; a run that follows every wall
+         * would otherwise pour its full strength through each window and door
+         * in the zone and stand a bright rectangle outside every one. */
+        if (glow) {
+          const zonesOn = (((ctx && ctx.lightCfg) || {}).zones || {}).enabled !== false;
+          for (const [k, a] of [[1.2, 0.14], [0.6, 0.22], [0.25, 0.36]]) {
+            nodes.push({ tag: 'path', layer: 'glow', attrs: {
+              d, fill: 'none', stroke: glow.gradient.colour, 'stroke-width': P.S(glow.ft * k),
+              'stroke-linejoin': 'round', opacity: a * glow.opacity * 1.6,
+              'mix-blend-mode': glow.blend, 'pointer-events': 'none',
+              'clip-path': zonesOn ? `url(#fpsClip-${rm.id})` : null,
+            } });
+          }
+        }
         /* One run of light, drawn six ways.
          *
          * A cove, a bare LED strip, a strip in an aluminium channel and a rope
@@ -1985,13 +2101,8 @@
 
     layers.defs.push({ tag: 'style', text: MOTION_CSS });
 
-    layers.defs.push({
-      tag: 'radialGradient', attrs: { id: 'fpsGlow' },
-      children: [
-        { tag: 'stop', attrs: { offset: '0%', 'stop-color': theme.glow, 'stop-opacity': 0.85 } },
-        { tag: 'stop', attrs: { offset: '100%', 'stop-color': theme.glow, 'stop-opacity': 0 } },
-      ],
-    });
+    layers.defs.push(glowGradientNode({ id: 'fpsGlow', colour: theme.glow }));
+    const glowDefs = new Set(['fpsGlow']);
     layers.defs.push({
       tag: 'linearGradient', attrs: { id: 'fpsBeam', x1: '0', y1: '0', x2: '0', y2: '1' },
       children: [
@@ -2044,14 +2155,23 @@
     const edgeIsExteriorHere = (edge, run) => edgeIsExterior(floor, edge, run);
     const defaults = Object.assign({ exterior: 'wall_exterior', interior: 'wall_partition' }, bDoc.defaults || {});
 
-    const zonePathOf = (room) => {
+    /* A zone is two kinds of shape. SOLID is the room (and its part_of rects
+     * and any open neighbours): light is simply there, cut dead at the wall.
+     * FADES are the quads through openings and translucent runs: light gets
+     * through, and thins out with distance past them. The zone used to be a
+     * clip path, which can only say in or out, so every quad stopped its pool
+     * in a straight line 3.5 ft past the window — a lit rectangle standing
+     * outside every opening. It is a mask now, and the quads are gradients. */
+    const zoneShapesOf = (room) => {
       const parts = [roomPathOf(room)];
+      const fades = [];
+      const quadPath = (quad) => quad.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z';
       /* `part_of` rects belong to the same zone: a lamp in one half of an
        * L-shaped room lights the whole of it, exactly as the wash does. */
       for (const other of floor.rooms || []) {
         if (other.id !== room.id && (primaryRoom(floor, other) || other).id === room.id) parts.push(roomPathOf(other));
       }
-      if (zoneCfg.enabled === false) return parts.join(' ');
+      if (zoneCfg.enabled === false) return { solid: parts, fades };
       const spill = num(zoneCfg.spillFt, 3.5);
       for (const op of floor.openings || []) {
         const owner = (floor.rooms || []).find((r) => r.id === op.room);
@@ -2080,20 +2200,42 @@
         const len = Math.hypot(mx - c[0], my - c[1]) || 1;
         const nx = ((mx - c[0]) / len) * spill * t, ny = ((my - c[1]) / len) * spill * t;
         /* A quad through the opening, reaching both ways: light leaves the room
-         * through it and also arrives from a lamp on the other side. */
+         * through it and also arrives from a lamp on the other side. It fades
+         * AWAY from this zone — out of the owner, or into the owner when the
+         * opening is the neighbour's and this zone is looking through it. */
         const quad = [
           [a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny],
           [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny],
         ];
-        parts.push(quad.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z');
+        const dir = mine ? 1 : -1;
+        fades.push({ d: quadPath(quad), from: [mx, my], to: [mx + nx * dir, my + ny * dir] });
       }
 
       /* The same, for the parts of a wall that are not solid. An `open_edge`
        * between two halves of a car park, or a balcony's glass railing, spills
        * exactly like a doorway does — by its own transmission. */
+      /* An edge with NO barrier on it — `open_edge`, a threshold — is not an
+       * aperture light squeezes through, it is the same open space carrying
+       * on. The quad below stopped a gate light's pool in a straight line
+       * 3.5 ft into the yard next door, which is a wall of light nothing
+       * built. Those neighbours join the zone whole, and the pool's own
+       * fall-off decides how far it reaches. Glass, grilles and half walls
+       * are real barriers and keep the quad. */
+      const openNeighbours = new Set();
       for (const other of [room, ...(floor.rooms || []).filter((r) => r.id !== room.id
         && (primaryRoom(floor, r) || r).id === room.id)]) {
         for (const run of transmissiveRuns(other, floor, bDoc, defaults, edgeIsExteriorHere)) {
+          if (!run.encloses && run.transmission >= 0.95) {
+            const beyond = roomBeyondEdge(floor, run.edge, run);
+            const beyondPrimary = beyond && (primaryRoom(floor, beyond) || beyond);
+            if (beyondPrimary && beyondPrimary.id === room.id) continue;
+            if (beyondPrimary) {
+              for (const r2 of floor.rooms || []) {
+                if ((primaryRoom(floor, r2) || r2).id === beyondPrimary.id) openNeighbours.add(r2);
+              }
+              continue;
+            }
+          }
           const a = pointOn(run.edge, run.from - 0.25), b = pointOn(run.edge, run.to + 0.25);
           const c = roomCentroid(other);
           const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
@@ -2104,10 +2246,11 @@
             [a[0] - nx, a[1] - ny], [b[0] - nx, b[1] - ny],
             [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny],
           ];
-          parts.push(quad.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z');
+          fades.push({ d: quadPath(quad), from: [mx, my], to: [mx + nx, my + ny] });
         }
       }
-      return parts.join(' ');
+      for (const r2 of openNeighbours) parts.push(roomPathOf(r2));
+      return { solid: parts, fades };
     };
 
     for (const room of floor.rooms || []) {
@@ -2115,9 +2258,26 @@
       const clipId = `fpsClip-${room.id}`;
       layers.defs.push({ tag: 'clipPath', attrs: { id: clipId }, children: [{ tag: 'path', attrs: { d } }] });
       if (!room.part_of) {
+        const zone = zoneShapesOf(room);
+        /* Fades first and the solid room over them, so the half of each quad
+         * that reaches back into the room is covered by full white rather
+         * than dimming the floor just inside the window. */
+        const children = zone.fades.map((f, i) => {
+          const gid = `fpsZoneFade-${room.id}-${i}`;
+          layers.defs.push({
+            tag: 'linearGradient',
+            attrs: { id: gid, gradientUnits: 'userSpaceOnUse', x1: P.X(f.from[0]), y1: P.Y(f.from[1]), x2: P.X(f.to[0]), y2: P.Y(f.to[1]) },
+            children: [[0, 1], [0.45, 0.45], [1, 0]].map(([o, s]) => ({
+              tag: 'stop', attrs: { offset: `${Math.round(o * 100)}%`, 'stop-color': '#fff', 'stop-opacity': s },
+            })),
+          });
+          return { tag: 'path', attrs: { d: f.d, fill: `url(#${gid})` } };
+        });
+        children.push({ tag: 'path', attrs: { d: zone.solid.join(' '), fill: '#fff' } });
         layers.defs.push({
-          tag: 'clipPath', attrs: { id: `fpsZone-${room.id}`, clipRule: 'nonzero' },
-          children: [{ tag: 'path', attrs: { d: zonePathOf(room), 'clip-rule': 'nonzero' } }],
+          tag: 'mask',
+          attrs: { id: `fpsZone-${room.id}`, maskUnits: 'userSpaceOnUse', x: -width, y: -height, width: width * 3, height: height * 3 },
+          children,
         });
       }
 
@@ -2162,9 +2322,18 @@
            * floor extent and model no outdoor room beyond them. Those used to
            * remain centred and grow outside their boundary. The only exception
            * is a wall genuinely shared with another indoor room, where the
-           * long-standing centre-line convention still applies. */
-          const fillInward = run.exterior || (run.type === defaults.exterior
-            && !(beyond && !beyond.outdoor));
+           * long-standing centre-line convention still applies.
+           *
+           * The same holds for ANY wall somebody explicitly set on an edge with
+           * nothing drawn beyond it. A parapet along a planter at the site's
+           * edge is a half wall, not an "exterior wall", and centring it pushed
+           * half its body and a mitre tab at each end out past the plot.
+           * Nothing beyond means nothing to share the wall with, so the room
+           * edge is its outer face whatever it is made of. Unset edges keep
+           * their default placement, which is what the no-opt-in digest pins. */
+          const fillInward = run.exterior
+            || (run.explicit && !beyond)
+            || (run.type === defaults.exterior && !(beyond && !beyond.outdoor));
           for (const n of boundaryNodes(run, edge, bDoc, theme, P, collectWallSurface, fillInward)) {
             n.roomId = room.id; n.wall = edge.wall;
             layers.boundaries.push(n);
@@ -2189,8 +2358,9 @@
         material.push({ tag: 'g', attrs: { 'clip-path': `url(#${clipId})` }, children });
       }
       const bands = layers.boundaries.filter(n => n.attrs.stroke === 'none');
-      const lines = layers.boundaries.filter(n => n.attrs.stroke !== 'none');
-      layers.boundaries = [...bands, ...material, ...lines];
+      const outlines = layers.boundaries.filter(n => n.attrs.stroke !== 'none' && UNDER_FINISH.has(n));
+      const lines = layers.boundaries.filter(n => n.attrs.stroke !== 'none' && !UNDER_FINISH.has(n));
+      layers.boundaries = [...bands, ...outlines, ...material, ...lines];
     }
 
     /* The dashed quarter-circle a door leaf sweeps through. Scoped house →
@@ -2382,18 +2552,59 @@
       });
     }
 
+    /* How much of a logical room's outline is a barrier light bounces off.
+     *
+     * The wash is light coming back off walls and ceiling, so it is only as
+     * even as the room is enclosed. A covered entrance open on all four sides
+     * has a roof and no walls — marked indoor, and washed like a sealed room,
+     * it drew a flat lit box with four hard edges standing in open space.
+     * Measured over the drawn runs: a doorway is a hole in a wall and does not
+     * count against it, an `open_edge` or a threshold does, and the seams
+     * between one room's own rects are not edges at all. */
+    const enclosures = new Map();
+    const enclosureOf = (key) => {
+      if (enclosures.has(key)) return enclosures.get(key);
+      let total = 0, barrier = 0;
+      for (const part of floor.rooms || []) {
+        if ((primaryRoom(floor, part) || part).id !== key) continue;
+        for (const edge of roomEdges(part)) {
+          for (const run of edgeRuns(edge, part, floor, defaults, (c) => edgeIsExteriorHere(edge, c))) {
+            const beyond = roomBeyondEdge(floor, edge, run);
+            if (beyond && (primaryRoom(floor, beyond) || beyond).id === key) continue;
+            const def = (bDoc.types || {})[run.type] || {};
+            const len = Math.max(0, run.to - run.from);
+            total += len;
+            if (def.encloses !== false && num(def.transmission, 0) < 0.95) barrier += len;
+          }
+        }
+      }
+      const value = total > 0 ? barrier / total : 1;
+      enclosures.set(key, value);
+      return value;
+    };
+
     if (lightCfg.enabled) {
+      let spillN = 0;
       for (const room of floor.rooms || []) {
-        const key = (primaryRoom(floor, room) || room).id;
+        const primary = primaryRoom(floor, room) || room;
+        const key = primary.id;
         const lit = roomLevels.get(key);
         if (!lit || lit.level <= 0.01) continue;
+        /* Indoors the wash is the light coming back off ceiling and walls, so
+         * a walled room lifts evenly. Outdoors there is nothing to throw it
+         * back and the lift is a trace — see `outdoorWash` — and an indoor
+         * room open on some sides sits between the two by how much of it is
+         * wall. The pools carry the rest. */
+        const trace = clamp(num(lightCfg.outdoorWash, 0.15), 0, 1);
+        const ambient = (primary.outdoor || room.outdoor) ? trace : trace + (1 - trace) * enclosureOf(key);
+        const lightCol = lit.colour || theme.lampWarm || '#ffd9a0';
         const [bx, by, bw, bh] = roomBBox(room);
         layers.lampWash.push({
           tag: 'rect', roomId: room.id,
           attrs: {
             x: P.X(bx), y: P.Y(by), width: P.S(bw), height: P.S(bh),
-            fill: lit.colour || theme.lampWarm || '#ffd9a0',
-            opacity: clamp(lit.level * lightCfg.maxWash, 0, 1),
+            fill: lightCol,
+            opacity: clamp(lit.level * lightCfg.maxWash * ambient, 0, 1),
             'clip-path': `url(#fpsClip-${room.id})`,
             'mix-blend-mode': 'screen', 'pointer-events': 'none',
           },
@@ -2415,7 +2626,17 @@
         const spillFt = num(zoneCfg.spillFt, 3.5);
         if (zoneCfg.enabled !== false) {
           for (const run of transmissiveRuns(room, floor, bDoc, defaults, edgeIsExteriorHere)) {
-            const carried = clamp(lit.level * lightCfg.maxWash * run.transmission, 0, 1);
+            /* A seam between two rects of one logical room is not an edge light
+             * crosses — the room on the far side IS this room, already washed
+             * at this level. Banding it only drew the seam. */
+            /* Only through a BARRIER. An open edge is not something light
+             * crosses — the space simply continues, the light zone already
+             * carries the pools on into it, and a band there was a second,
+             * flat copy of that light ending in a straight line. */
+            if (!run.encloses) continue;
+            const beyond = roomBeyondEdge(floor, run.edge, run);
+            if (beyond && (primaryRoom(floor, beyond) || beyond).id === key) continue;
+            const carried =clamp(lit.level * lightCfg.maxWash * ambient * run.transmission, 0, 1);
             if (carried <= 0.02) continue;
             const a = pointOn(run.edge, run.from), b = pointOn(run.edge, run.to);
             const c = roomCentroid(room);
@@ -2424,13 +2645,27 @@
             const reach = spillFt * run.transmission;
             const nx = ((mx - c[0]) / len) * reach, ny = ((my - c[1]) / len) * reach;
             const quad = [a, b, [b[0] + nx, b[1] + ny], [a[0] + nx, a[1] + ny]];
+            const fill = run.tint ? mixColour(lightCol, colour(run.tint, theme, '#ffffff')) : lightCol;
+            /* Faded along its reach. A flat band stopping dead 3.5 ft past
+             * the edge was a hard-edged rectangle of light standing in the
+             * next room — the "box lights" — when what crosses an edge thins
+             * out with distance and has no far edge at all. */
+            const gid = `fpsSpill-${room.id}-${spillN++}`;
+            layers.defs.push({
+              tag: 'linearGradient',
+              attrs: { id: gid, gradientUnits: 'userSpaceOnUse', x1: P.X(mx), y1: P.Y(my), x2: P.X(mx + nx), y2: P.Y(my + ny) },
+              children: [[0, 1], [0.35, 0.5], [0.7, 0.15], [1, 0]].map(([o, s]) => ({
+                tag: 'stop', attrs: { offset: `${Math.round(o * 100)}%`, 'stop-color': fill, 'stop-opacity': s },
+              })),
+            });
             layers.lampWash.push({
               tag: 'path', roomId: room.id, boundaryType: run.type,
               attrs: {
                 d: quad.map((p, i) => `${i ? 'L' : 'M'} ${P.X(p[0])} ${P.Y(p[1])}`).join(' ') + ' Z',
-                fill: run.tint
-                  ? mixColour(lit.colour || theme.lampWarm || '#ffd9a0', colour(run.tint, theme, '#ffffff'))
-                  : (lit.colour || theme.lampWarm || '#ffd9a0'),
+                fill: `url(#${gid})`,
+                /* The colour that lands, readable without resolving the
+                 * gradient — what a tint did to the lamp's light. */
+                'data-light': fill,
                 opacity: carried,
                 'mix-blend-mode': 'screen', 'pointer-events': 'none',
               },
@@ -2520,7 +2755,7 @@
           target.push(n);
         }
       } else {
-        const ctx = { room: roomAt(floor, item.at[0], item.at[1]), darkFloor, lightCfg, motion, coverage, floor, states, library, share: shares, schemes: customSchemes };
+        const ctx = { room: roomAt(floor, item.at[0], item.at[1]), darkFloor, night: scrim > 0.08, lightCfg, motion, coverage, floor, states, library, share: shares, schemes: customSchemes };
         /* The zone this lamp lights. `item.room` wins over geometry for the
          * same reason it does everywhere else — a pillar-mounted fitting can
          * sit outside the slab it lights. A lamp in no room at all (a garden
@@ -2544,8 +2779,14 @@
               class: [n.attrs && n.attrs.class, 'fps-pending'].filter(Boolean).join(' '),
             });
           }
-          if (n.layer === 'glow' && zoneId && zoneCfg.enabled !== false) {
-            n.attrs['clip-path'] = `url(#fpsZone-${zoneId})`;
+          /* A node that brought its own clip (a cove, held to its room) keeps
+           * it; every other pool is masked to its zone. */
+          if (n.layer === 'glow' && zoneId && zoneCfg.enabled !== false && !n.attrs['clip-path']) {
+            n.attrs.mask = `url(#fpsZone-${zoneId})`;
+          }
+          if (n.glowGradient && !glowDefs.has(n.glowGradient.id)) {
+            glowDefs.add(n.glowGradient.id);
+            layers.defs.push(glowGradientNode(n.glowGradient));
           }
           (n.layer === 'glow' ? layers.glow : layers.markers).push(n);
         }

@@ -1357,7 +1357,12 @@ window.Panels = (function () {
 
   function pickEntity(type, done) {
     const domains = (type && type.domains) || null;
-    const list = S.entities.filter((e) => !domains || domains.includes(e.domain));
+    /* People are not in the entity list at all — it drops `person` wholesale
+     * because their state is location data — so a picker that asks for them
+     * gets the separate id-and-name list instead. Without this the house
+     * card's "+ person" opened on an empty list and nobody could be picked. */
+    const pool = domains && domains.includes('person') ? S.entities.concat(S.people || []) : S.entities;
+    const list = pool.filter((e) => !domains || domains.includes(e.domain));
     const search = h('input', { type: 'search', placeholder: `Search ${list.length} entities…`, style: 'width:100%;margin-bottom:8px' });
     const rows = h('div', { class: 'entity-list' });
 
@@ -1376,7 +1381,7 @@ window.Panels = (function () {
         }, h('div', { style: 'flex:1;min-width:0' },
           h('div', { class: 'en' }, e.name),
           h('div', { class: 'eid' }, e.entity_id)),
-        h('span', { class: 'badge' }, e.state)));
+        e.state === undefined ? null : h('span', { class: 'badge' }, e.state)));
       }
     }
     search.addEventListener('input', draw);

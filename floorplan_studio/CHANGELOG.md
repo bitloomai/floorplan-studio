@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+### Light that looks like light
+
+- Lamps draw **soft pools** that fall away from the fitting, in the colour the
+  lamp is giving out, and reach about as far as a real downlight throws. Tubes
+  and strips pool along their length; perimeter coves glow along their run and
+  stay in their room.
+- **No more lit boxes.** Light through a window, a doorway or a glass railing now
+  fades with distance instead of stopping in a straight line a few feet past it.
+  Across an open edge the space simply continues, so a pool carries on into the
+  yard next door rather than ending in a band.
+- A room's even lift is light bouncing off walls and ceiling, so it now depends
+  on having them: walled rooms lift evenly, outdoor areas get only a trace
+  (**◐ Light → How much of that an outdoor area gets**), and a roofed space open
+  on some sides sits in between.
+- Bollards, pendants, chandeliers, garden spikes and the other lighting types
+  that drew no pool at all now do, and their **Pool spread** setting finally
+  does something.
+
+### Walls stay inside the plot, and a finished wall top covers the wall
+
+- A wall with a **top finish** (granite on a compound wall, say) no longer has
+  the plain wall's outline painted along its face, and a plain wall that runs
+  into it no longer draws its outline across it.
+- Any wall you set on an edge with nothing beyond it — a parapet along a planter
+  at the edge of the site — now sits inside the edge instead of straddling it
+  and poking out past the plot.
+
+### Dashboard cards in the style of the hand-built ones they replace
+
+- The **house card** is one status bar: name, date and a weather glyph, a line of
+  counts, reading pills, and each person as a pill with their picture or
+  initial and a green (home) or red (away) dot. It is a single bar on a wide
+  screen, a rail beside the plan on a tablet, and a row of three on a phone.
+  Counts and readings accept any character as a `glyph`; `weatherIcons` maps
+  weather states to your own.
+- The **floor card** says what the floor is doing in one sentence — "9 of 31
+  lights on · 0 of 1 fan running · no motion detected · rainy, sun -64°".
+  `style: "breakdown"` keeps the previous count-and-bars layout.
+- The room sheet's buttons and tiles are restyled, with the brightness level
+  shown beside its slider and running devices filled in.
+- **People can be picked** for the house card. The picker opened on an empty
+  list, because person entities are kept out of the entity list for privacy; it
+  now gets each person's id and name, and nothing about where they are. The
+  dashboard preview no longer reports your people as missing.
+- The plan card's header counts lights the same way as the floor card, so a
+  switch shared by two rooms is no longer counted twice.
+
 ### MCP accepts your token on a real install, and answers over IPv6
 
 - Once installed, `/mcp` answered **401 to every valid token**. A caller's
