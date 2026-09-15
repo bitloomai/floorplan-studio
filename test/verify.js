@@ -1999,7 +1999,7 @@ ok('the live card watches gate motors, describes partial states and opens more-i
   const floor = { id: 'old', items: [], rooms: [], openings: [{ id: 'g', type: 'gate_sliding', cover: 'cover.test_gate' }] };
   const next = { id: 'next', items: [], rooms: [], openings: [{ id: 'b', covering: { entity: 'cover.next_blind' } }] };
   require('vm').runInNewContext(fs.readFileSync(path.join(APP,'lib','card-runtime.js'),'utf8'), {
-    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,SunModel:Sun,EntityBindings,
+    HTMLElement:class {},customElements:{define:(_,c)=>{Card=c;}},window:{},PlanScene:scene,SunModel:Sun,EntityBindings,Controls,
     FPS_DATA:{project:{floors:[floor,next]},boundaries},
   });
   const card=Object.create(Card.prototype);
@@ -2393,6 +2393,11 @@ ok('“on” is per domain, not one word list', (() => {
 })());
 ok('an unknown domain still gets a sane default',
   Controls.actionFor('somethingnew.x', controlsDoc).control === 'toggle');
+ok('a listed domain that names no tap does not inherit the default toggle',
+  Controls.actionFor('somethingnew.x', controlsDoc).tap === 'toggle'
+    && ['binary_sensor', 'sensor', 'person', 'camera', 'input_number'].every((d) => Controls.actionFor(d + '.x', controlsDoc).tap === undefined)
+    && Controls.actionFor('binary_sensor.x', controlsDoc).onRule === 'on'
+    && Controls.shortcutCall({ entity: 'binary_sensor.x' }, controlsDoc) === null);
 
 /* The marker half. */
 const logicTypes = Object.entries(lib.types).filter(([, t]) => t.kind === 'logic');
@@ -3746,7 +3751,7 @@ ok('the label hit target follows the full text box instead of a small marker cir
 ok('the card honors the label contract by opening more-info before domain actions', (() => {
   const src = fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8');
   const packed = require(path.join(APP, 'lib', 'card-build.js')).trimLibrary(lib).types['device.label'];
-  return /tapAction === 'moreInfo'\) return this\.moreInfo\(it\.entity\)/.test(src)
+  return /tapAction === 'moreInfo'\) return this\.moreInfo\(it\.entity[,)]/.test(src)
     && /labelEntities\.has\(id\).*JSON\.stringify\(a\)/s.test(src)
     && packed.render.tapAction === 'moreInfo' && packed.defaults.template === '{{ value }}'
     && Array.isArray(packed.defaults.thresholds);
@@ -3978,11 +3983,12 @@ ok('a tap circle is bigger than the disc it covers', (() => {
   const surface = elStub();
   const doc = { createElement: () => elStub(), addEventListener() {}, removeEventListener() {} };
   let Card;
+  const FPS_DATA_REF = { project: {}, boundaries, library: lib, controls: controlsDoc };
   require('vm').runInNewContext(fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8'), {
     HTMLElement: class {}, customElements: { define: (_, c) => { Card = c; } }, window: {},
     PlanScene: scene, SunModel: Sun, Controls, EntityBindings, document: doc,
-    setInterval: () => null, clearInterval: () => null,
-    FPS_DATA: { project: {}, boundaries, library: lib, controls: controlsDoc },
+    setInterval: () => null, clearInterval: () => null, Event: class { constructor(type) { this.type = type; } },
+    FPS_DATA: FPS_DATA_REF,
   });
 
   /* One room, one lamp, and a card wired to report what it decided rather
@@ -4112,6 +4118,58 @@ ok('a tap circle is bigger than the disc it covers', (() => {
   ok('a type that declares tapAction moreInfo still beats every tap setting',
     tappedMarker({ controls: { openOn: { markerTap: 'action' } } }, 'label') === 'moreInfo:light.x',
     tappedMarker({ controls: { openOn: { markerTap: 'action' } } }, 'label'));
+
+  /* One gesture: a marker with nothing to switch (a presence sensor) does the
+   * same thing on a tap and a hold, and by default that thing is its History.
+   * The real dialog plumbing is exercised, only the event is caught. */
+  const gesture = (roomCfg, how, entity = 'binary_sensor.hall_presence', type = 'occupancy', controls = controlsDoc) => {
+    const card = makeCard(roomCfg);
+    card._floor.items = [{ id: 'i', kind: 'device', type, entity, at: [5, 5] }];
+    const seen = [];
+    card.dispatchEvent = (ev) => { seen.push('moreInfo:' + ev.detail.entityId + (ev.detail.view ? '@' + ev.detail.view : '')); };
+    card.toggleControls = (id) => { seen.push('controls:' + id); };
+    card.call = (d, s) => { seen.push('call:' + d + '.' + s); };
+    card.isOn = () => false;
+    const saved = FPS_DATA_REF.controls;
+    FPS_DATA_REF.controls = controls;
+    try { how === 'hold' ? card.holdItem('i') : card.primaryForItem('i'); } finally { FPS_DATA_REF.controls = saved; }
+    return seen.join('') || 'nothing';
+  };
+  ok('a presence sensor opens its history on a tap and on a hold alike',
+    gesture({}, 'tap') === 'moreInfo:binary_sensor.hall_presence@history'
+      && gesture({}, 'hold') === 'moreInfo:binary_sensor.hall_presence@history',
+    gesture({}, 'tap') + ' / ' + gesture({}, 'hold'));
+  ok('a hold follows a tap set to open the room, but not a tap set to do nothing',
+    gesture({ controls: { openOn: { markerTap: 'controls' } } }, 'hold') === 'controls:r'
+      && gesture({ controls: { openOn: { markerTap: 'none' } } }, 'hold') === 'moreInfo:binary_sensor.hall_presence@history'
+      && gesture({ controls: { openOn: { markerHold: 'none' } } }, 'hold') === 'nothing');
+  ok('a light keeps two gestures and opens on the dialog’s first page',
+    gesture({}, 'tap', 'light.x', 'bulb') === 'call:light.toggle'
+      && gesture({}, 'hold', 'light.x', 'bulb') === 'moreInfo:light.x');
+  ok('a camera is not one gesture: its dialog is the stream',
+    gesture({}, 'tap', 'camera.porch', 'camera') === 'moreInfo:camera.porch', gesture({}, 'tap', 'camera.porch', 'camera'));
+  ok('a domain can put the plain dialog back with view: info',
+    gesture({}, 'tap', 'binary_sensor.hall_presence', 'occupancy', Object.assign({}, controlsDoc, {
+      domainActions: { byDomain: Object.assign({}, controlsDoc.domainActions.byDomain,
+        { binary_sensor: { control: 'readout', view: 'info' } }) },
+    })) === 'moreInfo:binary_sensor.hall_presence');
+
+  /* The phone bug: a finger's compatibility click arrives after pointerup has
+   * opened the sheet, lands on its backdrop and closed it again. */
+  ok('the click a tap leaves behind cannot close the sheet it just opened', (() => {
+    const card = makeCard({});
+    card.toggleControls = () => {};
+    const onSurface = { closest: (s) => (s === '.fps-surface' ? {} : null) };
+    const click = (t) => { let stopped = false; card.swallowTapClick({ timeStamp: t, target: onSurface, stopPropagation() { stopped = true; }, preventDefault() {} }); return stopped; };
+    card._press = { target: 'room', id: 'r', at: Date.now(), x: 0, y: 0 };
+    card.onPointerUp({ timeStamp: 1000, preventDefault() {} });
+    const ghost = click(1040);
+    const later = click(1100);                      // only once
+    card._press = { target: 'room', id: 'r', at: Date.now(), x: 0, y: 0 };
+    card.onPointerUp({ timeStamp: 5000, preventDefault() {} });
+    const stale = click(6000);                      // a real tap, much later
+    return ghost && !later && !stale;
+  })());
   ok('the shipped default names a tap setting, so the picker has something to show',
     (((controlsDoc.default || {}).openOn || {}).markerTap) === 'auto');
 

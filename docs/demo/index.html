@@ -105,7 +105,7 @@ html,body{margin:0;background:var(--primary-background-color);color:var(--primar
     var id = ev.detail && ev.detail.entityId;
     var st = house.states[id];
     $('toast').textContent = ((st && st.attributes.friendly_name) || id) + ' — ' + (st ? st.state : 'unknown')
-      + '. In Home Assistant this opens its details.';
+      + '. In Home Assistant this opens its ' + (ev.detail && ev.detail.view === 'history' ? 'history' : 'details') + '.';
     $('toast').hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { $('toast').hidden = true; }, 2600);

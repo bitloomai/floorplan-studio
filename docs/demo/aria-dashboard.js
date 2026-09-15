@@ -5918,10 +5918,19 @@
    * editor preview alike; the alternative is a `switch (domain)` in each of
    * them, which is how three backends end up disagreeing about what tapping a
    * scene should do. */
+  /* The default's `tap` and `alt` are for a domain the registry has never
+   * heard of — "anything else toggles", as the editor's table says. A domain
+   * WITH an entry says what it does and gets nothing it did not say: merged
+   * whole, a sensor, a presence detector, a camera or an input_number
+   * inherited `tap: "toggle"` and a tap on its marker called a `.toggle`
+   * service that does not exist, instead of opening it (user, 2026-09-15). */
   function actionFor(entityId, doc, overrides) {
     const domain = String(entityId || '').split('.')[0];
     const a = (doc && (doc.domainActions || doc.actions)) || {};
-    return Object.assign({ domain }, a.default || {}, (a.byDomain || {})[domain] || {}, overrides || {});
+    const own = (a.byDomain || {})[domain];
+    const base = Object.assign({}, a.default || {});
+    if (own) { delete base.tap; delete base.alt; delete base.altLabel; }
+    return Object.assign({ domain }, base, own || {}, overrides || {});
   }
 
   /* What running a shortcut actually calls. An explicit `service` wins; with
@@ -11525,6 +11534,8 @@ class FpsFloorplanCard extends HTMLElement {
       + '<div class="fps-plan"></div>'
       + '<div class="fps-surface" hidden></div>';
     this.shadowRoot.replaceChildren(style, root);
+    /* Capture, so it runs before the backdrop's own listener: see swallowTapClick. */
+    root.addEventListener('click', (ev) => this.swallowTapClick(ev), true);
     this._root = root;
     this._built = true;
     this.attachResponsiveFit();
@@ -11966,10 +11977,33 @@ class FpsFloorplanCard extends HTMLElement {
     if (!p) return;
     const held = Date.now() - p.at > FPS_TAP_MS;
     ev.preventDefault();
+    this._tapEndedAt = ev.timeStamp;
     if (p.target === 'item') return held ? this.holdItem(p.id) : this.primaryForItem(p.id);
     if (p.target === 'opening') return this.moreInfoForOpening(p.id);
     if (p.target === 'chip') return this.toggleControls(p.id, held, 'chip');
     if (p.target === 'room') return this.toggleControls(p.id, held, 'floor');
+  }
+
+  /* The click a FINGER leaves behind. A tap opens the sheet on pointerup, and
+   * a touch browser only then sends the tap's compatibility click — hit-tested
+   * again at the same spot, where the sheet's backdrop now is. So on a phone
+   * the room opened and the backdrop closed it in the same instant: tapping
+   * empty floor looked like it did nothing (user, 2026-09-15). A mouse's click
+   * goes to the element the press began on, which is why a desk never saw it.
+   * Headless Edge with real touch input logged exactly
+   * `pointerup:touch → click:fps-backdrop → closeControls`.
+   *
+   * Only a click on the surface is dropped, only once, and only one that
+   * belongs to a press the plan just handled; a genuine tap on the backdrop
+   * begins with its own pointerdown there and arrives long after. */
+  swallowTapClick(ev) {
+    const at = this._tapEndedAt;
+    if (at == null) return;
+    this._tapEndedAt = null;
+    if (ev.timeStamp - at > 700) return;
+    if (!(ev.target && ev.target.closest && ev.target.closest('.fps-surface'))) return;
+    ev.stopPropagation();
+    ev.preventDefault();
   }
 
   /* What a LONG PRESS on a marker does, which is a per-house choice rather
@@ -11983,7 +12017,33 @@ class FpsFloorplanCard extends HTMLElement {
     const mode = (cfg.openOn || {}).markerHold || 'moreInfo';
     if (mode === 'none') return undefined;
     if (mode === 'controls') return this.toggleControls(this.roomIdOf(it), false, 'floor');
+    /* A marker with nothing to switch has one thing to do, so a hold left at
+     * its default does what a tap does rather than a second, different open.
+     * Except when a tap is set to do nothing: then the hold is the only way in
+     * and keeps opening. */
+    if (this.oneGesture(it) && (cfg.openOn || {}).markerTap !== 'none') return this.primaryForItem(id);
     return this.moreInfoForItem(id);
+  }
+
+  /* One gesture's worth of behaviour: a read-only entity (a presence sensor, a
+   * door contact, a person) with no service to tap, no alternative to hold for
+   * and no separate entity to hold open. A camera is not one — its dialog is
+   * the stream, and its hold opens who it saw. */
+  oneGesture(it) {
+    if (!it || !it.entity) return false;
+    const spec = Controls.actionFor(it.entity, FPS_DATA.controls);
+    return (spec.control || 'toggle') === 'readout' && !spec.tap && !spec.alt && this.holdTargetFor(it) === it.entity;
+  }
+
+  /* Which page of Home Assistant's dialog to open. A read-only entity has
+   * nothing on the first page it does not already show on the plan; what it
+   * did lately is the useful part, so it opens on History. A domain can name
+   * its own `view` in controls.json (`info` puts the plain dialog back); a
+   * Home Assistant too old to know `view` ignores it and opens the dialog. */
+  infoView(entityId, readout) {
+    const spec = Controls.actionFor(entityId, FPS_DATA.controls);
+    const view = spec.view || (readout ? 'history' : null);
+    return view && view !== 'info' ? view : null;
   }
 
   item(id) { return (this._floor.items || []).find((i) => i.id === id); }
@@ -11999,7 +12059,7 @@ class FpsFloorplanCard extends HTMLElement {
       return;
     }
     const type = PlanScene.resolveType(FPS_DATA.library, it) || {};
-    if ((type.render || {}).tapAction === 'moreInfo') return this.moreInfo(it.entity);
+    if ((type.render || {}).tapAction === 'moreInfo') return this.moreInfo(it.entity, this.infoView(it.entity, this.oneGesture(it)));
 
     /* What a TAP does, which is a per-house choice for the same reason a hold
      * is. It used to be hard-coded to the domain action, and that left one
@@ -12045,7 +12105,8 @@ class FpsFloorplanCard extends HTMLElement {
      * its own `data` is how "set the fan to 3" gets drawn — one marker per
      * value, each running the same script with different variables. */
     const spec = Controls.actionFor(it.entity, FPS_DATA.controls);
-    return this.runAction(spec.tap, it.entity, (it.props || {}).data) || this.moreInfo(it.entity);
+    return this.runAction(spec.tap, it.entity, (it.props || {}).data)
+      || this.moreInfo(it.entity, this.infoView(it.entity, this.oneGesture(it)));
   }
 
   /* `toggle` means the entity's own domain toggle; anything else names its
@@ -12103,13 +12164,19 @@ class FpsFloorplanCard extends HTMLElement {
   }
 
   moreInfoForItem(id) {
-    const target = this.holdTargetFor(this.item(id));
-    if (target) this.moreInfo(target);
+    const it = this.item(id);
+    const target = this.holdTargetFor(it);
+    if (target) this.moreInfo(target, this.infoView(target, this.oneGesture(it)));
   }
 
+  /* A door is tapped and never held, so its contact sensor is one gesture by
+   * definition; a cover has services and opens on its controls. */
   moreInfoForOpening(id) {
     const op = (this._floor.openings || []).find((o) => o.id === id);
-    if (op && (op.sensor || op.cover)) this.moreInfo(op.sensor || op.cover);
+    const target = op && (op.sensor || op.cover);
+    if (!target) return;
+    const spec = Controls.actionFor(target, FPS_DATA.controls);
+    this.moreInfo(target, this.infoView(target, (spec.control || 'toggle') === 'readout' && !spec.tap));
   }
 
   roomIdOf(item) {
@@ -12506,7 +12573,8 @@ class FpsFloorplanCard extends HTMLElement {
       v.className = 'fps-tile-value';
       v.textContent = st ? `${st.state}${attrs.unit_of_measurement || ''}` : 'unavailable';
       tile.appendChild(v);
-      tile.addEventListener('click', () => this.moreInfo(cand.entity));
+      /* A readout has one gesture, like its marker: it opens on History. */
+      tile.addEventListener('click', () => this.moreInfo(cand.entity, this.infoView(cand.entity, true)));
       return tile;
     }
 
@@ -12644,9 +12712,11 @@ class FpsFloorplanCard extends HTMLElement {
     this._hass.callService(domain, service, data);
   }
 
-  moreInfo(entityId) {
+  /* `view` is Home Assistant's own MoreInfoDialogParams key ('history',
+   * 'settings', 'related'); left out, the dialog opens on its first page. */
+  moreInfo(entityId, view) {
     const ev = new Event('hass-more-info', { bubbles: true, composed: true });
-    ev.detail = { entityId };
+    ev.detail = view ? { entityId, view } : { entityId };
     this.dispatchEvent(ev);
   }
 }

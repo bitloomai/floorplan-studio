@@ -446,8 +446,8 @@ not reopened.
 | Target | Tap | Hold |
 |---|---|---|
 | A light or switch marker | toggles it | more-info |
-| A sensor marker | more-info | more-info |
-| A door | more-info on its contact sensor | — |
+| A sensor marker | its history | the same as a tap |
+| A door | its contact sensor's history | — |
 | A room | opens its control surface | all on, if the room is configured that way |
 
 Both halves of that first row are settable per house, under **Room controls →
@@ -460,6 +460,16 @@ at all. `action`, `moreInfo`, `controls` and `none` name the behaviour outright.
 A library type declaring `render.tapAction: "moreInfo"` still beats both, which
 is what stops a text label bound to a light switching the light when you only
 wanted to read it.
+
+A marker with nothing to switch — a presence or motion sensor, a door contact,
+a person — has one thing to do, so a tap and a hold do the same, and they open
+Home Assistant's dialog on its **History** page: the value is already on the
+plan, what it did lately is not. A hold left at its default follows whatever a
+tap is set to; a tap set to do nothing leaves the hold opening the history, so
+there is still a way in. A domain can choose a different page in the controls
+registry with `"view"` under `domainActions.byDomain` — `"info"` for the plain
+dialog, or `"related"`, `"settings"`. Readout tiles in a room's popup open the
+same way. A camera keeps its stream.
 
 The control surface is whichever design that room resolves to, with its
 brightness slider, per-type group buttons (`Spots 2/6`), individual lights with

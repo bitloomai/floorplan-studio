@@ -488,6 +488,14 @@ function controlsReference(controls) {
     + ' default, which is to toggle it.', '',
     '| Domain | Drawn as | A tap | A long press |', '| --- | --- | --- | --- |');
   for (const [domain, spec] of Object.entries(byDomain)) {
+    /* A read-only domain is one gesture and opens on a page of the dialog —
+     * History unless it names its own `view` (card-runtime, infoView). */
+    const view = spec.view || 'history';
+    if ((spec.control || 'toggle') === 'readout' && !spec.tap && !spec.alt) {
+      const opens = view === 'info' ? 'more-info' : `more-info, ${view}`;
+      out.push(`| \`${domain}\` | readout | ${opens} | the same as a tap |`);
+      continue;
+    }
     out.push(`| \`${domain}\` | ${spec.control || 'toggle'} | ${act(spec.tap)} | `
       + `${spec.alt ? act(spec.alt) + (spec.altLabel ? ' (' + spec.altLabel + ')' : '') : '—'} |`);
   }

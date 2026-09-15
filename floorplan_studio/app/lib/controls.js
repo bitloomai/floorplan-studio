@@ -125,10 +125,19 @@
    * editor preview alike; the alternative is a `switch (domain)` in each of
    * them, which is how three backends end up disagreeing about what tapping a
    * scene should do. */
+  /* The default's `tap` and `alt` are for a domain the registry has never
+   * heard of — "anything else toggles", as the editor's table says. A domain
+   * WITH an entry says what it does and gets nothing it did not say: merged
+   * whole, a sensor, a presence detector, a camera or an input_number
+   * inherited `tap: "toggle"` and a tap on its marker called a `.toggle`
+   * service that does not exist, instead of opening it (user, 2026-09-15). */
   function actionFor(entityId, doc, overrides) {
     const domain = String(entityId || '').split('.')[0];
     const a = (doc && (doc.domainActions || doc.actions)) || {};
-    return Object.assign({ domain }, a.default || {}, (a.byDomain || {})[domain] || {}, overrides || {});
+    const own = (a.byDomain || {})[domain];
+    const base = Object.assign({}, a.default || {});
+    if (own) { delete base.tap; delete base.alt; delete base.altLabel; }
+    return Object.assign({ domain }, base, own || {}, overrides || {});
   }
 
   /* What running a shortcut actually calls. An explicit `service` wins; with

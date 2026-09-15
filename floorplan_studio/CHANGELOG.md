@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### A room opens under a finger; a sensor opens on its history
+
+- Tapping empty floor in a room on a phone or tablet opens its popup again. The
+  popup did open, but the tap's follow-up click landed on the dimmed backdrop
+  that had just appeared and closed it at once; a mouse never sent that click
+  there, which is why it only happened on touch.
+- A marker with nothing to switch — a presence or motion sensor, a door
+  contact, a person — now does the same thing on a tap and a long press, and
+  opens Home Assistant's dialog on its History page. Readout tiles in a room's
+  popup and door contacts open the same way. A domain can pick another page, or
+  the plain dialog, with `view` in the controls registry. Lights, switches and
+  cameras are unchanged.
+
 ### A plan that holds still by day, and when a light is switched
 
 - The dashboard plan no longer flickers between dawn and dusk. Each time its
