@@ -14,6 +14,12 @@
   popup and door contacts open the same way. A domain can pick another page, or
   the plain dialog, with `view` in the controls registry. Lights, switches and
   cameras are unchanged.
+- The colour dots beside each light in a room's popup are visible under a glass
+  Home Assistant theme. Their ring followed the theme's divider colour, which
+  such themes make a faint near-white, so every light that was off showed an
+  empty white circle. The ring now uses the app theme's soft ink. The reading on
+  a running device's blue tile — a presence sensor's "on" — is no longer grey
+  on blue.
 
 ### A plan that holds still by day, and when a light is switched
 

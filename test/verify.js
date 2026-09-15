@@ -4068,6 +4068,14 @@ ok('a tap circle is bigger than the disc it covers', (() => {
       && require(path.join(APP, 'lib', 'card-css')).includes('.fps-panel.fps-inline')
       && Controls.designs(controlsDoc).find((d) => d.id === 'bar').inlineSections === true,
     'bar');
+  /* A glass Home Assistant theme sets --divider-color to a faint near-white,
+   * which made every off lamp's swatch an invisible ring on the white sheet. */
+  ok('a light swatch is ringed in the theme’s ink, not Home Assistant’s divider, and a lit device’s reading stays readable', (() => {
+    const css = require(path.join(APP, 'lib', 'card-css'));
+    const swatch = (css.match(/\.fps-swatch \{[^}]*\}/) || [''])[0];
+    return /var\(--fps-ink-soft/.test(swatch) && !/divider-color/.test(swatch)
+      && /\.fps-tile\.on\.fps-tile-device \.fps-tile-value \{ color: inherit;/.test(css);
+  })());
 
   /* markerHold: what a long press on a MARKER does, as opposed to on a room. */
   const heldMarker = (roomCfg) => {

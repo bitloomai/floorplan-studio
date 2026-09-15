@@ -200,10 +200,21 @@ module.exports = `
   background: var(--fps-live, var(--primary-color, #5b67d8)); border-color: var(--fps-live, var(--primary-color, #5b67d8));
   color: var(--fps-accent-ink, var(--text-primary-color, #fff));
 }
+/* A reading on a filled tile takes the tile's own ink. In the soft grey every
+   other tile uses, a presence sensor's "on" was grey on blue and unreadable. */
+.fps-tile.on.fps-tile-device .fps-tile-value { color: inherit; opacity: .82; }
 .fps-tile.dead { opacity: .45; border-style: dashed; }
 .fps-tile-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fps-tile-value { margin-left: auto; color: var(--fps-ink-soft, var(--secondary-text-color, #666)); font-variant-numeric: tabular-nums; }
-.fps-swatch { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; border: 1px solid var(--divider-color, #ccc); }
+/* The ring is the THEME's soft ink, not Home Assistant's divider: a glass HA
+   theme sets that divider to a faint near-white (Frosted Glass Light is
+   rgba(224,224,224,.3)), which drew every off lamp as an invisible circle and
+   every cool-white lamp as a white dot on a white sheet (user, 2026-09-15). */
+.fps-swatch {
+  width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; box-sizing: border-box;
+  border: 1.5px solid #6c769080;
+  border-color: color-mix(in srgb, var(--fps-ink-soft, var(--secondary-text-color, #6c7690)) 60%, transparent);
+}
 .fps-tiles .fps-tile { flex-direction: column; align-items: flex-start; min-height: 62px; }
 
 /* A tile that is one of the user's own shortcuts rather than an entity the room
