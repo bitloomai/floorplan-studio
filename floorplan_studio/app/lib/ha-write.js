@@ -13,6 +13,9 @@
  *   - list and create DASHBOARDS
  *   - read and save one dashboard's CONFIG
  *   - discover which dashboards this tool deployed, and pull one back out
+ *   - READ the house's Home Assistant themes (`frontend/get_themes`), so the
+ *     dashboard preview knows which light or dark base the card will draw in
+ *     and can check the room popup is readable there. Nothing is written.
  *
  * ## What it cannot do
  *
@@ -304,9 +307,39 @@ async function loadProject(session, urlPath) {
   return project;
 }
 
+/* ---------------------------------------------------------------- themes */
+
+/* Home Assistant's own themes, READ, so the dashboard preview can say which
+ * light or dark base "Follow Home Assistant" lands on and whether the room
+ * popup is readable there (card-contrast). In this file only because this is
+ * where the WebSocket lives: `frontend/get_themes` changes nothing and needs no
+ * admin rights. Bounded, because a preview must not hang on it — a caller
+ * treats any failure as "could not tell" and checks both bases. */
+async function readThemes(opts) {
+  const o = opts || {};
+  let timer;
+  const work = (async () => {
+    const session = o.session || await connect(o);
+    try {
+      return await session.send({ type: 'frontend/get_themes' });
+    } finally {
+      if (!o.session) session.close();
+    }
+  })();
+  const limit = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Home Assistant did not list its themes in time')), o.timeoutMs || 6000);
+  });
+  try {
+    return await Promise.race([work, limit]);
+  } finally {
+    clearTimeout(timer);
+    work.catch(() => {});   // a late failure after the timeout has nobody to tell
+  }
+}
+
 module.exports = {
   connect, installResource, resourceMarker, ensureDashboard, readConfig, saveConfig,
-  discover, loadProject,
+  discover, loadProject, readThemes,
   assertOwnPath, resourceUrl, wsUrl,
   legacyMarker, isOurResource, resourceBody, bannerFor, resourceFamilyMarker, BANNER,
   STAMP_KEY: provenance.STAMP_KEY,

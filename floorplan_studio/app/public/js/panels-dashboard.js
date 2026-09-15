@@ -105,6 +105,21 @@ window.PanelsDashboard = (function () {
       project: S.project,
     });
 
+    /* Whether a room's popup can be read in the theme the dashboard will use
+     * (card-contrast on the server). A problem names the theme colour to
+     * change, which the Theme dialog edits. */
+    const contrastNote = (c) => {
+      if (!c || !Array.isArray(c.bases) || !c.bases.length) return null;
+      const lines = [];
+      for (const b of c.bases) {
+        for (const p of b.problems) lines.push(`${p.label}: ${p.ratio}:1, needs ${p.min}:1 in ${b.name} — change ${p.fix.path.slice(1).join(' › ')}`);
+      }
+      if (!lines.length) return h('div', {}, `Popup colours are readable in ${c.bases.map((b) => b.name).join(' and ')}.`);
+      return h('div', { style: 'margin-top:6px' },
+        h('div', {}, `Popup colours: ${lines.length} hard to read.`),
+        h('div', { class: 'mono', style: 'font-size:11px;opacity:.8;white-space:pre-line' }, lines.join('\n')));
+    };
+
     async function refresh() {
       installBtn.disabled = true;
       try {
@@ -121,6 +136,7 @@ window.PanelsDashboard = (function () {
             ? h('div', { class: 'mono', style: 'margin-top:6px;font-size:11px;opacity:.8' },
               r.entities.missing.slice(0, 8).join(', ') + (r.entities.missing.length > 8 ? ' …' : ''))
             : null,
+          contrastNote(r.contrast),
         );
         installBtn.disabled = r.mode === 'offline';
       } catch (e) {

@@ -11,11 +11,13 @@
         "panelBg": "#ffffff",
         "panelBorder": "#d8dfea",
         "ink": "#243049",
-        "inkSoft": "#6c7690",
-        "accent": "#3d8bd6",
+        "inkSoft": "#5f6982",
+        "accent": "#2e74b8",
         "accentInk": "#ffffff",
         "danger": "#c05a5a",
-        "railBg": "#f6f8fc"
+        "railBg": "#f6f8fc",
+        "swatchRing": "#7f889c",
+        "scrim": "#0e1424"
       },
       "plan": {
         "sheet": "#f3f5f9",
@@ -85,7 +87,9 @@
         "accent": "#6fd3ff",
         "accentInk": "#08131c",
         "danger": "#e0736f",
-        "railBg": "#121927"
+        "railBg": "#121927",
+        "swatchRing": "#6b7ba0",
+        "scrim": "#000000"
       },
       "plan": {
         "sheet": "#101828",
@@ -152,11 +156,13 @@
         "panelBg": "#ffffff",
         "panelBorder": "#d8dfea",
         "ink": "#243049",
-        "inkSoft": "#6c7690",
-        "accent": "#3d8bd6",
+        "inkSoft": "#5f6982",
+        "accent": "#2e74b8",
         "accentInk": "#ffffff",
         "danger": "#c05a5a",
-        "railBg": "#f6f8fc"
+        "railBg": "#f6f8fc",
+        "swatchRing": "#7f889c",
+        "scrim": "#0e1424"
       },
       "plan": {
         "sheet": "#f3f5f9",

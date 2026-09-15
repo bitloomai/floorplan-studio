@@ -55,6 +55,7 @@ a schema when there is a paragraph about it.
 | What can a room's control panel contain? | `get_registry({ name: "controls" })` |
 | What does tapping an entity of domain X do? | same document → `domainActions.byDomain` |
 | What colour tokens can I use? | `get_registry({ name: "themes" })` |
+| **Is the dashboard readable? Which colour do I change?** | `preview_dashboard` → `contrast`, then `edit_registry` on the `fix.path` it names |
 | What **colour** can a thing be painted? | `get_registry({ name: "schemes" })` → `shipped` (part of the app) and `project` (this plan's own, and they win on a name clash) |
 | How do I author shared finishes, types, themes or controls? | Read `get_registry({ name: "flooring" })` (or library/themes/boundaries/controls), then `edit_registry` with literal path keys. |
 | How do I move or resize a room badge? | `edit_collection` → rooms → update `chip_at`, `chip_scale`, `chip_rotate`; `noLabel` hides it. |
@@ -481,6 +482,39 @@ Set `props.hitRect: [x, y, w, h]` in feet — for a solar array or a water tank,
 where a marker's normal tap circle is far smaller than the object. Overlapping
 tap shapes are ordered largest-first, so a small marker on a big one still wins.
 
+**Fix a colour that is hard to read on the dashboard**
+
+Every colour a room's popup draws is a theme token — `ui.*`, plus
+`plan.lampRim` for a lit light's tint. `get_help({ id: "dashboard-install" })`
+lists them with what each one paints. So "the icons are too white" is a
+registry edit, not CSS:
+
+```
+preview_dashboard()      // contrast.bases[].problems[] — each has a fix.path
+edit_registry({ name: "themes", path: ["themes", "frosted", "ui", "swatchRing"], value: "#6f7890" })
+preview_dashboard()      // gone, or still short and by how much
+```
+
+A problem names the pair (text on a tile, the ring round a light's dot), the
+measured ratio and its minimum — 4.5:1 for text, 3:1 for a mark — and the exact
+path. Move the colour it names away from the background it was measured on,
+and check again rather than guessing once.
+
+The dashboard's theme is `dashboard.theme`, usually unset, which means `ha` —
+**Follow Home Assistant**. That theme draws in `frosted` or `blueprint`
+depending on whether the house's Home Assistant theme has light or dark text,
+and the report says which base each HA theme lands on. The fix path already
+points at the base, which is where the colour has to change. A shared theme edit
+also recolours the editor chrome, and reaches the dashboard at the next
+generate.
+
+`dashboard.css` (via `edit_settings`) is for what no token controls — a house
+card element that deliberately wears Home Assistant's own colours, or a look
+the human wants that is a matter of taste. It replaces the whole stylesheet, so
+read it first and send it back whole. If a popup colour is hard to read and the
+report does NOT name a token for it, tell the human: that is a gap in the card
+and worth an issue, not a permanent override.
+
 **Generate the dashboard**
 
 ```
@@ -488,9 +522,10 @@ preview_dashboard()      // always safe — writes nothing
 install_dashboard(...)   // only present if a human enabled it
 ```
 
-`preview_dashboard` reports any bound entity that does not exist. Fix those
-before installing: a typo'd sensor should fail the generate, not show up as a
-silent zero on a wall tablet.
+`preview_dashboard` reports any bound entity that does not exist, and any popup
+colour pair that is not readable. Fix those before installing: a typo'd sensor
+should fail the generate, not show up as a silent zero on a wall tablet, and a
+white-on-white light dot should not be found on somebody's phone.
 
 ## What this server will not do
 
@@ -537,6 +572,13 @@ If you need something switched on to test it, ask the human to do it.
   `get_project({outline:true})` and `find_objects`; an update is a patch.
 - Making forty separate calls for one decision. That is `edit_batch`, or
   `edit_collection` with `ids`.
+- Fixing a hard-to-read dashboard colour with `dashboard.css`. If
+  `preview_dashboard`'s contrast report names a token, change the token: CSS
+  hides the problem in one house and leaves the theme wrong for the editor and
+  for the next dashboard.
+- Changing `activeTheme` to restyle the dashboard. That is the EDITOR's theme.
+  The dashboard reads `dashboard.theme` (default `ha`, Follow Home Assistant,
+  which draws in the `frosted` or `blueprint` base) — edit the base it lands on.
 
 ## Targeted review notes
 

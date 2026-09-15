@@ -67,6 +67,7 @@ const haWrite = require('./ha-write');
 const auth = require('./external-auth');
 const dashboard = require('./dashboard');
 const cardBuild = require('./card-build');
+const cardContrast = require('./card-contrast');
 const planScene = require('./plan-scene');
 const validator = require('./validate-project');
 const Shapes = require('./shapes');
@@ -1020,7 +1021,7 @@ function editBoundaries(project, library, boundaries, floor, a) {
 
 tool({
   name: 'edit_settings',
-  description: 'Set any other field on the project by a dot path — dashboard config, lighting, sun/daylight, project name, a room\'s controls/keys/shortcuts, a floor\'s own overrides, etc. REPLACES whatever is at that path (not a merge); read the current value with get_project first if you only want to change one field of a larger object. Use edit_collection instead for floors/rooms/items/openings.',
+  description: 'Set any other field on the project by a dot path — dashboard config, lighting, sun/daylight, project name, a room\'s controls/keys/shortcuts, a floor\'s own overrides, etc. REPLACES whatever is at that path (not a merge); read the current value with get_project first if you only want to change one field of a larger object. Use edit_collection instead for floors/rooms/items/openings. dashboard.css is the dashboard\'s own stylesheet, added to every card: a last resort for something no theme token controls (a colour preview_dashboard\'s contrast report names is a themes edit instead). It is one string, so read it and send it back whole with your rule added.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -1043,7 +1044,7 @@ tool({
 /* ------------------------------------------------------ Home Assistant */
 tool({
   name: 'edit_registry',
-  description: 'Set a field in a shared registry, matching the editor registry controls. Read get_registry first. Path is an array of literal keys (so device.fan stays one key). Replaces the value at that path; preserves unrelated fields. Affects every project use of the edited entry. For project-owned colour schemes use edit_settings on project.schemes. Open editor dialogs must be closed/reloaded after an external registry edit.',
+  description: 'Set a field in a shared registry, matching the editor registry controls. Read get_registry first. Path is an array of literal keys (so device.fan stays one key). Replaces the value at that path; preserves unrelated fields. Affects every project use of the edited entry. For project-owned colour schemes use edit_settings on project.schemes. Every colour the dashboard\'s room popup draws is a themes → themes.<id>.ui token (plus plan.lampRim for the lit tint); preview_dashboard\'s contrast report names the one to change. A theme edit reaches the dashboard at the next generate. Open editor dialogs must be closed/reloaded after an external registry edit.',
   inputSchema: { type: 'object', properties: {
     name: { type: 'string', enum: ['library', 'themes', 'flooring', 'boundaries', 'controls'] },
     path: { type: 'array', minItems: 1, maxItems: 32, items: { type: 'string' } },
@@ -1097,7 +1098,7 @@ async function dashboardDocs(project) {
 
 tool({
   name: 'preview_dashboard',
-  description: 'See what generating the dashboard would produce RIGHT NOW, without writing anything to Home Assistant: view titles, card size, and which bound entities are missing. Safe to call as often as you like.',
+  description: 'See what generating the dashboard would produce RIGHT NOW, without writing anything to Home Assistant: view titles, card size, which bound entities are missing, and `contrast` — whether a room\'s popup is READABLE in the theme it will be drawn in. For Follow Home Assistant it asks Home Assistant which themes the house uses, to know which light/dark base applies. Each contrast problem gives the pair, the measured ratio against its minimum, and `fix`: the exact edit_registry path in the themes registry. Change that token and call this again. Safe to call as often as you like.',
   inputSchema: { type: 'object', properties: { urlPath: { type: 'string' }, title: { type: 'string' } }, additionalProperties: true },
   async run(args) {
     const a = args || {};
@@ -1106,6 +1107,10 @@ tool({
     const config = dashboard.build(docs.project, a);
     const card = cardBuild.build(docs, { version: store.VERSION });
     const wanted = dashboard.boundEntities(docs.project);
+    /* Which Home Assistant themes the house uses decides which base Follow
+     * Home Assistant draws in. Started now, beside the entity check; a failure
+     * is "could not tell", and both bases are checked. */
+    const haThemes = ha.isConfigured() ? haWrite.readThemes().catch(() => null) : Promise.resolve(null);
     let missing = [];
     if (ha.isConfigured()) {
       try {
@@ -1120,6 +1125,7 @@ tool({
       views: config.views.map((v) => ({ title: v.title, path: v.path, cards: v.cards[0].cards.length })),
       cardBytes: card.bytes,
       entities: { wanted: wanted.length, missing },
+      contrast: cardContrast.report(docs.themes, docs.project, await haThemes),
       mode: ha.mode(),
     };
   },
@@ -1191,8 +1197,10 @@ TOP-LEVEL PROJECT FIELDS you'll see from get_project: schemaVersion, id,
 name, units, ppf (pixels-per-foot, cosmetic), origin, activeTheme, compass
 (screen-direction -> bearing, plus compass.show to force the on-plan compass
 either way), sun (house daylight config), popup (default room-popup design),
-dashboard (title/urlPath/theme/house+floor card config, read/written by
-preview_dashboard/install_dashboard and by edit_settings), lighting
+dashboard (title/urlPath/theme/css/house+floor card config, read/written by
+preview_dashboard/install_dashboard and by edit_settings; theme defaults to
+"ha", Follow Home Assistant, which draws in the frosted or blueprint base —
+popup colours are those themes' ui tokens), lighting
 (artificial-light model constants), chips (room count-badge rules: show,
 counts, hideWhenAtMost, hideRooms, style), coverage ({enabled} — whether a
 device draws the wedge of what it REACHES; the markers stay either way),
@@ -1416,7 +1424,9 @@ WHICH TOOL FOR WHAT:
   - edit_registry     shared registry fields, by array of literal keys;
                       read first, replaces that value, preserves other fields
   - get_help          what a control MEANS, in prose
-  - preview_dashboard what Generate would produce, no Home Assistant write
+  - preview_dashboard what Generate would produce, no Home Assistant write;
+                      includes a contrast report naming the theme token
+                      to change when the popup is hard to read
   - install_dashboard the one tool that writes to Home Assistant — only
                       present in this list if a human has turned it on
 

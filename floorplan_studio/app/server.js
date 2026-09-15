@@ -40,6 +40,7 @@ const legacyImport = require('./lib/legacy-import');
 const validateProject = require('./lib/validate-project');
 const exporter = require('./lib/export-spec');
 const cardBuild = require('./lib/card-build');
+const cardContrast = require('./lib/card-contrast');
 const dashboard = require('./lib/dashboard');
 const mcp = require('./lib/mcp');
 const appApi = require('./lib/app-api');
@@ -596,6 +597,9 @@ async function handleApi(req, res, pathname, query) {
       const config = dashboard.build(docs.project, body);
       const card = cardBuild.build(docs, { version: store.VERSION });
       const wanted = dashboard.boundEntities(docs.project);
+      /* Same report as MCP's preview_dashboard: can the popup be read in the
+       * theme it will be drawn in (card-contrast). */
+      const haThemes = ha.isConfigured() ? haWrite.readThemes().catch(() => null) : Promise.resolve(null);
       let missing = [];
       if (ha.isConfigured()) {
         try {
@@ -613,6 +617,7 @@ async function handleApi(req, res, pathname, query) {
         views: config.views.map((v) => ({ title: v.title, path: v.path, icon: v.icon, cards: v.cards[0].cards.length })),
         card: { name: card.name, bytes: card.bytes, floors: card.floors },
         entities: { wanted: wanted.length, missing },
+        contrast: cardContrast.report(docs.themes, docs.project, await haThemes),
         mode: ha.mode(),
       });
     } catch (e) {

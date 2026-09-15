@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Popup colours you can fix without a release
+
+- Every colour a room's popup draws now comes from the theme: its background,
+  text, tile borders, the running-device blue, the ring round each light's
+  colour dot, and the veil behind it. Two new theme colours cover the last two.
+  Nothing on the popup borrows a Home Assistant variable any more, so a glass
+  Home Assistant theme cannot make part of it vanish, and a colour that is hard
+  to read is changed in the Theme dialog rather than in code. Existing themes
+  are given the two new colours on the next start.
+- The Generate dialog, and the AI tools' dashboard preview, check that the
+  popup can be read in the theme it will actually be drawn in. With Follow Home
+  Assistant they ask Home Assistant which themes the house uses and whether
+  each is light or dark. Anything below the usual readability minimums is
+  listed with the theme colour to change; the AI tools get the exact registry
+  path, and their guide now explains when that is the fix and when custom CSS is.
+- The Frosted theme's accent blue and soft grey text are a shade darker, so
+  white text on a running device's tile and a reading on a tile meet those
+  minimums. Your own edited theme is not changed.
+
 ### A room opens under a finger; a sensor opens on its history
 
 - Tapping empty floor in a room on a phone or tablet opens its popup again. The

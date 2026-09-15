@@ -58,6 +58,10 @@ function fpsApplyTheme(host, config) {
     '--fps-ink': ui.ink, '--fps-ink-soft': ui.inkSoft, '--fps-line': ui.panelBorder,
     '--fps-accent': ui.accent, '--fps-accent-ink': ui.accentInk, '--fps-live': ui.accent,
     '--fps-lamp': plan.lampRim || plan.lampWarm,
+    /* Everything the popup draws on its own surface is a token (card-contrast
+     * lists them). A rule that fell back to a Home Assistant variable instead
+     * was at the mercy of glass themes, which make dividers near-white. */
+    '--fps-swatch-ring': ui.swatchRing, '--fps-scrim': ui.scrim,
   };
   /* Through the prototype's getter, not `host.style`: a card may define its
    * own `style` member — the floor card's `style()` says which layout it

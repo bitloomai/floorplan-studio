@@ -165,6 +165,14 @@ function upgradeDoc(key, doc) {
         theme.plan[token] = fresh.themes[id].plan[token]; added.push(id + '.' + token);
       }
     }
+    /* The dashboard popup's own tokens (card-contrast). A theme saved before
+     * them still draws — the card falls back — but the Theme dialog and
+     * edit_registry can only offer a colour that is in the document. */
+    for (const [id, theme] of Object.entries(doc.themes || {})) for (const token of ['swatchRing', 'scrim']) {
+      if (theme.ui && theme.ui[token] === undefined && fresh.themes?.[id]?.ui?.[token] !== undefined) {
+        theme.ui[token] = fresh.themes[id].ui[token]; added.push(id + '.ui.' + token);
+      }
+    }
   }
   if (key === 'library') {
     added.push(...renameLibraryTypes(doc, fresh));

@@ -960,6 +960,27 @@ Pin it to **Frosted Glass Light** or **Blueprint Dark** from the Generate dialog
 if you would rather it stayed put. The editor's own theme is a separate choice,
 in the toolbar.
 
+**A room's popup is drawn only in theme colours.** Its background, text, tile
+borders, the running-device blue, the ring round each light's colour dot and the
+veil behind it are all `ui` tokens of the theme (the lit-light tint is the
+plan's lamp colour). None of them borrows a Home Assistant variable, because
+glass Home Assistant themes make dividers and secondary backgrounds a
+translucent white, and a ring drawn in one vanished on the white sheet. With
+Follow Home Assistant the colours are those of the base it lands on — Frosted
+or Blueprint — so that is the theme to edit. The **Theme** dialog's first
+column now covers the popup as well as the editor.
+
+**The Generate dialog checks the popup can be read.** It measures text, tile
+readings, the running-device tile and the light-dot ring against WCAG's
+minimums (4.5:1 for text, 3:1 for a mark) in the theme the dashboard will use.
+For Follow Home Assistant it asks Home Assistant which themes the house has and
+whether each has light or dark text; a theme whose text colour is a variable
+it cannot measure is checked on both bases. Anything short is listed with the
+colour to change. The AI tools get the same report from `preview_dashboard`,
+with the exact registry path, so asking an assistant "the popup is hard to
+read" ends in a theme edit rather than a CSS override. The full token table is
+in the help, under *Generating the dashboard*.
+
 ## Appearance & behaviour
 
 **▦ Dashboard… → Appearance & behaviour.** Settings for the whole dashboard.

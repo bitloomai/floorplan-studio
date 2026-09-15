@@ -68,7 +68,9 @@ module.exports = `
 
 /* ---- control surface ---- */
 .fps-surface[hidden] { display: none; }
-.fps-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.34); }
+/* The veil is the theme's scrim token at 30%, not a fixed black: a dark theme
+   wants a deeper veil than a light one. */
+.fps-backdrop { position: absolute; inset: 0; background: rgba(14,20,36,.30); background: color-mix(in srgb, var(--fps-scrim, #0e1424) 30%, transparent); }
 .fps-panel {
   position: absolute; z-index: 2;
   /* border-box, because the width is often 100% and the padding would
@@ -91,7 +93,7 @@ module.exports = `
    covered the very room it was about, and a sheet taller than the card lost
    its own header above the card's top edge. One sheet, centred, however wide
    the screen; its header stays put while its tiles scroll. */
-.fps-surface-sheet .fps-backdrop { position: fixed; z-index: 9998; background: rgba(14,20,36,.30); }
+.fps-surface-sheet .fps-backdrop { position: fixed; z-index: 9998; }
 .fps-surface-sheet .fps-panel {
   position: fixed; z-index: 9999;
   width: min(var(--fps-w), calc(100vw - 16px)); max-width: none;
@@ -111,7 +113,7 @@ module.exports = `
 .fps-anchor-right .fps-panel  { right: 0; top: 0; bottom: 0; max-height: 100%; border-radius: 16px 0 0 16px; }
 .fps-anchor-center .fps-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .fps-surface-inline { position: static; }
-.fps-surface-inline .fps-panel { position: static; width: 100%; max-height: none; box-shadow: none; border-top: 1px solid var(--divider-color, #e0e0e0); border-radius: 0; }
+.fps-surface-inline .fps-panel { position: static; width: 100%; max-height: none; box-shadow: none; border-top: 1px solid var(--fps-line, var(--divider-color, #e0e0e0)); border-radius: 0; }
 .fps-surface-bar .fps-panel { left: 0; right: 0; bottom: 0; width: 100%; transform: none; border-radius: 0; padding: 8px 12px; }
 .fps-surface-bar .fps-section-label { display: none; }
 /* inlineSections: sections run ALONG the panel rather than stacking. It is
@@ -214,6 +216,7 @@ module.exports = `
   width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; box-sizing: border-box;
   border: 1.5px solid #6c769080;
   border-color: color-mix(in srgb, var(--fps-ink-soft, var(--secondary-text-color, #6c7690)) 60%, transparent);
+  border-color: var(--fps-swatch-ring, color-mix(in srgb, var(--fps-ink-soft, var(--secondary-text-color, #6c7690)) 60%, transparent));
 }
 .fps-tiles .fps-tile { flex-direction: column; align-items: flex-start; min-height: 62px; }
 
@@ -444,7 +447,7 @@ module.exports = `
      assume space beside the plan that a phone does not have. */
   .fps-surface-drawer .fps-backdrop, .fps-surface-popover .fps-backdrop,
   .fps-surface-inline .fps-backdrop, .fps-surface-modal .fps-backdrop {
-    position: fixed; z-index: 9998; background: rgba(14,20,36,.30);
+    position: fixed; z-index: 9998;
   }
   .fps-surface-drawer .fps-panel, .fps-surface-popover .fps-panel,
   .fps-surface-inline .fps-panel, .fps-surface-modal .fps-panel, .fps-surface-sheet .fps-panel {

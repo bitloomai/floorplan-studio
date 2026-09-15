@@ -537,6 +537,9 @@ const CATALOGUES = [
   ['opening-coverings', 'Covering catalogue', (r) => coveringReference(r.boundaries)],
   ['room-flooring', 'Floor finish catalogue', (r) => flooringReference(r.flooring)],
   ['room-controls', 'Control surface catalogue', (r) => controlsReference(r.controls)],
+  /* The popup's colour tokens and what has to be readable, from the same
+   * lists the card's theme and the preview's contrast check use. */
+  ['dashboard-install', 'Popup colour tokens', (r) => require('./card-contrast').reference(r.themes)],
 ];
 
 /* The live registries where the caller has them — the editor and MCP both hold
@@ -547,6 +550,7 @@ function registriesFor(opts) {
     boundaries: opts?.boundaries || require('../defaults/boundaries.json'),
     flooring: opts?.flooring || require('../defaults/flooring.json'),
     controls: opts?.controls || require('../defaults/controls.json'),
+    themes: opts?.themes || require('../defaults/themes.json'),
   };
 }
 

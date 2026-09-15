@@ -4,7 +4,7 @@ title: Generating the dashboard
 summary: What gets written to Home Assistant, what never does, and how to preview before you commit.
 category: dashboard
 tags: dashboard, lovelace, install, preview, card, provenance
-applies: panel:dashboard, dialog:dashboard, dialog:house-card, dialog:floor-cards, dialog:appearance, concept:install
+applies: panel:dashboard, dialog:dashboard, dialog:house-card, dialog:floor-cards, dialog:appearance, concept:install, registry:themes
 see: start-here, room-controls, data-import-export
 order: 60
 ---
@@ -26,6 +26,21 @@ it may replace and what somebody else put there.
 The preview runs the same bytes the installer would send, against stub states.
 It is a real check rather than an approximation — if it looks right there, it
 will look right on the dashboard.
+
+It also checks that a room's popup can be **read** in the colours it will be
+drawn in. With **Follow Home Assistant** that means asking Home Assistant which
+themes the house uses and whether each lands on the light or the dark base. A
+pair that falls short — text on a tile, the ring round a light's colour dot —
+is listed with its measured contrast and the theme colour to change.
+
+## Colours on the popup
+
+Every colour a room's popup draws comes from the theme, not from Home
+Assistant's own variables. A glass Home Assistant theme makes its dividers and
+secondary backgrounds a translucent white, and anything that borrowed them
+disappeared on the popup's white sheet. So a colour that is hard to read is a
+change to one theme colour, in the editor's **Theme** dialog or through the AI
+tools, followed by a regenerate — the table below says which colour paints what.
 
 ## The card is self-contained
 

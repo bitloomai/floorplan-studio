@@ -1451,7 +1451,7 @@ window.Panels = (function () {
     body.appendChild(h('p', { class: 'hint' }, `Editing "${t.name}". The plan repaints as you change a colour.`));
     const grid = h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:14px' });
     for (const group of ['ui', 'plan']) {
-      const col = h('div', {}, h('h3', { style: 'font-size:12px;color:var(--inkSoft)' }, group === 'ui' ? 'Editor chrome' : 'Plan'));
+      const col = h('div', {}, h('h3', { style: 'font-size:12px;color:var(--inkSoft)' }, group === 'ui' ? 'Editor chrome and the dashboard popup' : 'Plan'));
       for (const [k, v] of Object.entries(t[group])) {
         if (typeof v !== 'string' || !v.startsWith('#')) continue;
         col.appendChild(h('div', { class: 'swatchrow' },

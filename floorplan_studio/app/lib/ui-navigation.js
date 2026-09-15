@@ -94,6 +94,7 @@
     'field:item.watt': 'section:item.lamp', 'field:item.kelvin': 'section:item.lamp',
     'section:item.stairs': 'section:item.properties', 'section:floor.sun': 'dialog:sun',
     'field:project.compass': 'dialog:sun', 'panel:dashboard': 'dialog:dashboard',
+    'registry:themes': 'field:project.activeTheme',
     'panel:project': 'dialog:import',
     /* Fields a topic addresses that have no control of their own to point at —
      * they sit among the plain inputs of the panel named here. Aliased rather

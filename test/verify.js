@@ -4561,6 +4561,91 @@ ok('and every theme’s ui tokens, which the room sheet is drawn in', (() => {
   return Object.entries(themes.themes).every(([id, t]) => !t.ui
     || (trimmed[id].ui && trimmed[id].ui.panelBg === t.ui.panelBg && trimmed[id].ui.accent === t.ui.accent));
 })());
+/* Every popup colour is a theme token, and the dashboard preview can tell
+ * whether they are readable (card-contrast). The ring round a light's dot used
+ * to borrow Home Assistant's --divider-color, which glass themes make
+ * near-white, and nothing could fix it short of a code release. */
+{
+  const Contrast = require(path.join(APP, 'lib', 'card-contrast'));
+  const runtimeSrc = fs.readFileSync(path.join(APP, 'lib', 'card-runtime.js'), 'utf8');
+  const applySrc = runtimeSrc.slice(runtimeSrc.indexOf('function fpsApplyTheme'), runtimeSrc.indexOf('class FpsFloorplanCard'));
+  const unwritten = Contrast.CARD_TOKENS.filter((t) => t.group !== 'plan'
+    && !applySrc.includes(`'${t.css}': ui.${t.key}`));
+  ok('every popup colour token is written onto the card as the property the contrast check names',
+    unwritten.length === 0 && /'--fps-lamp': plan\.lampRim/.test(applySrc), unwritten.map((t) => t.key).join(','));
+  const shipped = Object.entries(themes.themes).filter(([, t]) => t.ui);
+  const lacking = shipped.flatMap(([id, t]) => Contrast.CARD_TOKENS.filter((k) => k.group !== 'plan' && !t.ui[k.key]).map((k) => id + '.' + k.key));
+  ok('every shipped theme defines every popup colour, and the bundle carries them', lacking.length === 0
+    && cardBuild.trimThemes(themes).themes.frosted.ui.swatchRing === themes.themes.frosted.ui.swatchRing, lacking.join(','));
+  const shippedProblems = ['frosted', 'blueprint', 'ha'].flatMap((id) => {
+    const r = Contrast.report(themes, { dashboard: { theme: id } }, null);
+    return r.bases.flatMap((b) => b.problems.map((p) => `${id}/${b.base}: ${p.pair} ${p.ratio}`));
+  });
+  ok('the shipped themes pass their own popup contrast check', shippedProblems.length === 0, shippedProblems.join('; '));
+
+  /* A faint ring under Follow Home Assistant: the fix names the BASE, where
+   * the colour that wins actually lives. */
+  const faint = JSON.parse(JSON.stringify(themes));
+  faint.themes.frosted.ui.swatchRing = '#eef0f4';
+  const bad = Contrast.report(faint, {}, null);
+  const ring = bad.bases.flatMap((b) => b.problems).find((p) => p.pair === 'light-dot');
+  ok('a faint dot ring is reported with the registry path that fixes it',
+    bad.theme === 'ha' && ring && ring.min === 3 && ring.ratio < 3
+      && JSON.stringify(ring.fix.path) === JSON.stringify(['themes', 'frosted', 'ui', 'swatchRing']) && ring.fix.name === 'themes',
+    JSON.stringify(ring));
+  /* White text on a pale blue is fixed in the blue: the report must not send
+   * anyone to make white whiter. The house's own saved Frosted (accent
+   * #3d8bd6) is exactly this case. */
+  const pale = JSON.parse(JSON.stringify(themes));
+  pale.themes.frosted.ui.accent = '#3d8bd6';
+  const tile = Contrast.report(pale, { dashboard: { theme: 'frosted' } }, null).bases[0].problems.find((p) => p.pair === 'running-tile');
+  ok('a running tile that is too light names its accent, not its white text',
+    tile && tile.fix.path.join('.') === 'themes.frosted.ui.accent', JSON.stringify(tile));
+  /* A theme saved before the ring had a token is measured as the stylesheet
+   * draws it — the soft ink at 60% — and still pointed at the token to add. */
+  const old = JSON.parse(JSON.stringify(themes));
+  delete old.themes.blueprint.ui.swatchRing;
+  const oldBase = Contrast.report(old, { dashboard: { theme: 'blueprint' } }, null).bases[0];
+  ok('a theme saved before the ring token is measured by its fallback and told what is missing',
+    oldBase.missing.includes('swatchRing') && !oldBase.unmeasured.includes('light-dot'));
+
+  /* Which base the house's Home Assistant themes put the card on, by the
+   * card's own rule: bright text is a dark ground; a var() cannot be measured. */
+  const ha = {
+    default_theme: 'Glass Light', default_dark_theme: 'Mocha',
+    themes: {
+      'Glass Light': { 'primary-text-color': 'rgba(19, 21, 54, 0.98)', 'divider-color': 'rgba(224, 224, 224, 0.3)' },
+      Mocha: { 'primary-text-color': 'var(--ha-color-text-primary)' },
+      Auto: { modes: { light: { 'primary-text-color': '#212121' }, dark: { 'primary-text-color': '#e1e1e1' } } },
+    },
+  };
+  const rows = Contrast.homeAssistantModes(ha);
+  ok('Home Assistant themes are read for light, dark or could-not-tell',
+    rows.find((r) => r.theme === 'Glass Light').uses === 'light' && rows.find((r) => r.theme === 'Mocha').uses === 'unknown'
+      && JSON.stringify(Contrast.homeAssistantModes({ default_theme: 'Auto', themes: ha.themes }).map((r) => r.uses)) === '["light","dark"]');
+  const lightOnly = Contrast.report(themes, {}, { default_theme: 'Glass Light', themes: ha.themes });
+  ok('and only the bases the house can land on are checked',
+    lightOnly.bases.map((b) => b.base).join() === 'frosted' && lightOnly.bases[0].when[0] === 'Glass Light'
+      && Contrast.report(themes, {}, ha).bases.map((b) => b.base).join() === 'frosted,blueprint');
+  ok('WCAG ratios are the standard ones', Math.abs(Contrast.ratio([0, 0, 0], [255, 255, 255]) - 21) < 1e-9
+    && Contrast.parse('#abc').slice(0, 3).join() === '170,187,204' && Contrast.parse('rgba(1, 2, 3, 0.5)')[3] === 0.5
+    && Contrast.parse('var(--x)') === null);
+
+  const css = require(path.join(APP, 'lib', 'card-css'));
+  const rule = (sel) => (css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{[^}]*\\}')) || [''])[0];
+  ok('the popup draws its ring, veil and docked border from the theme, not Home Assistant',
+    /var\(--fps-swatch-ring/.test(rule('.fps-swatch')) && /var\(--fps-scrim/.test(rule('.fps-backdrop'))
+      && !/rgba\(0,0,0/.test(rule('.fps-backdrop'))
+      && /var\(--fps-line, var\(--divider-color/.test(rule('.fps-surface-inline .fps-panel')));
+  const mcpSrc = fs.readFileSync(path.join(APP, 'lib', 'mcp.js'), 'utf8');
+  const serverSrc = fs.readFileSync(path.join(APP, 'server.js'), 'utf8');
+  ok('both dashboard previews report popup contrast, and the MCP tool says what to do with it',
+    /contrast: cardContrast\.report\(docs\.themes, docs\.project, await haThemes\)/.test(mcpSrc)
+      && /contrast: cardContrast\.report\(docs\.themes, docs\.project, await haThemes\)/.test(serverSrc)
+      && /edit_registry path in the themes registry/.test(mcpSrc)
+      && /contrastNote\(r\.contrast\)/.test(fs.readFileSync(path.join(APP, 'public', 'js', 'panels-dashboard.js'), 'utf8')));
+  ok('a saved theme is given the popup tokens on upgrade', /\['swatchRing', 'scrim'\]/.test(fs.readFileSync(path.join(APP, 'lib', 'store.js'), 'utf8')));
+}
 ok('the card bundle keeps the categories the floor card labels by',
   (cardBuild.trimLibrary(lib).categories || []).length > 0);
 
@@ -5507,6 +5592,9 @@ ok('the write module only sends the message types it documents', (() => {
     'auth', 'lovelace/resources', 'lovelace/resources/create', 'lovelace/resources/update',
     'lovelace/resources/delete', 'lovelace/dashboards/list', 'lovelace/dashboards/create',
     'lovelace/config', 'lovelace/config/save', 'module',
+    /* A READ, added 2026-09-15: which themes the house uses, for the dashboard
+     * preview's contrast check. It changes nothing in Home Assistant. */
+    'frontend/get_themes',
   ]);
   return sent.every((t) => allowed.has(t));
 })());
@@ -5578,6 +5666,9 @@ function FakeHA(opts) {
           return store.configs[m.url_path] ? ok(store.configs[m.url_path]) : err('config_not_found');
         case 'lovelace/config/save':
           store.configs[m.url_path] = m.config; return ok(null);
+        case 'frontend/get_themes':
+          if (o.silentThemes) return undefined;              // a Home Assistant that never answers
+          return ok(o.themes || { themes: {}, default_theme: 'default', default_dark_theme: null });
         default: return err('unknown command ' + m.type);
       }
     };
@@ -5585,6 +5676,27 @@ function FakeHA(opts) {
     FakeSocket.last = self;
   };
 }
+
+/* The dashboard preview reads Home Assistant's themes to know which base
+ * Follow Home Assistant lands on. It must hand them back, close its socket, and
+ * never hold a preview hostage when Home Assistant does not answer. */
+await okAsync('Home Assistant themes are read over the socket, and the socket is closed', async () => {
+  const themes = { default_theme: 'Glass', default_dark_theme: null, themes: { Glass: { 'primary-text-color': '#131536' } } };
+  const Sock = FakeHA({ themes });
+  let closed = 0;
+  const Tracked = function (url) { Sock.call(this, url); const close = this.close; this.close = () => { closed++; close(); }; };
+  const got = await haWrite.readThemes({ url: 'http://ha.test', token: 'good', WebSocket: Tracked });
+  return got.default_theme === 'Glass' && got.themes.Glass['primary-text-color'] === '#131536' && closed === 1;
+});
+await okAsync('and a Home Assistant that never lists them cannot stall the preview', async () => {
+  const started = Date.now();
+  try {
+    await haWrite.readThemes({ url: 'http://ha.test', token: 'good', WebSocket: FakeHA({ silentThemes: true }), timeoutMs: 80 });
+    return false;
+  } catch (e) {
+    return /in time/.test(e.message) && Date.now() - started < 2000;
+  }
+});
 
 await okAsync('it authenticates over the socket, not an http header', async () => {
   const s = await haWrite.connect({ url: 'http://ha.test', token: 'good', WebSocket: FakeHA({}) });
